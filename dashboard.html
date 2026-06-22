@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>لوحة التحكم | شموس</title>
+  <link rel="stylesheet" href="styles.css?v=20260622-1">
+</head>
+<body class="dashboard-page">
+  <button class="sidebar-backdrop" aria-label="إغلاق القائمة"></button>
+
+  <aside class="sidebar">
+    <a class="brand sidebar-brand" href="index.html">
+      <span class="brand-mark">ش</span>
+      <span>شموس<small>إدارة أعمال المصاعد</small></span>
+    </a>
+
+    <div class="company-card">
+      <span class="company-icon">ش</span>
+      <div>
+        <b id="companyName">شموس</b>
+        <small id="roleName">المستخدم</small>
+      </div>
+    </div>
+
+    <nav id="sideNav" aria-label="قائمة لوحة التحكم"></nav>
+
+    <div class="sidebar-foot">
+      <button id="logout" type="button">↪ تسجيل الخروج</button>
+    </div>
+  </aside>
+
+  <div class="dash-main">
+    <header class="dash-header">
+      <button class="menu-toggle" type="button" aria-label="فتح القائمة">☰</button>
+
+      <div class="search">
+        <span>⌕</span>
+        <input type="search" placeholder="ابحث في الصفحة الحالية...">
+      </div>
+
+      <div class="header-actions">
+        <button type="button" aria-label="التنبيهات">♧<i></i></button>
+        <div class="user-chip">
+          <span id="userAvatar">م</span>
+          <div>
+            <b id="userName">المستخدم</b>
+            <small id="headerRole">الحساب</small>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main id="dashboardContent"></main>
+  </div>
+
+  <div id="modal" class="modal" aria-hidden="true">
+    <div class="modal-card">
+      <button class="modal-close" type="button" aria-label="إغلاق">×</button>
+      <div id="modalContent"></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status"></div>
+  <script src="app.js?v=20260622-6"></script>
+</body>
+</html>
