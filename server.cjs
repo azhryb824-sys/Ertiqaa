@@ -4,7 +4,7 @@ const path = require("path");
 
 const root = __dirname;
 const port = 4173;
-const host = "127.0.0.1";
+const host = "0.0.0.0";
 const storagePath = path.join(root, "storage.json");
 const types = {
   ".html": "text/html; charset=utf-8",
