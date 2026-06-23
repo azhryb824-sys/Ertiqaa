@@ -1,11 +1,17 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 
 const root = __dirname;
-const port = 4173;
-const host = "0.0.0.0";
+const port = Number(process.env.PORT || 4173);
+const host = process.env.HOST || "0.0.0.0";
 const storagePath = path.join(root, "storage.json");
+const entrySecret = process.env.SECRET_ENTRY_TOKEN || crypto.randomBytes(32).toString("hex");
+const entryCookie = "misad_entry";
+const entryCookieValue = crypto.createHash("sha256").update(entrySecret).digest("hex");
+let storeCache = null;
+let storeMtime = 0;
 const types = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
@@ -16,45 +22,181 @@ const types = {
   ".svg": "image/svg+xml"
 };
 
+function parseCookies(header = "") {
+  return Object.fromEntries(header.split(";").map(part => {
+    const index = part.indexOf("=");
+    if (index === -1) return null;
+    return [part.slice(0, index).trim(), decodeURIComponent(part.slice(index + 1).trim())];
+  }).filter(Boolean));
+}
+
+function hasEntryAccess(req) {
+  return parseCookies(req.headers.cookie)[entryCookie] === entryCookieValue;
+}
+
+function readStore() {
+  try {
+    const stat = fs.existsSync(storagePath) ? fs.statSync(storagePath) : null;
+    const mtime = stat?.mtimeMs || 0;
+    if (storeCache && mtime === storeMtime) return storeCache;
+    storeCache = JSON.parse(fs.readFileSync(storagePath, "utf8") || "{}");
+    storeMtime = mtime;
+    return storeCache;
+  } catch {
+    storeCache = {};
+    storeMtime = 0;
+    return storeCache;
+  }
+}
+
+function writeStore(store) {
+  fs.writeFileSync(storagePath, JSON.stringify(store, null, 2), "utf8");
+  storeCache = store;
+  storeMtime = fs.statSync(storagePath).mtimeMs;
+}
+
+function sendJson(res, status, payload) {
+  res.writeHead(status, {
+    "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store"
+  });
+  res.end(JSON.stringify(payload));
+}
+
+function publicOrigin(req) {
+  const proto = req.headers["x-forwarded-proto"] || "http";
+  const hostName = req.headers["x-forwarded-host"] || req.headers.host || `${host}:${port}`;
+  return `${proto}://${hostName}`;
+}
+
+function inviteList(store) {
+  try {
+    return JSON.parse(store.misadEntryInvites || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function saveInvites(store, invites) {
+  store.misadEntryInvites = JSON.stringify(invites.slice(0, 200));
+  writeStore(store);
+}
+
+function createInvite(input = {}) {
+  const maxUses = Math.max(1, Math.min(20, Number(input.maxUses || 1)));
+  const days = Math.max(1, Math.min(30, Number(input.days || 7)));
+  const token = crypto.randomBytes(32).toString("base64url");
+  const now = Date.now();
+  return {
+    id: `INV-${now}`,
+    token,
+    label: String(input.label || "رابط دخول عميل").slice(0, 80),
+    createdBy: String(input.createdBy || ""),
+    createdByName: String(input.createdByName || ""),
+    createdAt: new Date(now).toISOString(),
+    expiresAtMs: now + days * 86400000,
+    maxUses,
+    used: 0,
+    revoked: false
+  };
+}
+
+function sendLocked(res) {
+  res.writeHead(404, {
+    "Content-Type": "text/html; charset=utf-8",
+    "Cache-Control": "no-store"
+  });
+  res.end(`<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>غير متاح</title><body style="font-family:Arial,Tahoma,sans-serif;background:#f7f3ec;color:#17231f;display:grid;min-height:100vh;place-items:center;margin:0"><main style="max-width:520px;padding:32px;text-align:center"><h1>الرابط غير متاح</h1><p>لا يمكن فتح النظام إلا من خلال رابط الدخول السري المرسل من المالك أو الإداري.</p></main></body></html>`);
+}
+
 http.createServer((req, res) => {
-  if (req.url.startsWith("/api/storage")) {
-    const sendJson = (status, payload) => {
-      res.writeHead(status, {
-        "Content-Type": "application/json; charset=utf-8",
-        "Cache-Control": "no-store"
+  const pathname = decodeURIComponent(req.url.split("?")[0]);
+  const invitePrefix = "/invite/";
+  if (pathname.startsWith(invitePrefix)) {
+    const token = pathname.slice(invitePrefix.length);
+    const store = readStore();
+    const invites = inviteList(store);
+    const invite = invites.find(x => x.token === token);
+    const now = Date.now();
+    if (!invite || invite.revoked || Number(invite.expiresAtMs || 0) < now || Number(invite.used || 0) >= Number(invite.maxUses || 1)) return sendLocked(res);
+    invite.used = Number(invite.used || 0) + 1;
+    invite.lastUsedAt = new Date().toISOString();
+    saveInvites(store, invites);
+    res.writeHead(302, {
+      "Set-Cookie": `${entryCookie}=${entryCookieValue}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000`,
+      "Location": "/login.html",
+      "Cache-Control": "no-store"
+    });
+    res.end();
+    return;
+  }
+
+  if (!hasEntryAccess(req)) return sendLocked(res);
+
+  if (req.url.startsWith("/api/invites")) {
+    if (req.method === "GET") {
+      const invites = inviteList(readStore()).map(({token, ...invite}) => ({...invite, url: `${publicOrigin(req)}/invite/${token}`}));
+      return sendJson(res, 200, {invites});
+    }
+    if (req.method === "POST") {
+      let body = "";
+      req.on("data", chunk => body += chunk);
+      req.on("end", () => {
+        try {
+          const input = JSON.parse(body || "{}");
+          const now = Date.now();
+          const invite = createInvite(input);
+          const store = readStore();
+          const invites = inviteList(store).filter(x => Number(x.expiresAtMs || 0) > now && !x.revoked);
+          invites.unshift(invite);
+          saveInvites(store, invites);
+          sendJson(res, 200, {...invite, url: `${publicOrigin(req)}/invite/${invite.token}`});
+        } catch {
+          sendJson(res, 400, {error: "Invalid JSON"});
+        }
       });
-      res.end(JSON.stringify(payload));
-    };
-    const readStore = () => {
-      try {
-        return JSON.parse(fs.readFileSync(storagePath, "utf8") || "{}");
-      } catch {
-        return {};
-      }
-    };
-    const writeStore = store => fs.writeFileSync(storagePath, JSON.stringify(store, null, 2), "utf8");
-    if (req.method === "GET") return sendJson(200, readStore());
+      return;
+    }
+    if (req.method === "DELETE") {
+      const id = new URL(req.url, "http://localhost").searchParams.get("id");
+      const store = readStore();
+      const invites = inviteList(store);
+      const invite = invites.find(x => x.id === id);
+      if (invite) invite.revoked = true;
+      saveInvites(store, invites);
+      return sendJson(res, 200, {ok: true});
+    }
+    return sendJson(res, 405, {error: "Method not allowed"});
+  }
+
+  if (req.url.startsWith("/api/storage")) {
+    if (req.method === "GET") {
+      const key = new URL(req.url, "http://localhost").searchParams.get("key");
+      const store = readStore();
+      if (key) return sendJson(res, 200, Object.prototype.hasOwnProperty.call(store, key) ? {key, value: store[key]} : {});
+      return sendJson(res, 200, store);
+    }
     if (req.method === "POST") {
       let body = "";
       req.on("data", chunk => body += chunk);
       req.on("end", () => {
         try {
           const {key, value, remove} = JSON.parse(body || "{}");
-          if (!key) return sendJson(400, {error: "Missing key"});
+          if (!key) return sendJson(res, 400, {error: "Missing key"});
           const store = readStore();
           if (remove) delete store[key];
           else store[key] = value;
           writeStore(store);
-          sendJson(200, {ok: true});
+          sendJson(res, 200, {ok: true});
         } catch {
-          sendJson(400, {error: "Invalid JSON"});
+          sendJson(res, 400, {error: "Invalid JSON"});
         }
       });
       return;
     }
-    return sendJson(405, {error: "Method not allowed"});
+    return sendJson(res, 405, {error: "Method not allowed"});
   }
-  let urlPath = decodeURIComponent(req.url.split("?")[0]);
+  let urlPath = pathname;
   if (urlPath === "/") urlPath = "/index.html";
   const filePath = path.join(root, urlPath);
   if (!filePath.startsWith(root)) {
@@ -78,4 +220,16 @@ http.createServer((req, res) => {
   });
 }).listen(port, host, () => {
   console.log(`Server running at http://${host}:${port}/`);
+  const store = readStore();
+  const invites = inviteList(store);
+  const hasActiveInvite = invites.some(x => !x.revoked && Number(x.expiresAtMs || 0) > Date.now() && Number(x.used || 0) < Number(x.maxUses || 1));
+  if (!hasActiveInvite) {
+    const invite = createInvite({label: "رابط تأسيس أولي", createdBy: "system", createdByName: "system", days: 7, maxUses: 1});
+    invites.unshift(invite);
+    saveInvites(store, invites);
+    console.log(`Initial generated entry link: /invite/${invite.token}`);
+  }
+  if (!process.env.SECRET_ENTRY_TOKEN) {
+    console.log("Set SECRET_ENTRY_TOKEN on Render to keep entry sessions valid across restarts.");
+  }
 });
