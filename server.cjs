@@ -18,6 +18,8 @@ const types = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
   ".css": "text/css; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".webmanifest": "application/manifest+json; charset=utf-8",
   ".png": "image/png",
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
@@ -126,8 +128,62 @@ function sendLocked(res) {
   res.end(`<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>غير متاح</title><body style="font-family:Arial,Tahoma,sans-serif;background:#f7f3ec;color:#17231f;display:grid;min-height:100vh;place-items:center;margin:0"><main style="max-width:520px;padding:32px;text-align:center"><h1>الرابط غير متاح</h1><p>لا يمكن فتح النظام إلا من خلال رابط الدخول السري المرسل من المالك أو الإداري.</p></main></body></html>`);
 }
 
+function sendMobileAssociation(res, pathname) {
+  const androidPackage = process.env.ANDROID_PACKAGE_NAME || "com.ertiqaa.app";
+  const androidFingerprints = (process.env.ANDROID_SHA256_CERT_FINGERPRINTS || "").split(",").map(x => x.trim()).filter(Boolean);
+  const iosTeamId = process.env.IOS_TEAM_ID || "";
+  const iosBundleId = process.env.IOS_BUNDLE_ID || "com.ertiqaa.app";
+  if (pathname === "/.well-known/assetlinks.json") {
+    sendJson(res, 200, androidFingerprints.length ? [{
+      relation: ["delegate_permission/common.handle_all_urls"],
+      target: {namespace: "android_app", package_name: androidPackage, sha256_cert_fingerprints: androidFingerprints}
+    }] : []);
+    return true;
+  }
+  if (pathname === "/.well-known/apple-app-site-association") {
+    res.writeHead(200, {"Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store"});
+    res.end(JSON.stringify({applinks: {apps: [], details: iosTeamId ? [{appIDs: [`${iosTeamId}.${iosBundleId}`], components: [{"/": "/invite/*"}, {"/": "/dashboard.html"}, {"/": "/login.html"}]}] : []}}));
+    return true;
+  }
+  return false;
+}
+
+function notificationList(store) {
+  try { return JSON.parse(store.misadNotifications || "[]"); } catch { return []; }
+}
+
+function saveNotifications(store, notifications) {
+  store.misadNotifications = JSON.stringify(notifications.slice(0, 500));
+  writeStore(store);
+}
+
+function pushTokenList(store) {
+  try { return JSON.parse(store.misadPushTokens || "[]"); } catch { return []; }
+}
+
+function savePushTokens(store, tokens) {
+  store.misadPushTokens = JSON.stringify(tokens.slice(0, 1000));
+  writeStore(store);
+}
+
+function sendNativePush(tokens, notification) {
+  const key = process.env.FCM_SERVER_KEY || "";
+  if (!key || !tokens.length || typeof fetch !== "function") return;
+  const body = {
+    registration_ids: tokens.map(x => x.token),
+    notification: {title: notification.title, body: notification.body},
+    data: {url: notification.url || "/dashboard.html", notificationId: notification.id}
+  };
+  fetch("https://fcm.googleapis.com/fcm/send", {
+    method: "POST",
+    headers: {"Content-Type": "application/json", "Authorization": `key=${key}`},
+    body: JSON.stringify(body)
+  }).catch(() => {});
+}
+
 http.createServer((req, res) => {
   const pathname = decodeURIComponent(req.url.split("?")[0]);
+  if (sendMobileAssociation(res, pathname)) return;
   if (pathname === "/health" || pathname === "/api/health") return sendJson(res, 200, {ok: true, at: new Date().toISOString()});
   const invitePrefix = "/invite/";
   if (pathname.startsWith(invitePrefix)) {
@@ -147,6 +203,55 @@ http.createServer((req, res) => {
   }
 
   if (!hasEntryAccess(req) && !hasDeviceAccess(req)) return sendLocked(res);
+
+  if (req.url.startsWith("/api/push/register") && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => {
+      try {
+        const input = JSON.parse(body || "{}");
+        if (!input.userId || !input.token) return sendJson(res, 400, {error: "Missing push token"});
+        const store = readStore();
+        const tokens = pushTokenList(store).filter(x => x.token !== input.token);
+        tokens.unshift({userId: String(input.userId), role: String(input.role || ""), token: String(input.token), platform: String(input.platform || "web"), updatedAt: new Date().toISOString()});
+        savePushTokens(store, tokens);
+        sendJson(res, 200, {ok: true});
+      } catch {
+        sendJson(res, 400, {error: "Invalid JSON"});
+      }
+    });
+    return;
+  }
+
+  if (req.url.startsWith("/api/notifications")) {
+    if (req.method === "GET") {
+      const url = new URL(req.url, "http://localhost");
+      const userId = url.searchParams.get("userId") || "";
+      const role = url.searchParams.get("role") || "";
+      const items = notificationList(readStore()).filter(n => !n.userId || n.userId === userId || (n.roles || []).includes(role)).slice(0, 80);
+      return sendJson(res, 200, {notifications: items});
+    }
+    if (req.method === "POST") {
+      let body = "";
+      req.on("data", chunk => body += chunk);
+      req.on("end", () => {
+        try {
+          const input = JSON.parse(body || "{}");
+          const store = readStore();
+          const notifications = notificationList(store);
+          const n = {id: `NTF-${Date.now()}`, title: String(input.title || "إشعار"), body: String(input.body || ""), userId: String(input.userId || ""), roles: Array.isArray(input.roles) ? input.roles : [], url: String(input.url || "/dashboard.html"), createdAt: new Date().toISOString(), readBy: []};
+          notifications.unshift(n);
+          saveNotifications(store, notifications);
+          const tokens = pushTokenList(store).filter(t => !n.userId && !n.roles.length ? true : t.userId === n.userId || n.roles.includes(t.role));
+          sendNativePush(tokens, n);
+          sendJson(res, 200, {ok: true, notification: n});
+        } catch {
+          sendJson(res, 400, {error: "Invalid JSON"});
+        }
+      });
+      return;
+    }
+  }
 
   if (req.url.startsWith("/api/invite/current")) {
     const token = parseCookies(req.headers.cookie)[inviteCookie];

@@ -1,0 +1,14 @@
+{
+  "appId": "com.ertiqaa.app",
+  "appName": "ارتقاء",
+  "webDir": "mobile",
+  "server": {
+    "url": "https://ertiqaa.onrender.com",
+    "cleartext": false
+  },
+  "plugins": {
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    }
+  }
+}
