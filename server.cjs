@@ -98,7 +98,7 @@ function saveInvites(store, invites) {
 
 function createInvite(input = {}) {
   const maxUses = Math.max(1, Math.min(20, Number(input.maxUses || 1)));
-  const days = Math.max(1, Math.min(30, Number(input.days || 7)));
+  const minutes = Math.max(1, Math.min(1440, Number(input.minutes || 10)));
   const token = crypto.randomBytes(32).toString("base64url");
   const now = Date.now();
   return {
@@ -110,7 +110,7 @@ function createInvite(input = {}) {
     createdBy: String(input.createdBy || ""),
     createdByName: String(input.createdByName || ""),
     createdAt: new Date(now).toISOString(),
-    expiresAtMs: now + days * 86400000,
+    expiresAtMs: now + minutes * 60000,
     maxUses,
     used: 0,
     kind: String(input.kind || "device"),
@@ -128,6 +128,7 @@ function sendLocked(res) {
 
 http.createServer((req, res) => {
   const pathname = decodeURIComponent(req.url.split("?")[0]);
+  if (pathname === "/health" || pathname === "/api/health") return sendJson(res, 200, {ok: true, at: new Date().toISOString()});
   const invitePrefix = "/invite/";
   if (pathname.startsWith(invitePrefix)) {
     const token = pathname.slice(invitePrefix.length);
@@ -285,10 +286,17 @@ http.createServer((req, res) => {
   console.log(`Server running at http://${host}:${port}/`);
   const store = readStore();
   const invites = inviteList(store);
-  const invite = createInvite({label: "رابط تسجيل جهاز المشرف", targetRole: "admin", createdBy: "system", createdByName: "system", days: 7, maxUses: 1});
+  const invite = createInvite({label: "رابط تسجيل جهاز المشرف", targetRole: "admin", createdBy: "system", createdByName: "system", minutes: 10, maxUses: 1});
   invites.unshift(invite);
   saveInvites(store, invites);
   console.log(`Startup generated entry link: /invite/${invite.token}`);
+  const keepAliveUrl = process.env.KEEP_ALIVE_URL || process.env.PUBLIC_URL || "";
+  if (keepAliveUrl) {
+    setInterval(() => {
+      fetch(`${keepAliveUrl.replace(/\/$/, "")}/health`).catch(() => {});
+    }, 5 * 60 * 1000).unref?.();
+    console.log(`Keep-alive health ping enabled for ${keepAliveUrl}`);
+  }
   if (!process.env.SECRET_ENTRY_TOKEN) {
     console.log("Set SECRET_ENTRY_TOKEN on Render to keep entry sessions valid across restarts.");
   }
