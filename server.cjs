@@ -222,13 +222,10 @@ http.createServer((req, res) => {
   console.log(`Server running at http://${host}:${port}/`);
   const store = readStore();
   const invites = inviteList(store);
-  const hasActiveInvite = invites.some(x => !x.revoked && Number(x.expiresAtMs || 0) > Date.now() && Number(x.used || 0) < Number(x.maxUses || 1));
-  if (!hasActiveInvite) {
-    const invite = createInvite({label: "رابط تأسيس أولي", createdBy: "system", createdByName: "system", days: 7, maxUses: 1});
-    invites.unshift(invite);
-    saveInvites(store, invites);
-    console.log(`Initial generated entry link: /invite/${invite.token}`);
-  }
+  const invite = createInvite({label: "رابط دخول عند التشغيل", createdBy: "system", createdByName: "system", days: 7, maxUses: 1});
+  invites.unshift(invite);
+  saveInvites(store, invites);
+  console.log(`Startup generated entry link: /invite/${invite.token}`);
   if (!process.env.SECRET_ENTRY_TOKEN) {
     console.log("Set SECRET_ENTRY_TOKEN on Render to keep entry sessions valid across restarts.");
   }
