@@ -9,6 +9,8 @@ const host = process.env.HOST || "0.0.0.0";
 const storagePath = path.join(root, "storage.json");
 const entrySecret = process.env.SECRET_ENTRY_TOKEN || crypto.randomBytes(32).toString("hex");
 const entryCookie = "misad_entry";
+const inviteCookie = "misad_invite";
+const deviceCookie = "misad_device";
 const entryCookieValue = crypto.createHash("sha256").update(entrySecret).digest("hex");
 let storeCache = null;
 let storeMtime = 0;
@@ -32,6 +34,18 @@ function parseCookies(header = "") {
 
 function hasEntryAccess(req) {
   return parseCookies(req.headers.cookie)[entryCookie] === entryCookieValue;
+}
+
+function sign(value) {
+  return crypto.createHmac("sha256", entrySecret).update(value).digest("hex");
+}
+
+function hasDeviceAccess(req) {
+  const token = parseCookies(req.headers.cookie)[deviceCookie] || "";
+  const parts = token.split(".");
+  if (parts.length !== 3) return false;
+  const [userId, deviceId, sig] = parts;
+  return Boolean(userId && deviceId && sig === sign(`${userId}:${deviceId}`));
 }
 
 function readStore() {
@@ -91,12 +105,15 @@ function createInvite(input = {}) {
     id: `INV-${now}`,
     token,
     label: String(input.label || "رابط دخول عميل").slice(0, 80),
+    targetRole: String(input.targetRole || "client"),
+    targetUserId: String(input.targetUserId || ""),
     createdBy: String(input.createdBy || ""),
     createdByName: String(input.createdByName || ""),
     createdAt: new Date(now).toISOString(),
     expiresAtMs: now + days * 86400000,
     maxUses,
     used: 0,
+    kind: String(input.kind || "device"),
     revoked: false
   };
 }
@@ -119,11 +136,8 @@ http.createServer((req, res) => {
     const invite = invites.find(x => x.token === token);
     const now = Date.now();
     if (!invite || invite.revoked || Number(invite.expiresAtMs || 0) < now || Number(invite.used || 0) >= Number(invite.maxUses || 1)) return sendLocked(res);
-    invite.used = Number(invite.used || 0) + 1;
-    invite.lastUsedAt = new Date().toISOString();
-    saveInvites(store, invites);
     res.writeHead(302, {
-      "Set-Cookie": `${entryCookie}=${entryCookieValue}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000`,
+      "Set-Cookie": [`${entryCookie}=${entryCookieValue}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400`, `${inviteCookie}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400`],
       "Location": "/login.html",
       "Cache-Control": "no-store"
     });
@@ -131,7 +145,52 @@ http.createServer((req, res) => {
     return;
   }
 
-  if (!hasEntryAccess(req)) return sendLocked(res);
+  if (!hasEntryAccess(req) && !hasDeviceAccess(req)) return sendLocked(res);
+
+  if (req.url.startsWith("/api/invite/current")) {
+    const token = parseCookies(req.headers.cookie)[inviteCookie];
+    const invite = inviteList(readStore()).find(x => x.token === token && !x.revoked && Number(x.expiresAtMs || 0) > Date.now() && Number(x.used || 0) < Number(x.maxUses || 1));
+    return sendJson(res, 200, invite ? {invite: {targetRole: invite.targetRole, targetUserId: invite.targetUserId, label: invite.label}} : {invite: null});
+  }
+
+  if (req.url.startsWith("/api/device/authorize") && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => {
+      try {
+        const input = JSON.parse(body || "{}");
+        const userId = String(input.userId || "").replace(/\D/g, "");
+        const role = String(input.role || "");
+        const deviceId = String(input.deviceId || "");
+        if (!userId || !role || !deviceId) return sendJson(res, 400, {error: "Missing device data"});
+        const store = readStore();
+        const invites = inviteList(store);
+        const token = parseCookies(req.headers.cookie)[inviteCookie];
+        const invite = invites.find(x => x.token === token && !x.revoked && Number(x.expiresAtMs || 0) > Date.now() && Number(x.used || 0) < Number(x.maxUses || 1));
+        const adminBootstrap = role === "admin" && userId === "2572280689" && hasEntryAccess(req);
+        const roleAllowed = invite && (!invite.targetRole || invite.targetRole === role || invite.targetRole === "any");
+        const userAllowed = invite && (!invite.targetUserId || invite.targetUserId === userId);
+        if (!adminBootstrap && (!roleAllowed || !userAllowed)) return sendJson(res, 403, {error: "Invite does not match this user"});
+        if (invite) {
+          invite.used = Number(invite.used || 0) + 1;
+          invite.lastUsedAt = new Date().toISOString();
+          invite.boundUserId = userId;
+          invite.boundRole = role;
+        }
+        saveInvites(store, invites);
+        const deviceValue = `${userId}.${deviceId}.${sign(`${userId}:${deviceId}`)}`;
+        res.writeHead(200, {
+          "Content-Type": "application/json; charset=utf-8",
+          "Cache-Control": "no-store",
+          "Set-Cookie": [`${deviceCookie}=${deviceValue}; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000`, `${entryCookie}=; Path=/; Max-Age=0`, `${inviteCookie}=; Path=/; Max-Age=0`]
+        });
+        res.end(JSON.stringify({ok: true}));
+      } catch {
+        sendJson(res, 400, {error: "Invalid JSON"});
+      }
+    });
+    return;
+  }
 
   if (req.url.startsWith("/api/invites")) {
     if (req.method === "GET") {
@@ -145,6 +204,10 @@ http.createServer((req, res) => {
         try {
           const input = JSON.parse(body || "{}");
           const now = Date.now();
+          const creatorRole = String(input.createdByRole || "");
+          const targetRole = String(input.targetRole || "client");
+          const allowed = creatorRole === "admin" ? ["owner", "company_admin"] : ["owner", "company_admin"].includes(creatorRole) ? ["client"] : [];
+          if (!allowed.includes(targetRole)) return sendJson(res, 403, {error: "Role is not allowed to create this invite"});
           const invite = createInvite(input);
           const store = readStore();
           const invites = inviteList(store).filter(x => Number(x.expiresAtMs || 0) > now && !x.revoked);
@@ -222,7 +285,7 @@ http.createServer((req, res) => {
   console.log(`Server running at http://${host}:${port}/`);
   const store = readStore();
   const invites = inviteList(store);
-  const invite = createInvite({label: "رابط دخول عند التشغيل", createdBy: "system", createdByName: "system", days: 7, maxUses: 1});
+  const invite = createInvite({label: "رابط تسجيل جهاز المشرف", targetRole: "admin", createdBy: "system", createdByName: "system", days: 7, maxUses: 1});
   invites.unshift(invite);
   saveInvites(store, invites);
   console.log(`Startup generated entry link: /invite/${invite.token}`);
