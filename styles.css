@@ -174,6 +174,104 @@ body{overflow-x:hidden}.nav{height:68px;padding:0 14px;position:sticky;top:0}.br
   transform:rotate(-5deg);
 }
 
+.installation-contract .installation-hero{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:18px;
+  align-items:start;
+  padding:22px 20px;
+  background:#fbfdfc;
+  border-bottom:1px solid var(--line);
+}
+
+.installation-contract .installation-hero small{
+  display:block;
+  color:var(--gold);
+  font-weight:900;
+  margin-bottom:8px;
+}
+
+.installation-contract .installation-hero h3{
+  margin:0 0 8px;
+  color:var(--navy);
+  font-size:22px;
+}
+
+.installation-contract .installation-hero p{
+  margin:0;
+  color:#52635f;
+  line-height:1.9;
+}
+
+.installation-contract .installation-hero strong{
+  color:var(--gold);
+  font-size:24px;
+  white-space:nowrap;
+}
+
+.contract-spec-table{
+  width:100%;
+  border-collapse:separate;
+  border-spacing:0;
+  overflow:hidden;
+  border:1px solid var(--line);
+  border-radius:14px;
+  font-size:12px;
+}
+
+.contract-spec-table th,
+.contract-spec-table td{
+  padding:11px 12px;
+  border-bottom:1px solid #edf0ed;
+  text-align:right;
+  vertical-align:top;
+}
+
+.contract-spec-table tr:last-child th,
+.contract-spec-table tr:last-child td{
+  border-bottom:0;
+}
+
+.contract-spec-table th{
+  width:32%;
+  color:var(--navy);
+  background:#f1f6f3;
+  font-weight:900;
+}
+
+.contract-spec-table thead th{
+  background:var(--navy);
+  color:#fff;
+}
+
+@media print{
+  .contract-section,
+  .contract-terms article,
+  .contract-summary>div,
+  .contract-spec-table,
+  .signature-grid section{
+    break-inside:avoid;
+    page-break-inside:avoid;
+  }
+
+  .contract-section h3{
+    break-after:avoid;
+    page-break-after:avoid;
+  }
+
+  .installation-contract .contract-section:nth-of-type(2),
+  .installation-contract .contract-section:nth-of-type(5),
+  .installation-contract .contract-section:nth-of-type(7){
+    break-before:page;
+    page-break-before:always;
+  }
+
+  .installation-contract p{
+    orphans:3;
+    widows:3;
+  }
+}
+
 @media(max-width:700px){
   .contract-summary{
     grid-template-columns:1fr;
