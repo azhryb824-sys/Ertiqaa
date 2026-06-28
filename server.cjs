@@ -230,32 +230,33 @@ function buildAiContext(store) {
   };
 }
 
-async function askGemini(question, context, user = {}) {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || "";
-  if (!apiKey) return {error: "GEMINI_API_KEY is not configured"};
-  const model = process.env.GEMINI_MODEL || "gemini-1.5-flash";
-  const prompt = `أنت مساعد إدارة ذكي لنظام شموس لإدارة شركات صيانة وتركيب المصاعد.
-أجب بالعربية وبأسلوب عملي مختصر. اعتمد فقط على ملخص البيانات المرفق، وإذا نقصت البيانات فاذكر ذلك.
-لا تطلب أسراراً أو كلمات مرور. لا تدعي أنك نفذت إجراءً داخل النظام؛ قدم توصيات وخطوات قابلة للتنفيذ.
-ركز على: العقود، الزيارات، البلاغات، الموردين، قطع الغيار، عروض الأسعار، المخزون، والمخاطر التشغيلية.
+async function askGroq(question, context, user = {}) {
+  const apiKey = process.env.GROQ_API_KEY || "";
+  if (!apiKey) return {error: "GROQ_API_KEY is not configured"};
+  const model = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
+  const prompt = `You are an operations assistant for an Arabic elevator maintenance and installation management system.
+Answer in Arabic, be practical and concise. Use only the provided system summary. If data is missing, say so.
+Do not ask for secrets or passwords. Do not claim that you performed actions inside the system; provide recommendations and executable steps.
+Focus on contracts, visits, tickets, suppliers, spare parts, quotes, inventory, and operational risks.
 
-المستخدم: ${JSON.stringify(user)}
-ملخص النظام: ${JSON.stringify(context)}
-سؤال المستخدم: ${question}`;
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`, {
+User: ${JSON.stringify(user)}
+System summary: ${JSON.stringify(context)}
+User question: ${question}`;
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
-    headers: {"Content-Type": "application/json"},
+    headers: {"Content-Type": "application/json", "Authorization": `Bearer ${apiKey}`},
     body: JSON.stringify({
-      contents: [{role: "user", parts: [{text: prompt}]}],
-      generationConfig: {temperature: 0.3, maxOutputTokens: 1200}
+      model,
+      messages: [{role: "user", content: prompt}],
+      temperature: 0.3,
+      max_tokens: 1200
     })
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) return {error: data.error?.message || "Gemini request failed"};
-  const answer = data.candidates?.[0]?.content?.parts?.map(p => p.text || "").join("\n").trim() || "لم تصل إجابة من Gemini.";
+  if (!response.ok) return {error: data.error?.message || "Groq request failed"};
+  const answer = data.choices?.[0]?.message?.content?.trim() || "No answer was returned from Groq.";
   return {answer, model};
 }
-
 http.createServer((req, res) => {
   const pathname = decodeURIComponent(req.url.split("?")[0]);
   if (sendMobileAssociation(res, pathname)) return;
@@ -339,7 +340,7 @@ http.createServer((req, res) => {
         const role = String(input.role || "");
         if (!["owner", "company_admin", "admin"].includes(role)) return sendJson(res, 403, {error: "AI admin is not available for this role"});
         const context = buildAiContext(readStore());
-        const result = await askGemini(question, context, {id: String(input.userId || ""), role, name: String(input.name || "")});
+        const result = await askGroq(question, context, {id: String(input.userId || ""), role, name: String(input.name || "")});
         if (result.error) return sendJson(res, result.error.includes("configured") ? 503 : 502, result);
         sendJson(res, 200, {...result, contextCounts: context.counts});
       } catch {
