@@ -181,6 +181,81 @@ function sendNativePush(tokens, notification) {
   }).catch(() => {});
 }
 
+function parseStoredJson(store, key) {
+  try {
+    return JSON.parse(store[key] || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function compactRows(rows, fields, limit = 20) {
+  return rows.slice(0, limit).map(row => Object.fromEntries(fields.map(field => [field, row?.[field] ?? ""])));
+}
+
+function buildAiContext(store) {
+  const contracts = parseStoredJson(store, "misadContracts");
+  const visits = parseStoredJson(store, "misadVisits");
+  const tickets = parseStoredJson(store, "misadTickets");
+  const reports = parseStoredJson(store, "misadVisitReports");
+  const quotes = parseStoredJson(store, "misadQuotes");
+  const parts = parseStoredJson(store, "misadPartsInventory");
+  const suppliers = parseStoredJson(store, "misadSuppliers");
+  const claims = parseStoredJson(store, "misadClaims");
+  const lowParts = parts.filter(p => Number(p.qty || 0) <= Number(p.minQty || 0));
+  const pendingContracts = contracts.filter(c => /انتظار|موافقة|بانتظار/i.test(String(c.status || "")));
+  const openTickets = tickets.filter(t => !/مغلق|منتهي/i.test(String(t.status || "")));
+  const pendingReports = reports.filter(r => /انتظار|اعتماد|بانتظار/i.test(String(r.status || "")));
+  return {
+    counts: {
+      contracts: contracts.length,
+      visits: visits.length,
+      tickets: tickets.length,
+      reports: reports.length,
+      quotes: quotes.length,
+      parts: parts.length,
+      suppliers: suppliers.length,
+      claims: claims.length,
+      lowParts: lowParts.length,
+      pendingContracts: pendingContracts.length,
+      openTickets: openTickets.length,
+      pendingReports: pendingReports.length
+    },
+    pendingContracts: compactRows(pendingContracts, ["id", "type", "status", "clientName", "clientCompanyName", "value", "startDate"], 12),
+    openTickets: compactRows(openTickets, ["id", "title", "priority", "status", "clientName", "clientCompanyName", "assignedTo", "createdAt"], 12),
+    lowParts: compactRows(lowParts, ["id", "name", "sku", "category", "qty", "minQty", "unitCost", "supplier"], 20),
+    suppliers: compactRows(suppliers, ["id", "name", "phone", "city", "category", "rating"], 20),
+    recentQuotes: compactRows(quotes, ["id", "title", "client", "value", "status", "createdAt"], 12),
+    recentVisits: compactRows(visits, ["id", "visitType", "status", "assignedName", "scheduledAt", "clientName", "clientCompanyName"], 12)
+  };
+}
+
+async function askGemini(question, context, user = {}) {
+  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || "";
+  if (!apiKey) return {error: "GEMINI_API_KEY is not configured"};
+  const model = process.env.GEMINI_MODEL || "gemini-1.5-flash";
+  const prompt = `أنت مساعد إدارة ذكي لنظام شموس لإدارة شركات صيانة وتركيب المصاعد.
+أجب بالعربية وبأسلوب عملي مختصر. اعتمد فقط على ملخص البيانات المرفق، وإذا نقصت البيانات فاذكر ذلك.
+لا تطلب أسراراً أو كلمات مرور. لا تدعي أنك نفذت إجراءً داخل النظام؛ قدم توصيات وخطوات قابلة للتنفيذ.
+ركز على: العقود، الزيارات، البلاغات، الموردين، قطع الغيار، عروض الأسعار، المخزون، والمخاطر التشغيلية.
+
+المستخدم: ${JSON.stringify(user)}
+ملخص النظام: ${JSON.stringify(context)}
+سؤال المستخدم: ${question}`;
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      contents: [{role: "user", parts: [{text: prompt}]}],
+      generationConfig: {temperature: 0.3, maxOutputTokens: 1200}
+    })
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) return {error: data.error?.message || "Gemini request failed"};
+  const answer = data.candidates?.[0]?.content?.parts?.map(p => p.text || "").join("\n").trim() || "لم تصل إجابة من Gemini.";
+  return {answer, model};
+}
+
 http.createServer((req, res) => {
   const pathname = decodeURIComponent(req.url.split("?")[0]);
   if (sendMobileAssociation(res, pathname)) return;
@@ -251,6 +326,27 @@ http.createServer((req, res) => {
       });
       return;
     }
+  }
+
+  if (req.url.startsWith("/api/ai/admin") && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", async () => {
+      try {
+        const input = JSON.parse(body || "{}");
+        const question = String(input.question || "").trim().slice(0, 2000);
+        if (!question) return sendJson(res, 400, {error: "Missing question"});
+        const role = String(input.role || "");
+        if (!["owner", "company_admin", "admin"].includes(role)) return sendJson(res, 403, {error: "AI admin is not available for this role"});
+        const context = buildAiContext(readStore());
+        const result = await askGemini(question, context, {id: String(input.userId || ""), role, name: String(input.name || "")});
+        if (result.error) return sendJson(res, result.error.includes("configured") ? 503 : 502, result);
+        sendJson(res, 200, {...result, contextCounts: context.counts});
+      } catch {
+        sendJson(res, 400, {error: "Invalid AI request"});
+      }
+    });
+    return;
   }
 
   if (req.url.startsWith("/api/invite/current")) {
