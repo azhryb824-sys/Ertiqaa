@@ -979,7 +979,7 @@ Shumoos Identity + Readability
 ========================= */
 :root{
   --brand-logo:url("assets/shumoos-logo.png");
-  font-size:17px;
+  font-size:18px;
 }
 
 body,
@@ -1025,11 +1025,11 @@ textarea{
 }
 
 .dashboard-page .data-table{
-  font-size:13px;
+  font-size:15px;
 }
 
 .dashboard-page .page-head h1{
-  font-size:29px;
+  font-size:31px;
 }
 
 .dashboard-page .page-head p,
@@ -1042,9 +1042,82 @@ textarea{
   font-size:.92rem;
 }
 
+.dashboard-page,
+.dash-main,
+#dashboardContent,
+.panel,
+.quick-card,
+.stat-card,
+.modal-card,
+.contract-document,
+.report-details,
+.client-preview,
+.item-picker{
+  font-size:1rem;
+}
+
+.sidebar nav button,
+.sidebar-foot button,
+.search input,
+.page-head p,
+.panel-head h3,
+.quick-card b,
+.stat-card small,
+.visit-item b,
+.visit-item small,
+.company-card b,
+.company-card small,
+.user-chip b,
+.user-chip small,
+.modal-form label,
+.auth-form label,
+.item-picker legend,
+.item-option b,
+.item-option small,
+.form-note,
+.report-details dt,
+.report-details dd,
+.contract-summary small,
+.contract-summary b,
+.contract-section h3,
+.contract-section p,
+.contract-terms article b,
+.contract-terms article p,
+.client-preview p,
+.client-preview-card small,
+.client-company-options strong,
+.client-company-options small{
+  font-size:1rem!important;
+}
+
+.modal-form input,
+.modal-form select,
+.modal-form textarea,
+.auth-form input,
+.auth-form select,
+.auth-form textarea,
+.field,
+.search{
+  font-size:1rem!important;
+  min-height:50px;
+}
+
+.data-table th,
+.data-table td{
+  font-size:.95rem!important;
+  line-height:1.8;
+}
+
+.btn,
+.btn-primary,
+.action-btn,
+.badge{
+  font-size:.95rem!important;
+}
+
 .badge,
 .action-btn{
-  font-size:.78rem;
+  font-size:.95rem;
 }
 
 .contract-document{
@@ -1064,7 +1137,7 @@ textarea{
 
 @media(max-width:700px){
   :root{
-    font-size:16px;
+    font-size:17px;
   }
 
   .brand-mark{
@@ -1078,7 +1151,22 @@ textarea{
   }
 
   .dashboard-page .page-head h1{
-    font-size:24px;
+    font-size:26px;
+  }
+
+  .modal-form input,
+  .modal-form select,
+  .modal-form textarea,
+  .auth-form input,
+  .auth-form select,
+  .auth-form textarea,
+  .field{
+    font-size:1rem!important;
+    min-height:52px;
+  }
+
+  .data-table td:before{
+    font-size:.9rem!important;
   }
 }
 
