@@ -202,11 +202,57 @@ function buildAiContext(store) {
   const parts = parseStoredJson(store, "misadPartsInventory");
   const suppliers = parseStoredJson(store, "misadSuppliers");
   const claims = parseStoredJson(store, "misadClaims");
+  const staff = parseStoredJson(store, "misadCompanyStaff");
+  const locations = parseStoredJson(store, "misadStaffLocations");
+  const ownerCompanies = parseStoredJson(store, "misadOwnerCompanies");
+  const clientCompanies = parseStoredJson(store, "misadClientCompanies");
+  const docs = parseStoredJson(store, "misadCompanyDocs");
+  const now = Date.now();
+  const statusText = x => String(x?.status || "");
+  const includesAny = (value, words) => words.some(word => value.toLowerCase().includes(word.toLowerCase()));
+  const pendingWords = ["pending", "waiting", "review", "approval", "\u0627\u0646\u062a\u0638\u0627\u0631", "\u0628\u0627\u0646\u062a\u0638\u0627\u0631", "\u0645\u0648\u0627\u0641\u0642\u0629", "\u0627\u0639\u062a\u0645\u0627\u062f"];
+  const closedWords = ["closed", "done", "finished", "complete", "cancel", "\u0645\u063a\u0644\u0642", "\u0645\u0646\u062a\u0647\u064a", "\u0645\u0643\u062a\u0645\u0644", "\u0645\u062d\u0630\u0648\u0641", "\u0645\u0644\u063a\u064a"];
   const lowParts = parts.filter(p => Number(p.qty || 0) <= Number(p.minQty || 0));
-  const pendingContracts = contracts.filter(c => /انتظار|موافقة|بانتظار/i.test(String(c.status || "")));
-  const openTickets = tickets.filter(t => !/مغلق|منتهي/i.test(String(t.status || "")));
-  const pendingReports = reports.filter(r => /انتظار|اعتماد|بانتظار/i.test(String(r.status || "")));
+  const pendingContracts = contracts.filter(c => includesAny(statusText(c), pendingWords));
+  const openTickets = tickets.filter(t => !includesAny(statusText(t), closedWords));
+  const pendingReports = reports.filter(r => includesAny(statusText(r), pendingWords));
+  const reportVisitIds = new Set(reports.map(r => String(r.visitId || "")));
+  const lateVisits = visits.filter(v => {
+    const scheduled = v.scheduledAt ? new Date(v.scheduledAt).getTime() : 0;
+    return scheduled && scheduled < now && !reportVisitIds.has(String(v.id || ""));
+  });
+  const upcomingVisits = visits.filter(v => {
+    const scheduled = v.scheduledAt ? new Date(v.scheduledAt).getTime() : 0;
+    return scheduled && scheduled >= now;
+  }).sort((a, b) => new Date(a.scheduledAt || 0) - new Date(b.scheduledAt || 0));
+  const staffWorkload = staff.map(member => {
+    const identity = String(member.identity || member.id || "");
+    const assignedVisits = visits.filter(v => String(v.assignedTo || "") === identity);
+    const openAssignedTickets = openTickets.filter(t => String(t.assignedTo || "") === identity);
+    const liveLocation = locations.find(l => String(l.identity || "") === identity);
+    return {
+      identity,
+      name: member.name || "",
+      role: member.role || "",
+      availability: member.availability || member.status || "",
+      assignedVisits: assignedVisits.length,
+      upcomingVisits: assignedVisits.filter(v => new Date(v.scheduledAt || 0).getTime() >= now).length,
+      lateVisitsWithoutReport: assignedVisits.filter(v => lateVisits.some(x => String(x.id || "") === String(v.id || ""))).length,
+      openTickets: openAssignedTickets.length,
+      lastLocationAt: liveLocation?.updatedAt || liveLocation?.updatedAtIso || "",
+      liveLocation: Boolean(liveLocation?.live)
+    };
+  }).sort((a, b) => (b.lateVisitsWithoutReport - a.lateVisitsWithoutReport) || (b.openTickets - a.openTickets) || (b.upcomingVisits - a.upcomingVisits));
   return {
+    generatedAt: new Date().toISOString(),
+    capabilities: {
+      canAnswerSystemQuestions: true,
+      canAnalyzeTechnicians: true,
+      canAnalyzeVisits: true,
+      canRecommendAssignments: true,
+      canExecuteChanges: false,
+      note: "The assistant can recommend operational actions but cannot directly change records unless a system endpoint is added."
+    },
     counts: {
       contracts: contracts.length,
       visits: visits.length,
@@ -216,26 +262,39 @@ function buildAiContext(store) {
       parts: parts.length,
       suppliers: suppliers.length,
       claims: claims.length,
+      staff: staff.length,
+      ownerCompanies: ownerCompanies.length,
+      clientCompanies: clientCompanies.length,
+      documents: docs.length,
       lowParts: lowParts.length,
       pendingContracts: pendingContracts.length,
       openTickets: openTickets.length,
-      pendingReports: pendingReports.length
+      pendingReports: pendingReports.length,
+      lateVisitsWithoutReport: lateVisits.length,
+      upcomingVisits: upcomingVisits.length
     },
-    pendingContracts: compactRows(pendingContracts, ["id", "type", "status", "clientName", "clientCompanyName", "value", "startDate"], 12),
-    openTickets: compactRows(openTickets, ["id", "title", "priority", "status", "clientName", "clientCompanyName", "assignedTo", "createdAt"], 12),
-    lowParts: compactRows(lowParts, ["id", "name", "sku", "category", "qty", "minQty", "unitCost", "supplier"], 20),
-    suppliers: compactRows(suppliers, ["id", "name", "phone", "city", "category", "rating"], 20),
-    recentQuotes: compactRows(quotes, ["id", "title", "client", "value", "status", "createdAt"], 12),
-    recentVisits: compactRows(visits, ["id", "visitType", "status", "assignedName", "scheduledAt", "clientName", "clientCompanyName"], 12)
+    systemInfo: {
+      ownerCompanies: compactRows(ownerCompanies, ["id", "name", "commercialNumber", "taxNumber", "phone", "address"], 5),
+      clientCompanies: compactRows(clientCompanies, ["id", "name", "unifiedNumber", "taxNumber", "ownerId"], 20),
+      expiringDocuments: compactRows(docs.filter(d => d.expiresAt), ["id", "partyName", "type", "name", "expiresAt"], 20)
+    },
+    staffWorkload: staffWorkload.slice(0, 40),
+    pendingContracts: compactRows(pendingContracts, ["id", "type", "status", "clientName", "clientCompanyName", "value", "startDate", "endDate"], 20),
+    openTickets: compactRows(openTickets, ["id", "title", "priority", "status", "clientName", "clientCompanyName", "assignedTo", "createdAt"], 25),
+    lowParts: compactRows(lowParts, ["id", "name", "sku", "category", "qty", "minQty", "unitCost", "supplier"], 25),
+    suppliers: compactRows(suppliers, ["id", "name", "phone", "city", "category", "rating"], 25),
+    recentQuotes: compactRows(quotes, ["id", "title", "client", "value", "status", "createdAt"], 20),
+    lateVisits: compactRows(lateVisits, ["id", "visitType", "status", "assignedTo", "assignedName", "scheduledAt", "clientName", "clientCompanyName", "contractId"], 25),
+    upcomingVisits: compactRows(upcomingVisits, ["id", "visitType", "status", "assignedTo", "assignedName", "scheduledAt", "clientName", "clientCompanyName", "contractId"], 25),
+    recentVisits: compactRows(visits, ["id", "visitType", "status", "assignedTo", "assignedName", "scheduledAt", "clientName", "clientCompanyName"], 25)
   };
 }
-
 async function askGroq(question, context, user = {}) {
   const apiKey = process.env.GROQ_API_KEY || "";
   if (!apiKey) return {error: "GROQ_API_KEY is not configured"};
   const model = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
   const prompt = `You are an operations assistant for an Arabic elevator maintenance and installation management system.
-Answer in Arabic, be practical and concise. Use only the provided system summary. If data is missing, say so.
+Answer in Arabic, be practical and concise. Use only the provided system summary. You can answer questions about the system, summarize records, analyze technician workload, review visits, find delayed visits, suggest technician assignment priorities, and recommend operational next steps. You cannot directly modify database records from chat; if the user asks for execution, explain the required system action or endpoint. If data is missing, say so.
 Do not ask for secrets or passwords. Do not claim that you performed actions inside the system; provide recommendations and executable steps.
 Focus on contracts, visits, tickets, suppliers, spare parts, quotes, inventory, and operational risks.
 
