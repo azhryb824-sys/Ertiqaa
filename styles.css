@@ -974,6 +974,126 @@ body{
   color:#6f7f7b;
 }
 
+/* =========================
+Shumoos Identity + Readability
+========================= */
+:root{
+  --brand-logo:url("assets/shumoos-logo.png");
+  font-size:17px;
+}
+
+body,
+button,
+input,
+select,
+textarea{
+  font-size:1rem;
+}
+
+.brand{
+  gap:13px;
+}
+
+.brand-mark,
+.company-icon{
+  overflow:hidden;
+  color:transparent!important;
+  background:#fff var(--brand-logo) center/contain no-repeat!important;
+  border:1px solid rgba(216,226,221,.9);
+  box-shadow:0 6px 18px rgba(16,45,44,.08);
+}
+
+.brand-mark{
+  width:58px;
+  height:58px;
+  border-radius:14px;
+}
+
+.company-icon{
+  width:48px;
+  height:48px;
+  border-radius:12px;
+}
+
+.sidebar .brand-mark,
+.auth-brand .brand-mark{
+  background-color:#fff!important;
+}
+
+.brand small{
+  font-size:10.5px;
+}
+
+.dashboard-page .data-table{
+  font-size:13px;
+}
+
+.dashboard-page .page-head h1{
+  font-size:29px;
+}
+
+.dashboard-page .page-head p,
+.modal-form label,
+.quick-card small,
+.visit-item b,
+.visit-item small,
+.user-chip b,
+.company-card b{
+  font-size:.92rem;
+}
+
+.badge,
+.action-btn{
+  font-size:.78rem;
+}
+
+.contract-document{
+  font-size:1rem;
+}
+
+.contract-section p,
+.contract-terms article p,
+.report-details dd{
+  font-size:.95rem;
+}
+
+.contract-title div b,
+.contract-title strong{
+  font-size:1.25rem;
+}
+
+@media(max-width:700px){
+  :root{
+    font-size:16px;
+  }
+
+  .brand-mark{
+    width:48px;
+    height:48px;
+  }
+
+  .company-icon{
+    width:42px;
+    height:42px;
+  }
+
+  .dashboard-page .page-head h1{
+    font-size:24px;
+  }
+}
+
+@media print{
+  body{
+    font-size:12.5pt;
+  }
+
+  .brand-mark,
+  .company-icon{
+    print-color-adjust:exact;
+    -webkit-print-color-adjust:exact;
+  }
+}
+
 @media(max-width:700px){
   .dash-header{
     box-shadow:0 6px 20px rgba(16,45,44,.08);
