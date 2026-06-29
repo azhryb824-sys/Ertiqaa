@@ -397,7 +397,7 @@ http.createServer((req, res) => {
         const question = String(input.question || "").trim().slice(0, 2000);
         if (!question) return sendJson(res, 400, {error: "Missing question"});
         const role = String(input.role || "");
-        if (!["owner", "company_admin", "admin"].includes(role)) return sendJson(res, 403, {error: "AI admin is not available for this role"});
+        if (!["owner", "company_admin", "admin", "technician", "engineer", "client"].includes(role)) return sendJson(res, 403, {error: "AI is not available for this role"});
         const context = buildAiContext(readStore());
         const result = await askGroq(question, context, {id: String(input.userId || ""), role, name: String(input.name || "")});
         if (result.error) return sendJson(res, result.error.includes("configured") ? 503 : 502, result);
