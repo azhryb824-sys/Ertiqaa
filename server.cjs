@@ -157,6 +157,67 @@ function saveNotifications(store, notifications) {
   writeStore(store);
 }
 
+function aiMemoryList(store) {
+  try { return JSON.parse(store.misadAiMemory || "[]"); } catch { return []; }
+}
+
+function saveAiMemory(store, memory) {
+  store.misadAiMemory = JSON.stringify(memory.slice(0, 500));
+  writeStore(store);
+}
+
+function elevatorKnowledgeBase() {
+  return {
+    domain: "elevator-company-operations",
+    languagePolicy: "Arabic first, Saudi dialect friendly, professional tone",
+    modules: [
+      "maintenance_contracts", "installation_contracts", "quotes", "periodic_visits",
+      "corrective_maintenance", "tickets", "technicians", "engineers", "inventory",
+      "spare_parts", "suppliers", "reports", "certificates", "payments", "pdf_documents",
+      "customer_approvals", "location_tracking", "visit_reassignment"
+    ],
+    operatingRules: [
+      "تحقق من صلاحية المستخدم قبل اقتراح أي تنفيذ.",
+      "لا تطلب بيانات موجودة في سياق النظام.",
+      "اطلب أقل قدر لازم من البيانات الناقصة.",
+      "فرّق بين التوصية والتنفيذ، ولا تنفذ إلا عبر أدوات النظام وبموافقة المستخدم.",
+      "اعتمد على الحمل الحالي للفنيين وموقع الزيارة وحالة المصعد عند اقتراح الإسناد.",
+      "راقب العقود المنتظرة والبلاغات المفتوحة والزيارات المتأخرة ونقص المخزون."
+    ],
+    intents: {
+      create_contract: ["عقد", "صيانة", "تركيب", "أنشئ عقد"],
+      create_quote: ["عرض سعر", "تسعير", "قطع غيار"],
+      assign_visit: ["اسند", "انقل زيارة", "فني"],
+      redistribute_visits: ["إعادة توزيع", "وزع الزيارات", "أقل تكلفة"],
+      analyze_operations: ["حلل", "أولويات", "مخاطر", "تشغيل"],
+      field_voice_cleanup: ["نظف النص", "إدخال صوتي", "قيمة الحقل"]
+    }
+  };
+}
+
+function inferAiPlan(question, context, user = {}) {
+  const q = String(question || "");
+  const role = String(user.role || "");
+  const canManage = ["owner", "company_admin", "admin"].includes(role);
+  const plan = {intent: "answer", allowed: true, needsApproval: false, missing: [], suggestions: []};
+  if (/عقد|contract/i.test(q)) plan.intent = /تركيب/.test(q) ? "create_installation_contract" : "create_maintenance_contract";
+  if (/عرض سعر|quote/i.test(q)) plan.intent = "create_quote";
+  if (/زيارة|فني|إسناد|اسند|انقل|وزع/i.test(q)) plan.intent = /وزع|إعادة توزيع/.test(q) ? "redistribute_visits" : "assign_visit";
+  if (/حلل|مخاطر|أولويات|تقرير|مؤشرات/i.test(q)) plan.intent = "analyze_operations";
+  if (["create_maintenance_contract", "create_installation_contract", "create_quote", "assign_visit", "redistribute_visits"].includes(plan.intent)) {
+    plan.needsApproval = true;
+    if (!canManage) {
+      plan.allowed = false;
+      plan.suggestions.push("المستخدم لا يملك صلاحية تنفيذ العمليات الإدارية. يمكن تقديم شرح أو توصية فقط.");
+    }
+  }
+  const counts = context.counts || {};
+  if (counts.lateVisitsWithoutReport) plan.suggestions.push(`يوجد ${counts.lateVisitsWithoutReport} زيارة متأخرة دون تقرير.`);
+  if (counts.openTickets) plan.suggestions.push(`يوجد ${counts.openTickets} بلاغ مفتوح يحتاج متابعة.`);
+  if (counts.lowParts) plan.suggestions.push(`يوجد ${counts.lowParts} صنف مخزون عند حد الطلب أو أقل.`);
+  return plan;
+}
+
 function pushTokenList(store) {
   try { return JSON.parse(store.misadPushTokens || "[]"); } catch { return []; }
 }
@@ -293,12 +354,17 @@ async function askGroq(question, context, user = {}) {
   const apiKey = process.env.GROQ_API_KEY || "";
   if (!apiKey) return {error: "GROQ_API_KEY is not configured"};
   const model = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
-  const prompt = `You are an operations assistant for an Arabic elevator maintenance and installation management system.
-Answer in Arabic, be practical and concise. Use only the provided system summary. You can answer questions about the system, summarize records, analyze technician workload, review visits, find delayed visits, suggest technician assignment priorities, support voice chat, and help convert spoken Arabic into clean form-field values across the system. When the user explicitly asks to convert spoken text for a form field, return only the final field value without explanation. You cannot directly modify database records from chat; if the user asks for execution, explain the required system action or endpoint. If data is missing, say so.
+  const knowledge = elevatorKnowledgeBase();
+  const plan = inferAiPlan(question, context, user);
+  const prompt = `You are the Shumoos elevator management AI agent. You are not a generic chatbot; you are specialized in elevator company operations.
+Answer in Arabic with a Saudi-friendly professional style. Use the provided system summary, knowledge base, and local agent plan. You can answer questions about the system, summarize records, analyze technician workload, review visits, find delayed visits, suggest technician assignment priorities, support voice chat, and help convert spoken Arabic into clean form-field values across the system. When the user explicitly asks to convert spoken text for a form field, return only the final field value without explanation. You cannot directly modify database records from chat; if the user asks for execution, explain the required system action or endpoint. If data is missing, ask only for the minimum missing data.
 Do not ask for secrets or passwords. Do not claim that you performed actions inside the system; provide recommendations and executable steps.
 Focus on contracts, visits, tickets, suppliers, spare parts, quotes, inventory, and operational risks.
+Respect permissions. If the local plan says the action is not allowed, refuse execution and offer safe alternatives.
 
 User: ${JSON.stringify(user)}
+Knowledge base: ${JSON.stringify(knowledge)}
+Local agent plan: ${JSON.stringify(plan)}
 System summary: ${JSON.stringify(context)}
 User question: ${question}`;
   const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -314,7 +380,7 @@ User question: ${question}`;
   const data = await response.json().catch(() => ({}));
   if (!response.ok) return {error: data.error?.message || "Groq request failed"};
   const answer = data.choices?.[0]?.message?.content?.trim() || "No answer was returned from Groq.";
-  return {answer, model};
+  return {answer, model, plan};
 }
 http.createServer((req, res) => {
   const pathname = decodeURIComponent(req.url.split("?")[0]);
@@ -398,15 +464,30 @@ http.createServer((req, res) => {
         if (!question) return sendJson(res, 400, {error: "Missing question"});
         const role = String(input.role || "");
         if (!["owner", "company_admin", "admin", "technician", "engineer", "client"].includes(role)) return sendJson(res, 403, {error: "AI is not available for this role"});
-        const context = buildAiContext(readStore());
+        const store = readStore();
+        const context = buildAiContext(store);
         const result = await askGroq(question, context, {id: String(input.userId || ""), role, name: String(input.name || "")});
         if (result.error) return sendJson(res, result.error.includes("configured") ? 503 : 502, result);
+        const memory = aiMemoryList(store);
+        memory.unshift({id: `AIM-${Date.now()}`, userId: String(input.userId || ""), role, question, answer: result.answer, plan: result.plan, model: result.model, createdAt: new Date().toISOString(), rating: "unrated"});
+        saveAiMemory(store, memory);
         sendJson(res, 200, {...result, contextCounts: context.counts});
       } catch {
         sendJson(res, 400, {error: "Invalid AI request"});
       }
     });
     return;
+  }
+
+  if (req.url.startsWith("/api/ai/agent/status") && req.method === "GET") {
+    const store = readStore();
+    const memory = aiMemoryList(store);
+    return sendJson(res, 200, {
+      knowledge: elevatorKnowledgeBase(),
+      memoryCount: memory.length,
+      recentMemory: memory.slice(0, 12).map(x => ({id: x.id, role: x.role, intent: x.plan?.intent || "answer", allowed: x.plan?.allowed !== false, createdAt: x.createdAt, rating: x.rating || "unrated"})),
+      contextCounts: buildAiContext(store).counts
+    });
   }
 
   if (req.url.startsWith("/api/invite/current")) {
