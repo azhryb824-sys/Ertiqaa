@@ -166,6 +166,1546 @@ function saveAiMemory(store, memory) {
   writeStore(store);
 }
 
+function aiConversationList(store) {
+  try { return JSON.parse(store.misadAiConversations || "[]"); } catch { return []; }
+}
+
+function saveAiConversations(store, conversations) {
+  store.misadAiConversations = JSON.stringify(conversations.slice(0, 200));
+  writeStore(store);
+}
+
+function getOrCreateConversation(store, userId, role) {
+  const conversations = aiConversationList(store);
+  let conversation = conversations.find(c => c.userId === userId && c.role === role && !c.endedAt);
+  if (!conversation) {
+    conversation = {
+      id: `CONV-${Date.now()}`,
+      userId,
+      role,
+      messages: [],
+      startedAt: new Date().toISOString(),
+      lastActivityAt: new Date().toISOString(),
+      endedAt: null
+    };
+    conversations.unshift(conversation);
+    saveAiConversations(store, conversations);
+  }
+  return conversation;
+}
+
+function addMessageToConversation(store, conversationId, role, content) {
+  const conversations = aiConversationList(store);
+  const conversation = conversations.find(c => c.id === conversationId);
+  if (conversation) {
+    conversation.messages.push({
+      role,
+      content,
+      timestamp: new Date().toISOString()
+    });
+    conversation.lastActivityAt = new Date().toISOString();
+    // Keep only last 20 messages to maintain context
+    if (conversation.messages.length > 20) {
+      conversation.messages = conversation.messages.slice(-20);
+    }
+    saveAiConversations(store, conversations);
+  }
+  return conversation;
+}
+
+function endConversation(store, conversationId) {
+  const conversations = aiConversationList(store);
+  const conversation = conversations.find(c => c.id === conversationId);
+  if (conversation) {
+    conversation.endedAt = new Date().toISOString();
+    saveAiConversations(store, conversations);
+  }
+}
+
+function analyzeReportForQuote(report, store) {
+  const findings = {
+    needsSpareParts: false,
+    needsInstallation: false,
+    needsUpdate: false,
+    needsReplacement: false,
+    needsAdditionalWorks: false,
+    requiredParts: [],
+    recommendations: [],
+    severity: "low"
+  };
+  
+  const reportText = String(report.description || report.details || report.notes || "").toLowerCase();
+  const reportType = String(report.type || report.visitType || "").toLowerCase();
+  
+  // Analyze report content for indicators
+  const sparePartsKeywords = ["قطع غيار", "استبدال قطعة", "قطعة تالفة", "قطعة معطلة", "جزء تالف", "يحتاج قطعة", "قطعة جديدة", "تغيير قطعة", "spare part", "replacement part"];
+  const installationKeywords = ["تركيب مصعد", "installation", "install elevator", "new elevator", "مصعد جديد"];
+  const updateKeywords = ["تحديث", "upgrade", "modernization", "تحديث نظام", "تحديث تحكم"];
+  const replacementKeywords = ["استبدال مصعد", "replace elevator", "مصعد قديم", "استبدال كامل"];
+  const additionalWorksKeywords = ["أعمال إضافية", "additional work", "عمل إضافي", "تعديل", "إصلاح إضافي"];
+  
+  findings.needsSpareParts = sparePartsKeywords.some(kw => reportText.includes(kw));
+  findings.needsInstallation = installationKeywords.some(kw => reportText.includes(kw));
+  findings.needsUpdate = updateKeywords.some(kw => reportText.includes(kw));
+  findings.needsReplacement = replacementKeywords.some(kw => reportText.includes(kw));
+  findings.needsAdditionalWorks = additionalWorksKeywords.some(kw => reportText.includes(kw));
+  
+  // Determine severity based on keywords
+  const criticalKeywords = ["خطر", "danger", "emergency", "طارئ", "خطير", "توقف كامل", "complete failure"];
+  const highKeywords = ["عالي", "high priority", "مهم", "important", "أولوية عالية"];
+  
+  if (criticalKeywords.some(kw => reportText.includes(kw))) {
+    findings.severity = "critical";
+  } else if (highKeywords.some(kw => reportText.includes(kw))) {
+    findings.severity = "high";
+  } else if (findings.needsReplacement || findings.needsInstallation) {
+    findings.severity = "high";
+  } else if (findings.needsSpareParts || findings.needsUpdate) {
+    findings.severity = "medium";
+  }
+  
+  // Extract potential parts mentioned (simple extraction)
+  const parts = parseStoredJson(store, "misadPartsInventory");
+  const mentionedParts = parts.filter(p => reportText.includes(p.name.toLowerCase()) || reportText.includes(p.sku?.toLowerCase() || ""));
+  findings.requiredParts = mentionedParts.map(p => ({
+    id: p.id,
+    name: p.name,
+    sku: p.sku,
+    category: p.category,
+    suggestedQty: 1,
+    unitCost: p.unitCost || 0
+  }));
+  
+  // Generate recommendations
+  if (findings.needsSpareParts) {
+    findings.recommendations.push("يحتاج إلى توريد قطع غيار - يوصى بإصدار عرض سعر");
+  }
+  if (findings.needsInstallation) {
+    findings.recommendations.push("يحتاج إلى تركيب مصعد جديد - يوصى بإصدار عرض سعر");
+  }
+  if (findings.needsUpdate) {
+    findings.recommendations.push("يحتاج إلى تحديث المصعد - يوصى بإصدار عرض سعر");
+  }
+  if (findings.needsReplacement) {
+    findings.recommendations.push("يحتاج إلى استبدال المصعد - يوصى بإصدار عرض سعر");
+  }
+  if (findings.needsAdditionalWorks) {
+    findings.recommendations.push("يحتاج إلى أعمال إضافية - يوصى بإصدار عرض سعر");
+  }
+  
+  return findings;
+}
+
+function findBestSupplierForParts(parts, store) {
+  const suppliers = parseStoredJson(store, "misadSuppliers");
+  const partsInventory = parseStoredJson(store, "misadPartsInventory");
+  
+  return parts.map(part => {
+    const partInventory = partsInventory.find(p => p.id === part.id);
+    const supplierId = partInventory?.supplier || "";
+    const supplier = suppliers.find(s => s.id === supplierId);
+    
+    // Find alternative suppliers with better prices
+    const alternatives = suppliers
+      .filter(s => s.category === part.category || !part.category)
+      .map(s => ({
+        id: s.id,
+        name: s.name,
+        rating: s.rating || 0,
+        // In a real system, this would query supplier pricing
+        estimatedPrice: part.unitCost * (1 - (s.rating || 0) * 0.05) // Simple estimation
+      }))
+      .sort((a, b) => a.estimatedPrice - b.estimatedPrice);
+    
+    return {
+      ...part,
+      bestSupplier: alternatives[0] || supplier,
+      alternatives: alternatives.slice(1, 3)
+    };
+  });
+}
+
+function generateAutoQuote(report, analysis, store, userId) {
+  const contracts = parseStoredJson(store, "misadContracts");
+  const contract = contracts.find(c => c.id === report.contractId);
+  
+  const quote = {
+    id: `QTO-${Date.now()}`,
+    title: `عرض سعر تلقائي بناءً على تقرير ${report.id}`,
+    client: contract?.clientName || contract?.clientCompanyName || "غير محدد",
+    clientId: contract?.clientId || "",
+    clientCompanyUnifiedNumber: contract?.clientCompanyUnifiedNumber || "",
+    contractId: report.contractId,
+    reportId: report.id,
+    value: 0,
+    status: "بانتظار المراجعة والاعتماد",
+    autoGenerated: true,
+    analysis: analysis,
+    items: [],
+    customItems: [],
+    elevatorInfo: contract?.elevatorInfo || {},
+    details: `عرض سعر تم إنشاؤه تلقائياً بناءً على تحليل تقرير الزيارة ${report.id}. الشدة: ${analysis.severity}. التوصيات: ${analysis.recommendations.join("، ")}`,
+    createdBy: userId,
+    createdAt: new Date().toISOString(),
+    createdAtMs: Date.now()
+  };
+  
+  // Add parts to quote items
+  const partsWithSuppliers = findBestSupplierForParts(analysis.requiredParts, store);
+  let totalValue = 0;
+  
+  partsWithSuppliers.forEach(part => {
+    const price = part.bestSupplier?.estimatedPrice || part.unitCost || 0;
+    totalValue += price;
+    quote.items.push({
+      id: Date.now() + Math.random(),
+      type: "spare_part",
+      title: part.name,
+      description: `قطعة غيار - ${part.category || "عام"} - المورد المفضل: ${part.bestSupplier?.name || "غير محدد"}`,
+      price: price,
+      supplier: part.bestSupplier?.name || "",
+      partId: part.id
+    });
+  });
+  
+  // Add service fees based on severity
+  const serviceFees = {
+    critical: 500,
+    high: 300,
+    medium: 200,
+    low: 100
+  };
+  
+  if (analysis.needsInstallation) {
+    quote.customItems.push({
+      title: "رسوم تركيب المصعد",
+      description: "خدمة تركيب مصعد جديد",
+      price: serviceFees[analysis.severity] * 10
+    });
+    totalValue += serviceFees[analysis.severity] * 10;
+  }
+  
+  if (analysis.needsUpdate) {
+    quote.customItems.push({
+      title: "رسوم تحديث المصعد",
+      description: "خدمة تحديث نظام المصعد",
+      price: serviceFees[analysis.severity] * 5
+    });
+    totalValue += serviceFees[analysis.severity] * 5;
+  }
+  
+  if (analysis.needsReplacement) {
+    quote.customItems.push({
+      title: "رسوم استبدال المصعد",
+      description: "خدمة استبدال المصعد القديم",
+      price: serviceFees[analysis.severity] * 8
+    });
+    totalValue += serviceFees[analysis.severity] * 8;
+  }
+  
+  quote.value = totalValue;
+  
+  return quote;
+}
+
+function optimizeQuotePrices(quote, targetValue, store) {
+  const suppliers = parseStoredJson(store, "misadSuppliers");
+  const partsInventory = parseStoredJson(store, "misadPartsInventory");
+  
+  const result = {
+    originalValue: quote.value || 0,
+    targetValue: targetValue,
+    achievable: false,
+    newValue: 0,
+    changes: [],
+    requiresApproval: false,
+    approvalDetails: null
+  };
+  
+  let currentValue = result.originalValue;
+  
+  // First, try to optimize parts prices
+  quote.items.forEach(item => {
+    if (item.type === "spare_part" && item.partId) {
+      const part = partsInventory.find(p => p.id === item.partId);
+      if (part) {
+        const alternatives = suppliers
+          .filter(s => s.category === part.category || !part.category)
+          .map(s => ({
+            id: s.id,
+            name: s.name,
+            rating: s.rating || 0,
+            estimatedPrice: part.unitCost * (1 - (s.rating || 0) * 0.05)
+          }))
+          .sort((a, b) => a.estimatedPrice - b.estimatedPrice);
+        
+        if (alternatives.length > 0) {
+          const bestAlternative = alternatives[0];
+          const savings = item.price - bestAlternative.estimatedPrice;
+          
+          if (savings > 0) {
+            result.changes.push({
+              type: "part_price",
+              itemName: item.title,
+              originalPrice: item.price,
+              newPrice: bestAlternative.estimatedPrice,
+              savings: savings,
+              newSupplier: bestAlternative.name
+            });
+            item.price = bestAlternative.estimatedPrice;
+            item.supplier = bestAlternative.name;
+            currentValue -= savings;
+          }
+        }
+      }
+    }
+  });
+  
+  result.newValue = currentValue;
+  
+  // If still above target, check if we need to reduce service fees
+  if (currentValue > targetValue) {
+    const difference = currentValue - targetValue;
+    const totalServiceFees = quote.customItems.reduce((sum, item) => sum + (item.price || 0), 0);
+    
+    if (totalServiceFees > 0 && difference <= totalServiceFees) {
+      result.requiresApproval = true;
+      result.approvalDetails = {
+        type: "service_fee_reduction",
+        currentTotal: totalServiceFees,
+        proposedReduction: difference,
+        newTotal: totalServiceFees - difference,
+        impact: "تخفيض في رسوم الخدمة"
+      };
+      result.changes.push(result.approvalDetails);
+      result.newValue = targetValue;
+      result.achievable = true;
+    } else if (totalServiceFees > 0) {
+      // Can reduce all service fees but still won't reach target
+      result.requiresApproval = true;
+      result.approvalDetails = {
+        type: "service_fee_reduction",
+        currentTotal: totalServiceFees,
+        proposedReduction: totalServiceFees,
+        newTotal: 0,
+        impact: "إلغاء جميع رسوم الخدمة",
+        note: "حتى بعد إلغاء جميع رسوم الخدمة، لن يتم الوصول للقيمة المستهدفة"
+      };
+      result.changes.push(result.approvalDetails);
+      result.newValue = currentValue - totalServiceFees;
+      result.achievable = result.newValue <= targetValue;
+    }
+  } else {
+    result.achievable = true;
+  }
+  
+  return result;
+}
+
+function createQuoteVersion(originalQuote, changes, userId) {
+  const newQuote = JSON.parse(JSON.stringify(originalQuote));
+  newQuote.id = `QTO-${Date.now()}`;
+  newQuote.parentId = originalQuote.id;
+  newQuote.version = (originalQuote.version || 1) + 1;
+  newQuote.status = "بانتظار المراجعة والاعتماد";
+  newQuote.modifications = changes;
+  newQuote.modifiedBy = userId;
+  newQuote.modifiedAt = new Date().toISOString();
+  newQuote.createdAt = new Date().toISOString();
+  newQuote.createdAtMs = Date.now();
+  
+  // Recalculate value
+  newQuote.value = newQuote.items.reduce((sum, item) => sum + (item.price || 0), 0) +
+                   newQuote.customItems.reduce((sum, item) => sum + (item.price || 0), 0);
+  
+  return newQuote;
+}
+
+function calculateDistance(lat1, lng1, lat2, lng2) {
+  const R = 6371; // Earth's radius in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLng/2) * Math.sin(dLng/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
+function analyzeTechnicianWorkload(technician, visits, store) {
+  const locations = parseStoredJson(store, "misadStaffLocations");
+  const currentLocation = locations.find(l => l.identity === technician.identity);
+  
+  const assignedVisits = visits.filter(v => String(v.assignedTo) === technician.identity);
+  const now = Date.now();
+  
+  const upcomingVisits = assignedVisits.filter(v => {
+    const scheduled = v.scheduledAt ? new Date(v.scheduledAt).getTime() : 0;
+    return scheduled >= now;
+  });
+  
+  const lateVisits = assignedVisits.filter(v => {
+    const scheduled = v.scheduledAt ? new Date(v.scheduledAt).getTime() : 0;
+    return scheduled < now && !v.reportId;
+  });
+  
+  let totalDistance = 0;
+  let lastLocation = currentLocation;
+  
+  upcomingVisits.sort((a, b) => new Date(a.scheduledAt || 0) - new Date(b.scheduledAt || 0));
+  
+  upcomingVisits.forEach(visit => {
+    if (lastLocation && visit.building?.lat && visit.building?.lng) {
+      totalDistance += calculateDistance(
+        lastLocation.lat || 0,
+        lastLocation.lng || 0,
+        visit.building.lat,
+        visit.building.lng
+      );
+      lastLocation = {lat: visit.building.lat, lng: visit.building.lng};
+    }
+  });
+  
+  return {
+    technicianId: technician.identity,
+    technicianName: technician.name,
+    availability: technician.availability || "working",
+    assignedVisits: assignedVisits.length,
+    upcomingVisits: upcomingVisits.length,
+    lateVisits: lateVisits.length,
+    currentLocation: currentLocation ? {
+      lat: currentLocation.lat,
+      lng: currentLocation.lng,
+      live: currentLocation.live,
+      updatedAt: currentLocation.updatedAt
+    } : null,
+    estimatedTotalDistance: totalDistance,
+    workloadScore: assignedVisits.length * 10 + lateVisits.length * 20
+  };
+}
+
+function redistributeVisits(store, options = {}) {
+  const visits = parseStoredJson(store, "misadVisits");
+  const staff = parseStoredJson(store, "misadCompanyStaff");
+  const locations = parseStoredJson(store, "misadStaffLocations");
+  const tickets = parseStoredJson(store, "misadTickets");
+  
+  const availableTechnicians = staff.filter(s => 
+    ["technician", "engineer"].includes(s.role) && 
+    (s.availability || "working") === "working"
+  );
+  
+  const unassignedVisits = visits.filter(v => !v.assignedTo || v.assignedTo === "");
+  const redistributableVisits = options.redistributeAll ? visits : unassignedVisits;
+  
+  const analysis = {
+    totalVisits: visits.length,
+    unassignedVisits: unassignedVisits.length,
+    redistributableVisits: redistributableVisits.length,
+    availableTechnicians: availableTechnicians.length,
+    workloadAnalysis: [],
+    recommendations: [],
+    proposedAssignments: [],
+    metrics: {
+      averageDistance: 0,
+      totalDistance: 0,
+      efficiencyScore: 0
+    }
+  };
+  
+  // Analyze each technician's current workload
+  availableTechnicians.forEach(tech => {
+    const workload = analyzeTechnicianWorkload(tech, visits, store);
+    analysis.workloadAnalysis.push(workload);
+  });
+  
+  // Sort technicians by workload (least busy first)
+  const sortedTechnicians = analysis.workloadAnalysis
+    .sort((a, b) => a.workloadScore - b.workloadScore);
+  
+  // Assign visits to technicians based on geographic proximity and workload
+  redistributableVisits.forEach(visit => {
+    if (!visit.building?.lat || !visit.building?.lng) return;
+    
+    let bestTechnician = null;
+    let bestScore = Infinity;
+    
+    sortedTechnicians.forEach(tech => {
+      if (!tech.currentLocation) return;
+      
+      const distance = calculateDistance(
+        tech.currentLocation.lat,
+        tech.currentLocation.lng,
+        visit.building.lat,
+        visit.building.lng
+      );
+      
+      // Score calculation: distance + workload penalty
+      const score = distance + (tech.workloadScore * 0.1);
+      
+      if (score < bestScore) {
+        bestScore = score;
+        bestTechnician = tech;
+      }
+    });
+    
+    if (bestTechnician) {
+      analysis.proposedAssignments.push({
+        visitId: visit.id,
+        visitIdDisplay: visit.id,
+        clientName: visit.clientName || visit.clientCompanyName || "غير محدد",
+        currentAssignedTo: visit.assignedTo || "غير مسند",
+        proposedTechnician: bestTechnician.technicianName,
+        proposedTechnicianId: bestTechnician.technicianId,
+        distance: bestScore,
+        reasoning: `أقرب فني (${bestScore.toFixed(2)} كم) مع أقل عبء عمل (${bestTechnician.workloadScore})`
+      });
+    }
+  });
+  
+  // Calculate metrics
+  analysis.metrics.totalDistance = analysis.proposedAssignments.reduce((sum, a) => sum + a.distance, 0);
+  analysis.metrics.averageDistance = analysis.proposedAssignments.length > 0 
+    ? analysis.metrics.totalDistance / analysis.proposedAssignments.length 
+    : 0;
+  analysis.metrics.efficiencyScore = analysis.proposedAssignments.length > 0
+    ? (1 / (analysis.metrics.averageDistance + 1)) * 100
+    : 0;
+  
+  // Generate recommendations
+  if (analysis.unassignedVisits.length > 0) {
+    analysis.recommendations.push(`يوجد ${analysis.unassignedVisits.length} زيارة غير مسندة - يوصى بإسنادها فوراً`);
+  }
+  
+  const overloadedTechnicians = analysis.workloadAnalysis.filter(t => t.workloadScore > 50);
+  if (overloadedTechnicians.length > 0) {
+    analysis.recommendations.push(`${overloadedTechnicians.length} فنيين لديهم عبء عمل عالي - يوصى بإعادة توزيع الزيارات`);
+  }
+  
+  const idleTechnicians = analysis.workloadAnalysis.filter(t => t.assignedVisits === 0);
+  if (idleTechnicians.length > 0) {
+    analysis.recommendations.push(`${idleTechnicians.length} فنيين متفرغين - يمكن إسناد زيارات إضافية لهم`);
+  }
+  
+  return analysis;
+}
+
+function analyzeTechnicianLocation(technicianId, store) {
+  const locations = parseStoredJson(store, "misadStaffLocations");
+  const visits = parseStoredJson(store, "misadVisits");
+  const staff = parseStoredJson(store, "misadCompanyStaff");
+  
+  const currentLocation = locations.find(l => l.identity === technicianId);
+  const technician = staff.find(s => s.identity === technicianId);
+  
+  if (!currentLocation || !technician) {
+    return {error: "Technician location or data not found"};
+  }
+  
+  const assignedVisits = visits.filter(v => String(v.assignedTo) === technicianId);
+  const now = Date.now();
+  
+  const insights = {
+    technicianId,
+    technicianName: technician.name,
+    currentLocation: {
+      lat: currentLocation.lat,
+      lng: currentLocation.lng,
+      live: currentLocation.live,
+      updatedAt: currentLocation.updatedAt,
+      updatedAtIso: currentLocation.updatedAtIso
+    },
+    assignedVisits: assignedVisits.length,
+    locationInsights: [],
+    alerts: [],
+    routeOptimization: []
+  };
+  
+  // Check for route deviations and delays
+  assignedVisits.forEach(visit => {
+    if (!visit.building?.lat || !visit.building?.lng) return;
+    
+    const scheduledTime = visit.scheduledAt ? new Date(visit.scheduledAt).getTime() : 0;
+    const distanceToVisit = calculateDistance(
+      currentLocation.lat,
+      currentLocation.lng,
+      visit.building.lat,
+      visit.building.lng
+    );
+    
+    // Estimate travel time (assuming 40 km/h average speed in urban areas)
+    const estimatedTravelTime = distanceToVisit / 40 * 60; // in minutes
+    const estimatedArrival = now + (estimatedTravelTime * 60 * 1000);
+    
+    if (scheduledTime > 0) {
+      const delayMinutes = (estimatedArrival - scheduledTime) / (60 * 1000);
+      
+      if (delayMinutes > 30) {
+        insights.alerts.push({
+          type: "delay_expected",
+          severity: "high",
+          visitId: visit.id,
+          clientName: visit.clientName || visit.clientCompanyName || "غير محدد",
+          scheduledTime: visit.scheduledAt,
+          estimatedArrival: new Date(estimatedArrival).toISOString(),
+      expectedDelay: Math.round(delayMinutes),
+          message: `تأخر متوقع ${Math.round(delayMinutes)} دقيقة للوصول إلى ${visit.clientName || visit.clientCompanyName}`
+        });
+      } else if (delayMinutes > 15) {
+        insights.alerts.push({
+          type: "delay_expected",
+          severity: "medium",
+          visitId: visit.id,
+          clientName: visit.clientName || visit.clientCompanyName || "غير محدد",
+          scheduledTime: visit.scheduledAt,
+          estimatedArrival: new Date(estimatedArrival).toISOString(),
+          expectedDelay: Math.round(delayMinutes),
+          message: `تأخر متوقع ${Math.round(delayMinutes)} دقيقة للوصول إلى ${visit.clientName || visit.clientCompanyName}`
+        });
+      }
+    }
+    
+    insights.locationInsights.push({
+      visitId: visit.id,
+      clientName: visit.clientName || visit.clientCompanyName || "غير محدد",
+      distance: distanceToVisit.toFixed(2),
+      estimatedTravelTime: Math.round(estimatedTravelTime),
+      scheduledTime: visit.scheduledAt
+    });
+  });
+  
+  // Check for closer technicians to nearby visits
+  const otherTechnicians = staff.filter(s => 
+    s.identity !== technicianId && 
+    ["technician", "engineer"].includes(s.role) &&
+    (s.availability || "working") === "working"
+  );
+  
+  const otherLocations = locations.filter(l => 
+    otherTechnicians.some(t => t.identity === l.identity)
+  );
+  
+  assignedVisits.forEach(visit => {
+    if (!visit.building?.lat || !visit.building?.lng) return;
+    
+    const currentTechDistance = calculateDistance(
+      currentLocation.lat,
+      currentLocation.lng,
+      visit.building.lat,
+      visit.building.lng
+    );
+    
+    otherLocations.forEach(otherLoc => {
+      const otherTechDistance = calculateDistance(
+        otherLoc.lat,
+        otherLoc.lng,
+        visit.building.lat,
+        visit.building.lng
+      );
+      
+      // If another technician is significantly closer (at least 2 km closer)
+      if (otherTechDistance < currentTechDistance - 2) {
+        const otherTech = otherTechnicians.find(t => t.identity === otherLoc.identity);
+        insights.routeOptimization.push({
+          type: "closer_technician",
+          visitId: visit.id,
+          visitClient: visit.clientName || visit.clientCompanyName || "غير محدد",
+          currentTechnician: technician.name,
+          currentDistance: currentTechDistance.toFixed(2),
+          closerTechnician: otherTech?.name || "غير محدد",
+          closerDistance: otherTechDistance.toFixed(2),
+          savings: (currentTechDistance - otherTechDistance).toFixed(2),
+          recommendation: `فني أقرب (${otherTech?.name}) على بعد ${otherTechDistance.toFixed(2)} كم مقارنة بـ ${currentTechDistance.toFixed(2)} كم`
+        });
+      }
+    });
+  });
+  
+  // Check for visit merging opportunities
+  if (assignedVisits.length >= 2) {
+    for (let i = 0; i < assignedVisits.length - 1; i++) {
+      for (let j = i + 1; j < assignedVisits.length; j++) {
+        const visit1 = assignedVisits[i];
+        const visit2 = assignedVisits[j];
+        
+        if (!visit1.building?.lat || !visit1.building?.lng || 
+            !visit2.building?.lat || !visit2.building?.lng) continue;
+        
+        const distanceBetweenVisits = calculateDistance(
+          visit1.building.lat,
+          visit1.building.lng,
+          visit2.building.lat,
+          visit2.building.lng
+        );
+        
+        // If visits are very close (less than 1 km apart)
+        if (distanceBetweenVisits < 1) {
+          insights.routeOptimization.push({
+            type: "visit_merge_opportunity",
+            visit1Id: visit1.id,
+            visit2Id: visit2.id,
+            visit1Client: visit1.clientName || visit1.clientCompanyName || "غير محدد",
+            visit2Client: visit2.clientName || visit2.clientCompanyName || "غير محدد",
+            distance: distanceBetweenVisits.toFixed(2),
+            recommendation: `يمكن دمج زيارتين متقاربتين (${distanceBetweenVisits.toFixed(2)} كم) في زيارة واحدة`
+          });
+        }
+      }
+    }
+  }
+  
+  return insights;
+}
+
+function detectRouteDeviations(store) {
+  const locations = parseStoredJson(store, "misadStaffLocations");
+  const visits = parseStoredJson(store, "misadVisits");
+  
+  const deviations = [];
+  
+  locations.forEach(location => {
+    if (!location.live) return;
+    
+    const assignedVisits = visits.filter(v => String(v.assignedTo) === location.identity);
+    const now = Date.now();
+    
+    assignedVisits.forEach(visit => {
+      if (!visit.building?.lat || !visit.building?.lng) return;
+      
+      const scheduledTime = visit.scheduledAt ? new Date(visit.scheduledAt).getTime() : 0;
+      
+      // Only check visits scheduled within the next 2 hours
+      if (scheduledTime > 0 && scheduledTime > now && scheduledTime < now + (2 * 60 * 60 * 1000)) {
+        const distance = calculateDistance(
+          location.lat,
+          location.lng,
+          visit.building.lat,
+          visit.building.lng
+        );
+        
+        // If technician is far from upcoming visit (more than 10 km)
+        if (distance > 10) {
+          deviations.push({
+            technicianId: location.identity,
+            technicianName: location.name,
+            visitId: visit.id,
+            visitClient: visit.clientName || visit.clientCompanyName || "غير محدد",
+            currentDistance: distance.toFixed(2),
+            scheduledTime: visit.scheduledAt,
+            deviationType: "far_from_upcoming_visit",
+            message: `الفني ${location.name} بعيد (${distance.toFixed(2)} كم) عن زيارة قريبة ${visit.clientName || visit.clientCompanyName}`
+          });
+        }
+      }
+    });
+  });
+  
+  return deviations;
+}
+
+function generateSmartNotifications(store) {
+  const notifications = [];
+  const contracts = parseStoredJson(store, "misadContracts");
+  const visits = parseStoredJson(store, "misadVisits");
+  const tickets = parseStoredJson(store, "misadTickets");
+  const parts = parseStoredJson(store, "misadPartsInventory");
+  const quotes = parseStoredJson(store, "misadQuotes");
+  const reports = parseStoredJson(store, "misadVisitReports");
+  const now = Date.now();
+  
+  // Check for expiring contracts (within 30 days)
+  contracts.forEach(contract => {
+    if (contract.endDate) {
+      const endDate = new Date(contract.endDate).getTime();
+      const daysUntilExpiry = Math.ceil((endDate - now) / (24 * 60 * 60 * 1000));
+      
+      if (daysUntilExpiry > 0 && daysUntilExpiry <= 30 && contract.status === "ساري") {
+        notifications.push({
+          type: "contract_expiring",
+          priority: daysUntilExpiry <= 7 ? "high" : "medium",
+          title: "عقد قارب على الانتهاء",
+          body: `عقد ${contract.id} للعميل ${contract.clientName || contract.clientCompanyName} ينتهي خلال ${daysUntilExpiry} يوم`,
+          url: "/dashboard.html#contracts",
+          roles: ["owner", "company_admin", "admin"],
+          data: {contractId: contract.id, daysUntilExpiry}
+        });
+      }
+    }
+  });
+  
+  // Check for low inventory
+  parts.forEach(part => {
+    const qty = Number(part.qty || 0);
+    const minQty = Number(part.minQty || 0);
+    
+    if (qty <= minQty && minQty > 0) {
+      notifications.push({
+        type: "low_inventory",
+        priority: qty === 0 ? "critical" : "high",
+        title: "نقص في المخزون",
+        body: `قطعة ${part.name} وصلت للحد الأدنى (${qty} من ${minQty})`,
+        url: "/dashboard.html#inventory",
+        roles: ["owner", "company_admin", "admin"],
+        data: {partId: part.id, partName: part.name, qty, minQty}
+      });
+    }
+  });
+  
+  // Check for pending documents awaiting approval
+  const pendingQuotes = quotes.filter(q => q.status === "بانتظار المراجعة والاعتماد" || q.status === "pending");
+  if (pendingQuotes.length > 0) {
+    notifications.push({
+      type: "pending_approval",
+      priority: "high",
+      title: "عروض أسعار تنتظر الاعتماد",
+      body: `يوجد ${pendingQuotes.length} عرض سعر يحتاج مراجعة واعتماد`,
+      url: "/dashboard.html#quotes",
+      roles: ["owner", "company_admin", "admin"],
+      data: {count: pendingQuotes.length}
+    });
+  }
+  
+  // Check for overdue visits without reports
+  const overdueVisits = visits.filter(v => {
+    const scheduled = v.scheduledAt ? new Date(v.scheduledAt).getTime() : 0;
+    return scheduled < now && !reports.some(r => r.visitId === v.id);
+  });
+  
+  if (overdueVisits.length > 0) {
+    notifications.push({
+      type: "overdue_visits",
+      priority: "high",
+      title: "زيارات متأخرة بدون تقارير",
+      body: `يوجد ${overdueVisits.length} زيارة متأخرة لم يتم رفع تقريرها`,
+      url: "/dashboard.html#visits",
+      roles: ["owner", "company_admin", "admin", "technician", "engineer"],
+      data: {count: overdueVisits.length, visitIds: overdueVisits.map(v => v.id)}
+    });
+  }
+  
+  // Check for performance issues (high ticket reopen rate)
+  const reopenedTickets = tickets.filter(t => t.status === "مفتوح" && t.reopenedCount > 0);
+  if (reopenedTickets.length >= 3) {
+    notifications.push({
+      type: "performance_alert",
+      priority: "medium",
+      title: "معدل إعادة فتح البلاغات مرتفع",
+      body: `يوجد ${reopenedTickets.length} بلاغ تم إعادة فتحها - قد يشير لاحتياج تدريب أو مراجعة`,
+      url: "/dashboard.html#tickets",
+      roles: ["owner", "company_admin", "admin"],
+      data: {count: reopenedTickets.length}
+    });
+  }
+  
+  // Check for idle technicians
+  const staff = parseStoredJson(store, "misadCompanyStaff");
+  const idleTechnicians = staff.filter(s => {
+    if (!["technician", "engineer"].includes(s.role)) return false;
+    const assignedVisits = visits.filter(v => String(v.assignedTo) === s.identity);
+    const upcomingVisits = assignedVisits.filter(v => {
+      const scheduled = v.scheduledAt ? new Date(v.scheduledAt).getTime() : 0;
+      return scheduled >= now;
+    });
+    return upcomingVisits.length === 0 && (s.availability || "working") === "working";
+  });
+  
+  if (idleTechnicians.length > 0) {
+    notifications.push({
+      type: "idle_technicians",
+      priority: "low",
+      title: "فنيين متفرغين",
+      body: `يوجد ${idleTechnicians.length} فني متفرغ يمكن إسناد زيارات لهم`,
+      url: "/dashboard.html#visits",
+      roles: ["owner", "company_admin", "admin"],
+      data: {count: idleTechnicians.length, technicians: idleTechnicians.map(t => t.name)}
+    });
+  }
+  
+  return notifications;
+}
+
+function createSmartNotification(store, notification) {
+  const notifications = notificationList(store);
+  
+  // Check if similar notification already exists (within last hour)
+  const oneHourAgo = Date.now() - (60 * 60 * 1000);
+  const exists = notifications.some(n => 
+    n.type === notification.type &&
+    n.createdAtMs > oneHourAgo &&
+    JSON.stringify(n.data) === JSON.stringify(notification.data)
+  );
+  
+  if (exists) return null; // Don't create duplicate notifications
+  
+  const newNotification = {
+    id: `NTF-${Date.now()}`,
+    ...notification,
+    createdAt: new Date().toISOString(),
+    createdAtMs: Date.now(),
+    readBy: [],
+    smart: true
+  };
+  
+  notifications.unshift(newNotification);
+  saveNotifications(store, notifications);
+  
+  // Send push notification
+  const tokens = pushTokenList(store).filter(t => 
+    !notification.userId || t.userId === notification.userId || notification.roles?.includes(t.role)
+  );
+  sendNativePush(tokens, newNotification);
+  
+  return newNotification;
+}
+
+function checkAiPermission(user, action, resource = null) {
+  const role = String(user.role || "");
+  const permissions = user.permissions || [];
+  
+  // Define permission matrix
+  const permissionMatrix = {
+    // Voice chat and conversation
+    "ai.chat": ["owner", "company_admin", "admin", "technician", "engineer", "client"],
+    "ai.conversation.manage": ["owner", "company_admin", "admin"],
+    
+    // Report analysis and quote generation
+    "ai.analyze.report": ["owner", "company_admin", "admin", "technician", "engineer"],
+    "ai.generate.quote": ["owner", "company_admin", "admin"],
+    
+    // Quote modification
+    "ai.modify.quote": ["owner", "company_admin", "admin"],
+    "ai.optimize.quote": ["owner", "company_admin", "admin"],
+    
+    // Visit redistribution
+    "ai.redistribute.visits": ["owner", "company_admin", "admin"],
+    "ai.analyze.workload": ["owner", "company_admin", "admin"],
+    
+    // Location tracking
+    "ai.track.location": ["owner", "company_admin", "admin"],
+    "ai.analyze.location": ["owner", "company_admin", "admin", "technician", "engineer"],
+    
+    // Smart notifications
+    "ai.generate.notifications": ["owner", "company_admin", "admin"],
+    "ai.manage.notifications": ["owner", "company_admin", "admin"],
+    
+    // Professional profiles
+    "ai.view.profiles": ["owner", "company_admin", "admin"],
+    "ai.analyze.performance": ["owner", "company_admin", "admin"],
+    
+    // Document workflow
+    "ai.review.documents": ["owner", "company_admin", "admin"],
+    "ai.approve.documents": ["owner", "company_admin", "admin"],
+    
+    // System logs
+    "ai.view.logs": ["owner", "company_admin", "admin"],
+    "ai.export.logs": ["owner", "company_admin"]
+  };
+  
+  const allowedRoles = permissionMatrix[action] || [];
+  
+  // Check if role is allowed
+  if (!allowedRoles.includes(role)) {
+    return {
+      allowed: false,
+      reason: `Role '${role}' is not allowed to perform action '${action}'`
+    };
+  }
+  
+  // Check custom permissions if they exist
+  if (permissions.length > 0) {
+    // If permissions include "*", allow everything
+    if (permissions.includes("*")) {
+      return {allowed: true};
+    }
+    
+    // If specific permission is granted
+    if (permissions.includes(action)) {
+      return {allowed: true};
+    }
+    
+    // If permission is explicitly denied
+    if (permissions.includes(`!${action}`)) {
+      return {
+        allowed: false,
+        reason: `Permission '${action}' is explicitly denied for this user`
+      };
+    }
+  }
+  
+  // Resource-level checks (if resource is provided)
+  if (resource) {
+    // Check if user has access to the specific resource
+    if (resource.companyOwnerId && role !== "admin") {
+      if (resource.companyOwnerId !== user.id && resource.companyOwnerId !== user.companyOwnerId) {
+        return {
+          allowed: false,
+          reason: "User does not have access to this company's resources"
+        };
+      }
+    }
+  }
+  
+  return {allowed: true};
+}
+
+function filterSensitiveData(data, user) {
+  const role = String(user.role || "");
+  const filtered = JSON.parse(JSON.stringify(data));
+  
+  // Define sensitive fields by role
+  const sensitiveFields = {
+    client: ["financialData", "contractDetails", "internalNotes", "supplierPricing"],
+    technician: ["allTechnicianSalaries", "companyFinancials", "strategicPlans"],
+    engineer: ["allTechnicianSalaries", "companyFinancials"],
+    company_admin: ["companyFinancials"],
+    admin: [], // Admins see everything
+    owner: [] // Owners see everything
+  };
+  
+  const fieldsToHide = sensitiveFields[role] || [];
+  
+  function filterObject(obj) {
+    if (!obj || typeof obj !== "object") return obj;
+    
+    if (Array.isArray(obj)) {
+      return obj.map(item => filterObject(item));
+    }
+    
+    const result = {};
+    for (const key in obj) {
+      if (fieldsToHide.some(field => key.toLowerCase().includes(field.toLowerCase()))) {
+        result[key] = "[REDACTED]";
+      } else if (typeof obj[key] === "object") {
+        result[key] = filterObject(obj[key]);
+      } else {
+        result[key] = obj[key];
+      }
+    }
+    return result;
+  }
+  
+  return filterObject(filtered);
+}
+
+function aiLogList(store) {
+  try { return JSON.parse(store.misadAiLogs || "[]"); } catch { return []; }
+}
+
+function saveAiLogs(store, logs) {
+  store.misadAiLogs = JSON.stringify(logs.slice(0, 1000));
+  writeStore(store);
+}
+
+function logAiOperation(store, operation, user, details = {}) {
+  const logs = aiLogList(store);
+  
+  const logEntry = {
+    id: `AIL-${Date.now()}`,
+    operation,
+    userId: user.id,
+    userName: user.name,
+    userRole: user.role,
+    timestamp: new Date().toISOString(),
+    timestampMs: Date.now(),
+    details,
+    ipAddress: "",
+    userAgent: ""
+  };
+  
+  logs.unshift(logEntry);
+  saveAiLogs(store, logs);
+  
+  return logEntry;
+}
+
+function getAiLogs(store, filters = {}) {
+  const logs = aiLogList(store);
+  let filtered = logs;
+  
+  if (filters.userId) {
+    filtered = filtered.filter(log => log.userId === filters.userId);
+  }
+  
+  if (filters.operation) {
+    filtered = filtered.filter(log => log.operation === filters.operation);
+  }
+  
+  if (filters.userRole) {
+    filtered = filtered.filter(log => log.userRole === filters.userRole);
+  }
+  
+  if (filters.startDate) {
+    const startDate = new Date(filters.startDate).getTime();
+    filtered = filtered.filter(log => log.timestampMs >= startDate);
+  }
+  
+  if (filters.endDate) {
+    const endDate = new Date(filters.endDate).getTime();
+    filtered = filtered.filter(log => log.timestampMs <= endDate);
+  }
+  
+  return filtered.slice(0, 100);
+}
+
+function generateRecommendationReport(store, options = {}) {
+  const contracts = parseStoredJson(store, "misadContracts");
+  const visits = parseStoredJson(store, "misadVisits");
+  const tickets = parseStoredJson(store, "misadTickets");
+  const parts = parseStoredJson(store, "misadPartsInventory");
+  const quotes = parseStoredJson(store, "misadQuotes");
+  const reports = parseStoredJson(store, "misadVisitReports");
+  const staff = parseStoredJson(store, "misadCompanyStaff");
+  const now = Date.now();
+  
+  const report = {
+    id: `REC-${Date.now()}`,
+    generatedAt: new Date().toISOString(),
+    summary: "",
+    findings: [],
+    recommendations: [],
+    metrics: {},
+    priority: "medium"
+  };
+  
+  // Analyze contract status
+  const activeContracts = contracts.filter(c => c.status === "ساري");
+  const expiringContracts = activeContracts.filter(c => {
+    const endDate = c.endDate ? new Date(c.endDate).getTime() : 0;
+    const daysUntilExpiry = Math.ceil((endDate - now) / (24 * 60 * 60 * 1000));
+    return daysUntilExpiry > 0 && daysUntilExpiry <= 30;
+  });
+  
+  if (expiringContracts.length > 0) {
+    report.findings.push({
+      category: "contracts",
+      type: "expiring_soon",
+      severity: "high",
+      description: `${expiringContracts.length} عقود تنتهي خلال 30 يوم`,
+      data: expiringContracts.map(c => ({
+        id: c.id,
+        client: c.clientName || c.clientCompanyName,
+        endDate: c.endDate
+      }))
+    });
+    report.recommendations.push({
+      priority: "high",
+      category: "contracts",
+      action: "contact_clients",
+      description: "تواصل مع العملاء لتجديد العقود قبل انتهائها",
+      expectedImpact: "الحفاظ على الإيرادات وتجنب انقطاع الخدمة"
+    });
+  }
+  
+  // Analyze ticket performance
+  const openTickets = tickets.filter(t => t.status !== "مغلق" && t.status !== "منتهي");
+  const highPriorityTickets = openTickets.filter(t => t.priority === "urgent" || t.priority === "high");
+  
+  if (highPriorityTickets.length > 5) {
+    report.findings.push({
+      category: "tickets",
+      type: "high_volume_high_priority",
+      severity: "critical",
+      description: `${highPriorityTickets.length} بلاغ أولوية عالية مفتوح`,
+      data: {count: highPriorityTickets.length}
+    });
+    report.recommendations.push({
+      priority: "critical",
+      category: "tickets",
+      action: "allocate_resources",
+      description: "خصص موارد إضافية للتعامل مع البلاغات عالية الأولوية",
+      expectedImpact: "تحسين رضا العملاء وتقليل أوقات الاستجابة"
+    });
+  }
+  
+  // Analyze inventory
+  const lowStockParts = parts.filter(p => Number(p.qty || 0) <= Number(p.minQty || 0));
+  const outOfStockParts = lowStockParts.filter(p => Number(p.qty || 0) === 0);
+  
+  if (outOfStockParts.length > 0) {
+    report.findings.push({
+      category: "inventory",
+      type: "out_of_stock",
+      severity: "critical",
+      description: `${outOfStockParts.length} قطع غيار نفذت من المخزون`,
+      data: outOfStockParts.map(p => ({name: p.name, sku: p.sku}))
+    });
+    report.recommendations.push({
+      priority: "critical",
+      category: "inventory",
+      action: "reorder_immediately",
+      description: "أعد طلب القطع النافذة فوراً من الموردين",
+      expectedImpact: "تجنب تأخير الصيانة بسبب نقص القطع"
+    });
+  }
+  
+  // Analyze technician performance
+  const technicians = staff.filter(s => ["technician", "engineer"].includes(s.role));
+  const technicianPerformance = technicians.map(tech => {
+    const assignedVisits = visits.filter(v => String(v.assignedTo) === tech.identity);
+    const completedVisits = assignedVisits.filter(v => reports.some(r => r.visitId === v.id));
+    const completionRate = assignedVisits.length > 0 ? (completedVisits.length / assignedVisits.length) * 100 : 0;
+    
+    return {
+      id: tech.identity,
+      name: tech.name,
+      assignedVisits: assignedVisits.length,
+      completedVisits: completedVisits.length,
+      completionRate: completionRate.toFixed(1)
+    };
+  });
+  
+  const lowPerformers = technicianPerformance.filter(t => parseFloat(t.completionRate) < 70);
+  if (lowPerformers.length > 0) {
+    report.findings.push({
+      category: "performance",
+      type: "low_completion_rate",
+      severity: "medium",
+      description: `${lowPerformers.length} فنيين لديهم معدل إتمام أقل من 70%`,
+      data: lowPerformers
+    });
+    report.recommendations.push({
+      priority: "medium",
+      category: "performance",
+      action: "provide_training",
+      description: "قدم تدريباً إضافياً للفنيين ذوي الأداء المنخفض",
+      expectedImpact: "تحسين جودة الخدمة ومعدلات الإنجاز"
+    });
+  }
+  
+  // Analyze quote conversion
+  const pendingQuotes = quotes.filter(q => q.status === "بانتظار الرد" || q.status === "pending");
+  const approvedQuotes = quotes.filter(q => q.status === "معتمد" || q.status === "مقبول");
+  const conversionRate = quotes.length > 0 ? (approvedQuotes.length / quotes.length) * 100 : 0;
+  
+  report.metrics = {
+    totalContracts: activeContracts.length,
+    expiringContracts: expiringContracts.length,
+    openTickets: openTickets.length,
+    highPriorityTickets: highPriorityTickets.length,
+    lowStockItems: lowStockParts.length,
+    outOfStockItems: outOfStockParts.length,
+    totalTechnicians: technicians.length,
+    quoteConversionRate: conversionRate.toFixed(1)
+  };
+  
+  // Set overall priority based on findings
+  const criticalFindings = report.findings.filter(f => f.severity === "critical").length;
+  const highFindings = report.findings.filter(f => f.severity === "high").length;
+  
+  if (criticalFindings > 0) {
+    report.priority = "critical";
+  } else if (highFindings > 0) {
+    report.priority = "high";
+  }
+  
+  // Generate summary
+  report.summary = `تقرير التحليل الذكي: يوجد ${report.findings.length} ملاحظة و ${report.recommendations.length} توصية. الأولوية: ${report.priority === "critical" ? "حرجة" : report.priority === "high" ? "عالية" : "متوسطة"}.`;
+  
+  return report;
+}
+
+function buildTechnicianProfile(technicianId, store) {
+  const staff = parseStoredJson(store, "misadCompanyStaff");
+  const visits = parseStoredJson(store, "misadVisits");
+  const reports = parseStoredJson(store, "misadVisitReports");
+  const tickets = parseStoredJson(store, "misadTickets");
+  
+  const technician = staff.find(s => s.identity === technicianId);
+  if (!technician) return {error: "Technician not found"};
+  
+  const assignedVisits = visits.filter(v => String(v.assignedTo) === technicianId);
+  const completedVisits = assignedVisits.filter(v => reports.some(r => r.visitId === v.id));
+  const visitReports = reports.filter(r => r.technicianId === technicianId);
+  
+  // Calculate performance metrics
+  const completionRate = assignedVisits.length > 0 ? (completedVisits.length / assignedVisits.length) * 100 : 0;
+  
+  // Calculate average response time (from ticket assignment to visit completion)
+  const relatedTickets = tickets.filter(t => t.assignedTo === technicianId);
+  let totalResponseTime = 0;
+  let responseTimeCount = 0;
+  
+  relatedTickets.forEach(ticket => {
+    const relatedVisit = visits.find(v => v.ticketId === ticket.id);
+    if (relatedVisit && relatedVisit.completedAt) {
+      const createdTime = ticket.createdAt ? new Date(ticket.createdAt).getTime() : 0;
+      const completedTime = new Date(relatedVisit.completedAt).getTime();
+      if (createdTime > 0 && completedTime > createdTime) {
+        totalResponseTime += (completedTime - createdTime);
+        responseTimeCount++;
+      }
+    }
+  });
+  
+  const avgResponseHours = responseTimeCount > 0 ? (totalResponseTime / responseTimeCount) / (60 * 60 * 1000) : 0;
+  
+  // Calculate customer satisfaction (from reports)
+  let totalRating = 0;
+  let ratingCount = 0;
+  
+  visitReports.forEach(report => {
+    if (report.customerRating) {
+      totalRating += Number(report.customerRating);
+      ratingCount++;
+    }
+  });
+  
+  const avgCustomerRating = ratingCount > 0 ? totalRating / ratingCount : 0;
+  
+  // Identify skills from reports
+  const mentionedSkills = new Set();
+  visitReports.forEach(report => {
+    if (report.skillsUsed && Array.isArray(report.skillsUsed)) {
+      report.skillsUsed.forEach(skill => mentionedSkills.add(skill));
+    }
+  });
+  
+  // Calculate workload trends
+  const now = Date.now();
+  const thirtyDaysAgo = now - (30 * 24 * 60 * 60 * 1000);
+  const recentVisits = assignedVisits.filter(v => {
+    const scheduled = v.scheduledAt ? new Date(v.scheduledAt).getTime() : 0;
+    return scheduled >= thirtyDaysAgo;
+  });
+  
+  const profile = {
+    technicianId,
+    technicianName: technician.name,
+    role: technician.role,
+    updatedAt: new Date().toISOString(),
+    performance: {
+      totalVisits: assignedVisits.length,
+      completedVisits: completedVisits.length,
+      completionRate: completionRate.toFixed(1),
+      avgResponseTimeHours: avgResponseHours.toFixed(1),
+      customerRating: avgCustomerRating.toFixed(1),
+      ratingCount: ratingCount
+    },
+    skills: Array.from(mentionedSkills),
+    workload: {
+      totalAssigned: assignedVisits.length,
+      recentVisits: recentVisits.length,
+      availability: technician.availability || "working"
+    },
+    strengths: [],
+    areasForImprovement: [],
+    recommendations: []
+  };
+  
+  // Generate strengths and areas for improvement
+  if (completionRate >= 90) {
+    profile.strengths.push("معدل إتمام عالي للزيارات");
+  } else if (completionRate < 70) {
+    profile.areasForImprovement.push("يحتاج تحسين معدل إتمام الزيارات");
+    profile.recommendations.push("قدم دعماً إضافياً لتحسين معدل الإنجاز");
+  }
+  
+  if (avgCustomerRating >= 4) {
+    profile.strengths.push("رضا عملاء مرتفع");
+  } else if (avgCustomerRating > 0 && avgCustomerRating < 3) {
+    profile.areasForImprovement.push("يحتاج تحسين رضا العملاء");
+    profile.recommendations.push("قدم تدريباً على خدمة العملاء");
+  }
+  
+  if (avgResponseHours > 0 && avgResponseHours < 24) {
+    profile.strengths.push("استجابة سريعة للبلاغات");
+  } else if (avgResponseHours > 48) {
+    profile.areasForImprovement.push("يحتاج تحسين سرعة الاستجابة");
+    profile.recommendations.push("راجع إدارة الوقت وتوزيع المهام");
+  }
+  
+  if (profile.skills.length > 0) {
+    profile.strengths.push(`مهارات متعددة: ${profile.skills.slice(0, 3).join(", ")}`);
+  }
+  
+  return profile;
+}
+
+function updateAllTechnicianProfiles(store) {
+  const staff = parseStoredJson(store, "misadCompanyStaff");
+  const technicians = staff.filter(s => ["technician", "engineer"].includes(s.role));
+  
+  const profiles = technicians.map(tech => buildTechnicianProfile(tech.identity, store));
+  
+  store.misadTechnicianProfiles = JSON.stringify(profiles);
+  writeStore(store);
+  
+  return profiles;
+}
+
+function initiateDocumentWorkflow(store, documentId, documentType, userId, role) {
+  const documents = parseStoredJson(store, "misadDocuments");
+  const document = documents.find(d => d.id === documentId);
+  
+  if (!document) return {error: "Document not found"};
+  
+  const workflow = {
+    id: `WF-${Date.now()}`,
+    documentId,
+    documentType,
+    documentTitle: document.title || document.name || "غير محدد",
+    initiatedBy: userId,
+    initiatedAt: new Date().toISOString(),
+    status: "pending_review",
+    steps: [
+      {
+        step: 1,
+        name: "مراجعة أولية",
+        assignedTo: role === "owner" ? "owner" : "admin",
+        status: "pending",
+        completedAt: null,
+        comments: []
+      },
+      {
+        step: 2,
+        name: "اعتماد نهائي",
+        assignedTo: "owner",
+        status: "pending",
+        completedAt: null,
+        comments: []
+      }
+    ],
+    currentStep: 1,
+    history: []
+  };
+  
+  workflow.history.push({
+    action: "workflow_initiated",
+    userId,
+    timestamp: new Date().toISOString(),
+    details: "تم بدء سير عمل المراجعة والاعتماد"
+  });
+  
+  return workflow;
+}
+
+function approveDocumentStep(store, workflowId, stepNumber, userId, role, approved, comments = "") {
+  const workflows = parseStoredJson(store, "misadDocumentWorkflows");
+  const workflow = workflows.find(w => w.id === workflowId);
+  
+  if (!workflow) return {error: "Workflow not found"};
+  
+  const step = workflow.steps.find(s => s.step === stepNumber);
+  if (!step) return {error: "Step not found"};
+  
+  // Check if user is authorized for this step
+  if (step.assignedTo !== role && role !== "owner") {
+    return {error: "Not authorized to approve this step"};
+  }
+  
+  step.status = approved ? "approved" : "rejected";
+  step.completedAt = new Date().toISOString();
+  step.approvedBy = userId;
+  step.comments.push({
+    userId,
+    comment: comments,
+    timestamp: new Date().toISOString()
+  });
+  
+  workflow.history.push({
+    action: approved ? "step_approved" : "step_rejected",
+    userId,
+    stepNumber,
+    timestamp: new Date().toISOString(),
+    details: comments || (approved ? "تم اعتماد الخطوة" : "تم رفض الخطوة")
+  });
+  
+  // If rejected, mark workflow as rejected
+  if (!approved) {
+    workflow.status = "rejected";
+  } else if (stepNumber < workflow.steps.length) {
+    // Move to next step
+    workflow.currentStep = stepNumber + 1;
+    workflow.status = "pending_review";
+  } else {
+    // All steps approved
+    workflow.status = "approved";
+    workflow.completedAt = new Date().toISOString();
+    
+    // Update document status
+    const documents = parseStoredJson(store, "misadDocuments");
+    const docIndex = documents.findIndex(d => d.id === workflow.documentId);
+    if (docIndex !== -1) {
+      documents[docIndex].status = "معتمد";
+      documents[docIndex].approvedAt = new Date().toISOString();
+      documents[docIndex].approvedBy = userId;
+      store.misadDocuments = JSON.stringify(documents);
+    }
+  }
+  
+  return workflow;
+}
+
+function analyzeDocumentForApproval(store, documentId, documentType) {
+  const documents = parseStoredJson(store, "misadDocuments");
+  const quotes = parseStoredJson(store, "misadQuotes");
+  const contracts = parseStoredJson(store, "misadContracts");
+  
+  let document = null;
+  if (documentType === "quote") {
+    document = quotes.find(q => q.id === documentId);
+  } else if (documentType === "contract") {
+    document = contracts.find(c => c.id === documentId);
+  } else {
+    document = documents.find(d => d.id === documentId);
+  }
+  
+  if (!document) return {error: "Document not found"};
+  
+  const analysis = {
+    documentId,
+    documentType,
+    title: document.title || document.name || "غير محدد",
+    value: document.value || 0,
+    risks: [],
+    recommendations: [],
+    approvalCriteria: {
+      valueCheck: true,
+      completenessCheck: true,
+      policyCompliance: true
+    }
+  };
+  
+  // Check value thresholds
+  if (document.value > 50000) {
+    analysis.risks.push({
+      type: "high_value",
+      severity: "medium",
+      description: "قيمة عالية تتطلب مراجعة إضافية"
+    });
+    analysis.recommendations.push("تأكد من مراجعة التفاصيل المالية بعناية");
+  }
+  
+  // Check completeness
+  if (!document.clientName && !document.clientCompanyName) {
+    analysis.risks.push({
+      type: "missing_client",
+      severity: "high",
+      description: "معلومات العميل مفقودة"
+    });
+    analysis.approvalCriteria.completenessCheck = false;
+    analysis.recommendations.push("أكمل معلومات العميل قبل الاعتماد");
+  }
+  
+  // Check for required fields based on document type
+  if (documentType === "quote") {
+    if (!document.items || document.items.length === 0) {
+      analysis.risks.push({
+        type: "missing_items",
+        severity: "high",
+        description: "لا توجد بنود في عرض السعر"
+      });
+      analysis.approvalCriteria.completenessCheck = false;
+    }
+    
+    if (document.autoGenerated) {
+      analysis.recommendations.push("عرض سعر تم إنشاؤه تلقائياً - راجع التوصيات والأسعار");
+    }
+  }
+  
+  return analysis;
+}
+
 function elevatorKnowledgeBase() {
   return {
     domain: "elevator-company-operations",
@@ -350,31 +1890,52 @@ function buildAiContext(store) {
     recentVisits: compactRows(visits, ["id", "visitType", "status", "assignedTo", "assignedName", "scheduledAt", "clientName", "clientCompanyName"], 25)
   };
 }
-async function askGroq(question, context, user = {}) {
+async function askGroq(question, context, user = {}, conversationId = null) {
   const apiKey = process.env.GROQ_API_KEY || "";
   if (!apiKey) return {error: "GROQ_API_KEY is not configured"};
   const model = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
   const knowledge = elevatorKnowledgeBase();
   const plan = inferAiPlan(question, context, user);
-  const prompt = `You are the Shumoos elevator management AI agent. You are not a generic chatbot; you are specialized in elevator company operations.
+  
+  // Build conversation history if conversationId is provided
+  let conversationHistory = [];
+  if (conversationId) {
+    const store = readStore();
+    const conversation = aiConversationList(store).find(c => c.id === conversationId);
+    if (conversation && conversation.messages) {
+      conversationHistory = conversation.messages.map(m => ({
+        role: m.role === "user" ? "user" : "assistant",
+        content: m.content
+      }));
+    }
+  }
+  
+  const systemPrompt = `You are the Shumoos elevator management AI agent. You are not a generic chatbot; you are specialized in elevator company operations.
 Answer in Arabic with a Saudi-friendly professional style. Use the provided system summary, knowledge base, and local agent plan. You can answer questions about the system, summarize records, analyze technician workload, review visits, find delayed visits, suggest technician assignment priorities, support voice chat, and help convert spoken Arabic into clean form-field values across the system. When the user explicitly asks to convert spoken text for a form field, return only the final field value without explanation. You cannot directly modify database records from chat; if the user asks for execution, explain the required system action or endpoint. If data is missing, ask only for the minimum missing data.
 Do not ask for secrets or passwords. Do not claim that you performed actions inside the system; provide recommendations and executable steps.
 Focus on contracts, visits, tickets, suppliers, spare parts, quotes, inventory, and operational risks.
 Respect permissions. If the local plan says the action is not allowed, refuse execution and offer safe alternatives.
+Maintain conversation context. Remember previous questions and answers. Do not repeat information already provided. Ask only for missing essential information, prioritizing required data over optional data. Execute operations as soon as all required data is available.
 
 User: ${JSON.stringify(user)}
 Knowledge base: ${JSON.stringify(knowledge)}
 Local agent plan: ${JSON.stringify(plan)}
-System summary: ${JSON.stringify(context)}
-User question: ${question}`;
+System summary: ${JSON.stringify(context)}`;
+  
+  const messages = [
+    {role: "system", content: systemPrompt},
+    ...conversationHistory,
+    {role: "user", content: question}
+  ];
+  
   const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {"Content-Type": "application/json", "Authorization": `Bearer ${apiKey}`},
     body: JSON.stringify({
       model,
-      messages: [{role: "user", content: prompt}],
+      messages,
       temperature: 0.3,
-      max_tokens: 1200
+      max_tokens: 1500
     })
   });
   const data = await response.json().catch(() => ({}));
@@ -463,15 +2024,38 @@ http.createServer((req, res) => {
         const question = String(input.question || "").trim().slice(0, 2000);
         if (!question) return sendJson(res, 400, {error: "Missing question"});
         const role = String(input.role || "");
-        if (!["owner", "company_admin", "admin", "technician", "engineer", "client"].includes(role)) return sendJson(res, 403, {error: "AI is not available for this role"});
+        const userId = String(input.userId || "");
+        const userName = String(input.name || "");
+        
+        // Check AI chat permission
+        const permissionCheck = checkAiPermission({id: userId, role, name: userName, permissions: input.permissions}, "ai.chat");
+        if (!permissionCheck.allowed) {
+          return sendJson(res, 403, {error: permissionCheck.reason});
+        }
+        
         const store = readStore();
         const context = buildAiContext(store);
-        const result = await askGroq(question, context, {id: String(input.userId || ""), role, name: String(input.name || "")});
+        
+        // Filter sensitive data from context based on user role
+        const filteredContext = filterSensitiveData(context, {id: userId, role, permissions: input.permissions});
+        
+        // Get or create conversation for context retention
+        const conversation = getOrCreateConversation(store, userId, role);
+        const conversationId = conversation.id;
+        
+        // Add user message to conversation
+        addMessageToConversation(store, conversationId, "user", question);
+        
+        const result = await askGroq(question, filteredContext, {id: userId, role, name: userName}, conversationId);
         if (result.error) return sendJson(res, result.error.includes("configured") ? 503 : 502, result);
+        
+        // Add AI response to conversation
+        addMessageToConversation(store, conversationId, "assistant", result.answer);
+        
         const memory = aiMemoryList(store);
-        memory.unshift({id: `AIM-${Date.now()}`, userId: String(input.userId || ""), role, question, answer: result.answer, plan: result.plan, model: result.model, createdAt: new Date().toISOString(), rating: "unrated"});
+        memory.unshift({id: `AIM-${Date.now()}`, userId, role, question, answer: result.answer, plan: result.plan, model: result.model, conversationId, createdAt: new Date().toISOString(), rating: "unrated"});
         saveAiMemory(store, memory);
-        sendJson(res, 200, {...result, contextCounts: context.counts});
+        sendJson(res, 200, {...result, conversationId, contextCounts: filteredContext.counts});
       } catch {
         sendJson(res, 400, {error: "Invalid AI request"});
       }
@@ -488,6 +2072,507 @@ http.createServer((req, res) => {
       recentMemory: memory.slice(0, 12).map(x => ({id: x.id, role: x.role, intent: x.plan?.intent || "answer", allowed: x.plan?.allowed !== false, createdAt: x.createdAt, rating: x.rating || "unrated"})),
       contextCounts: buildAiContext(store).counts
     });
+  }
+
+  if (req.url.startsWith("/api/ai/conversation") && req.method === "GET") {
+    const url = new URL(req.url, "http://localhost");
+    const userId = url.searchParams.get("userId") || "";
+    const role = url.searchParams.get("role") || "";
+    if (!userId || !role) return sendJson(res, 400, {error: "Missing userId or role"});
+    const store = readStore();
+    const conversation = getOrCreateConversation(store, userId, role);
+    return sendJson(res, 200, {conversation});
+  }
+
+  if (req.url.startsWith("/api/ai/conversation/end") && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => {
+      try {
+        const input = JSON.parse(body || "{}");
+        const conversationId = String(input.conversationId || "");
+        if (!conversationId) return sendJson(res, 400, {error: "Missing conversationId"});
+        const store = readStore();
+        endConversation(store, conversationId);
+        sendJson(res, 200, {ok: true});
+      } catch {
+        sendJson(res, 400, {error: "Invalid JSON"});
+      }
+    });
+    return;
+  }
+
+  if (req.url.startsWith("/api/ai/conversation/history") && req.method === "GET") {
+    const url = new URL(req.url, "http://localhost");
+    const userId = url.searchParams.get("userId") || "";
+    const role = url.searchParams.get("role") || "";
+    if (!userId || !role) return sendJson(res, 400, {error: "Missing userId or role"});
+    const store = readStore();
+    const conversations = aiConversationList(store).filter(c => c.userId === userId && c.role === role).slice(0, 20);
+    return sendJson(res, 200, {conversations});
+  }
+
+  if (req.url.startsWith("/api/ai/analyze-report") && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => {
+      try {
+        const input = JSON.parse(body || "{}");
+        const reportId = String(input.reportId || "");
+        const userId = String(input.userId || "");
+        const autoGenerateQuote = input.autoGenerateQuote !== false;
+        
+        if (!reportId) return sendJson(res, 400, {error: "Missing reportId"});
+        
+        const store = readStore();
+        const reports = parseStoredJson(store, "misadVisitReports");
+        const report = reports.find(r => r.id === reportId);
+        
+        if (!report) return sendJson(res, 404, {error: "Report not found"});
+        
+        const analysis = analyzeReportForQuote(report, store);
+        
+        let quote = null;
+        if (autoGenerateQuote && (analysis.needsSpareParts || analysis.needsInstallation || analysis.needsUpdate || analysis.needsReplacement || analysis.needsAdditionalWorks)) {
+          quote = generateAutoQuote(report, analysis, store, userId);
+          const quotes = parseStoredJson(store, "misadQuotes");
+          quotes.unshift(quote);
+          store.misadQuotes = JSON.stringify(quotes.slice(0, 200));
+          writeStore(store);
+          
+          // Create notification for quote review
+          const notifications = notificationList(store);
+          notifications.unshift({
+            id: `NTF-${Date.now()}`,
+            title: "عرض سعر تلقائي جديد",
+            body: `تم إنشاء عرض سعر تلقائي ${quote.id} بناءً على تقرير ${reportId}. يحتاج مراجعة واعتماد.`,
+            userId: userId,
+            roles: ["owner", "company_admin", "admin"],
+            url: `/dashboard.html#quotes`,
+            createdAt: new Date().toISOString(),
+            readBy: []
+          });
+          saveNotifications(store, notifications);
+        }
+        
+        sendJson(res, 200, {analysis, quote, reportId});
+      } catch (err) {
+        sendJson(res, 400, {error: "Invalid request: " + (err.message || "Unknown error")});
+      }
+    });
+    return;
+  }
+
+  if (req.url.startsWith("/api/ai/optimize-quote") && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => {
+      try {
+        const input = JSON.parse(body || "{}");
+        const quoteId = String(input.quoteId || "");
+        const targetValue = Number(input.targetValue || 0);
+        const userId = String(input.userId || "");
+        const role = String(input.role || "");
+        const applyChanges = input.applyChanges === true;
+        
+        if (!quoteId || !targetValue) return sendJson(res, 400, {error: "Missing quoteId or targetValue"});
+        
+        // Check permissions
+        if (!["owner", "company_admin", "admin"].includes(role)) {
+          return sendJson(res, 403, {error: "Not authorized to modify quotes"});
+        }
+        
+        const store = readStore();
+        const quotes = parseStoredJson(store, "misadQuotes");
+        const quoteIndex = quotes.findIndex(q => q.id === quoteId);
+        
+        if (quoteIndex === -1) return sendJson(res, 404, {error: "Quote not found"});
+        
+        const originalQuote = quotes[quoteIndex];
+        const quoteCopy = JSON.parse(JSON.stringify(originalQuote));
+        const optimization = optimizeQuotePrices(quoteCopy, targetValue, store);
+        
+        let newQuote = null;
+        if (applyChanges && optimization.achievable) {
+          newQuote = createQuoteVersion(quoteCopy, optimization.changes, userId);
+          quotes.unshift(newQuote);
+          store.misadQuotes = JSON.stringify(quotes.slice(0, 200));
+          writeStore(store);
+          
+          // Create notification for new quote version
+          const notifications = notificationList(store);
+          notifications.unshift({
+            id: `NTF-${Date.now()}`,
+            title: "إصدار جديد من عرض السعر",
+            body: `تم إنشاء إصدار جديد ${newQuote.id} من عرض السعر ${quoteId} بعد التعديل الذكي.`,
+            userId: userId,
+            roles: ["owner", "company_admin", "admin"],
+            url: `/dashboard.html#quotes`,
+            createdAt: new Date().toISOString(),
+            readBy: []
+          });
+          saveNotifications(store, notifications);
+        }
+        
+        sendJson(res, 200, {optimization, newQuote, originalQuoteId: quoteId});
+      } catch (err) {
+        sendJson(res, 400, {error: "Invalid request: " + (err.message || "Unknown error")});
+      }
+    });
+    return;
+  }
+
+  if (req.url.startsWith("/api/ai/redistribute-visits") && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => {
+      try {
+        const input = JSON.parse(body || "{}");
+        const userId = String(input.userId || "");
+        const role = String(input.role || "");
+        const redistributeAll = input.redistributeAll === true;
+        const applyChanges = input.applyChanges === true;
+        
+        // Check permissions
+        if (!["owner", "company_admin", "admin"].includes(role)) {
+          return sendJson(res, 403, {error: "Not authorized to redistribute visits"});
+        }
+        
+        const store = readStore();
+        const analysis = redistributeVisits(store, {redistributeAll});
+        
+        let appliedChanges = [];
+        if (applyChanges && analysis.proposedAssignments.length > 0) {
+          const visits = parseStoredJson(store, "misadVisits");
+          
+          analysis.proposedAssignments.forEach(assignment => {
+            const visitIndex = visits.findIndex(v => v.id === assignment.visitId);
+            if (visitIndex !== -1) {
+              const oldTechnician = visits[visitIndex].assignedTo;
+              visits[visitIndex].assignedTo = assignment.proposedTechnicianId;
+              visits[visitIndex].assignedName = assignment.proposedTechnician;
+              visits[visitIndex].rebalancedAt = new Date().toISOString();
+              visits[visitIndex].rebalancedBy = userId;
+              
+              appliedChanges.push({
+                visitId: assignment.visitId,
+                oldTechnician: oldTechnician || "غير مسند",
+                newTechnician: assignment.proposedTechnicianId,
+                newTechnicianName: assignment.proposedTechnician
+              });
+            }
+          });
+          
+          store.misadVisits = JSON.stringify(visits);
+          store["misadLastVisitRebalance:" + (userId || "platform")] = Date.now();
+          writeStore(store);
+          
+          // Create notification for redistribution
+          const notifications = notificationList(store);
+          notifications.unshift({
+            id: `NTF-${Date.now()}`,
+            title: "إعادة توزيع الزيارات",
+            body: `تم إعادة توزيع ${appliedChanges.length} زيارة بناءً على التحليل الجغرافي وتوزيع عبء العمل.`,
+            userId: userId,
+            roles: ["owner", "company_admin", "admin"],
+            url: `/dashboard.html#visits`,
+            createdAt: new Date().toISOString(),
+            readBy: []
+          });
+          saveNotifications(store, notifications);
+        }
+        
+        sendJson(res, 200, {analysis, appliedChanges});
+      } catch (err) {
+        sendJson(res, 400, {error: "Invalid request: " + (err.message || "Unknown error")});
+      }
+    });
+    return;
+  }
+
+  if (req.url.startsWith("/api/ai/technician-location") && req.method === "GET") {
+    const url = new URL(req.url, "http://localhost");
+    const technicianId = url.searchParams.get("technicianId") || "";
+    
+    if (!technicianId) return sendJson(res, 400, {error: "Missing technicianId"});
+    
+    const store = readStore();
+    const insights = analyzeTechnicianLocation(technicianId, store);
+    sendJson(res, 200, insights);
+  }
+
+  if (req.url.startsWith("/api/ai/route-deviations") && req.method === "GET") {
+    const store = readStore();
+    const deviations = detectRouteDeviations(store);
+    sendJson(res, 200, {deviations, count: deviations.length});
+  }
+
+  if (req.url.startsWith("/api/ai/smart-notifications") && req.method === "GET") {
+    const store = readStore();
+    const notifications = generateSmartNotifications(store);
+    sendJson(res, 200, {notifications, count: notifications.length});
+  }
+
+  if (req.url.startsWith("/api/ai/smart-notifications/generate") && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => {
+      try {
+        const input = JSON.parse(body || "{}");
+        const role = String(input.role || "");
+        
+        // Check permissions
+        if (!["owner", "company_admin", "admin"].includes(role)) {
+          return sendJson(res, 403, {error: "Not authorized to generate smart notifications"});
+        }
+        
+        const store = readStore();
+        const potentialNotifications = generateSmartNotifications(store);
+        const createdNotifications = [];
+        
+        potentialNotifications.forEach(notification => {
+          const created = createSmartNotification(store, notification);
+          if (created) createdNotifications.push(created);
+        });
+        
+        sendJson(res, 200, {
+          generated: createdNotifications.length,
+          skipped: potentialNotifications.length - createdNotifications.length,
+          notifications: createdNotifications
+        });
+      } catch (err) {
+        sendJson(res, 400, {error: "Invalid request: " + (err.message || "Unknown error")});
+      }
+    });
+    return;
+  }
+
+  if (req.url.startsWith("/api/notifications/mark-read") && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => {
+      try {
+        const input = JSON.parse(body || "{}");
+        const notificationId = String(input.notificationId || "");
+        const userId = String(input.userId || "");
+        
+        if (!notificationId || !userId) return sendJson(res, 400, {error: "Missing notificationId or userId"});
+        
+        const store = readStore();
+        const notifications = notificationList(store);
+        const notification = notifications.find(n => n.id === notificationId);
+        
+        if (notification) {
+          if (!notification.readBy) notification.readBy = [];
+          if (!notification.readBy.includes(userId)) {
+            notification.readBy.push(userId);
+          }
+          saveNotifications(store, notifications);
+        }
+        
+        sendJson(res, 200, {ok: true});
+      } catch {
+        sendJson(res, 400, {error: "Invalid JSON"});
+      }
+    });
+    return;
+  }
+
+  if (req.url.startsWith("/api/notifications/mark-all-read") && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => {
+      try {
+        const input = JSON.parse(body || "{}");
+        const userId = String(input.userId || "");
+        
+        if (!userId) return sendJson(res, 400, {error: "Missing userId"});
+        
+        const store = readStore();
+        const notifications = notificationList(store);
+        
+        notifications.forEach(n => {
+          if (!n.readBy) n.readBy = [];
+          if (!n.readBy.includes(userId)) {
+            n.readBy.push(userId);
+          }
+        });
+        
+        saveNotifications(store, notifications);
+        sendJson(res, 200, {ok: true});
+      } catch {
+        sendJson(res, 400, {error: "Invalid JSON"});
+      }
+    });
+    return;
+  }
+
+  if (req.url.startsWith("/api/ai/logs") && req.method === "GET") {
+    const url = new URL(req.url, "http://localhost");
+    const role = url.searchParams.get("role") || "";
+    const userId = url.searchParams.get("userId") || "";
+    const operation = url.searchParams.get("operation") || "";
+    const startDate = url.searchParams.get("startDate") || "";
+    const endDate = url.searchParams.get("endDate") || "";
+    
+    // Check permission to view logs
+    if (!["owner", "company_admin", "admin"].includes(role)) {
+      return sendJson(res, 403, {error: "Not authorized to view AI logs"});
+    }
+    
+    const store = readStore();
+    const filters = {};
+    if (userId) filters.userId = userId;
+    if (operation) filters.operation = operation;
+    if (startDate) filters.startDate = startDate;
+    if (endDate) filters.endDate = endDate;
+    
+    const logs = getAiLogs(store, filters);
+    sendJson(res, 200, {logs, count: logs.length});
+  }
+
+  if (req.url.startsWith("/api/ai/recommendations") && req.method === "GET") {
+    const url = new URL(req.url, "http://localhost");
+    const role = url.searchParams.get("role") || "";
+    
+    // Check permission to view recommendations
+    if (!["owner", "company_admin", "admin"].includes(role)) {
+      return sendJson(res, 403, {error: "Not authorized to view recommendations"});
+    }
+    
+    const store = readStore();
+    const report = generateRecommendationReport(store);
+    sendJson(res, 200, report);
+  }
+
+  if (req.url.startsWith("/api/ai/technician-profile") && req.method === "GET") {
+    const url = new URL(req.url, "http://localhost");
+    const technicianId = url.searchParams.get("technicianId") || "";
+    const role = url.searchParams.get("role") || "";
+    
+    if (!technicianId) return sendJson(res, 400, {error: "Missing technicianId"});
+    
+    // Check permission to view profiles
+    if (!["owner", "company_admin", "admin"].includes(role)) {
+      return sendJson(res, 403, {error: "Not authorized to view technician profiles"});
+    }
+    
+    const store = readStore();
+    const profile = buildTechnicianProfile(technicianId, store);
+    sendJson(res, 200, profile);
+  }
+
+  if (req.url.startsWith("/api/ai/technician-profiles/update") && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => {
+      try {
+        const input = JSON.parse(body || "{}");
+        const role = String(input.role || "");
+        
+        // Check permission to update profiles
+        if (!["owner", "company_admin", "admin"].includes(role)) {
+          return sendJson(res, 403, {error: "Not authorized to update technician profiles"});
+        }
+        
+        const store = readStore();
+        const profiles = updateAllTechnicianProfiles(store);
+        sendJson(res, 200, {updated: profiles.length, profiles});
+      } catch (err) {
+        sendJson(res, 400, {error: "Invalid request: " + (err.message || "Unknown error")});
+      }
+    });
+    return;
+  }
+
+  if (req.url.startsWith("/api/ai/document-workflow/initiate") && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => {
+      try {
+        const input = JSON.parse(body || "{}");
+        const documentId = String(input.documentId || "");
+        const documentType = String(input.documentType || "");
+        const userId = String(input.userId || "");
+        const role = String(input.role || "");
+        
+        if (!documentId || !documentType) return sendJson(res, 400, {error: "Missing documentId or documentType"});
+        
+        // Check permission
+        if (!["owner", "company_admin", "admin"].includes(role)) {
+          return sendJson(res, 403, {error: "Not authorized to initiate document workflow"});
+        }
+        
+        const store = readStore();
+        const workflow = initiateDocumentWorkflow(store, documentId, documentType, userId, role);
+        
+        // Save workflow
+        const workflows = parseStoredJson(store, "misadDocumentWorkflows");
+        workflows.unshift(workflow);
+        store.misadDocumentWorkflows = JSON.stringify(workflows.slice(0, 200));
+        writeStore(store);
+        
+        sendJson(res, 200, workflow);
+      } catch (err) {
+        sendJson(res, 400, {error: "Invalid request: " + (err.message || "Unknown error")});
+      }
+    });
+    return;
+  }
+
+  if (req.url.startsWith("/api/ai/document-workflow/approve") && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => {
+      try {
+        const input = JSON.parse(body || "{}");
+        const workflowId = String(input.workflowId || "");
+        const stepNumber = Number(input.stepNumber || 1);
+        const userId = String(input.userId || "");
+        const role = String(input.role || "");
+        const approved = input.approved === true;
+        const comments = String(input.comments || "");
+        
+        if (!workflowId) return sendJson(res, 400, {error: "Missing workflowId"});
+        
+        const store = readStore();
+        const workflow = approveDocumentStep(store, workflowId, stepNumber, userId, role, approved, comments);
+        
+        if (workflow.error) return sendJson(res, 400, workflow);
+        
+        // Save updated workflow
+        const workflows = parseStoredJson(store, "misadDocumentWorkflows");
+        const index = workflows.findIndex(w => w.id === workflowId);
+        if (index !== -1) {
+          workflows[index] = workflow;
+          store.misadDocumentWorkflows = JSON.stringify(workflows);
+          writeStore(store);
+        }
+        
+        sendJson(res, 200, workflow);
+      } catch (err) {
+        sendJson(res, 400, {error: "Invalid request: " + (err.message || "Unknown error")});
+      }
+    });
+    return;
+  }
+
+  if (req.url.startsWith("/api/ai/document-analyze") && req.method === "GET") {
+    const url = new URL(req.url, "http://localhost");
+    const documentId = url.searchParams.get("documentId") || "";
+    const documentType = url.searchParams.get("documentType") || "";
+    const role = url.searchParams.get("role") || "";
+    
+    if (!documentId || !documentType) return sendJson(res, 400, {error: "Missing documentId or documentType"});
+    
+    // Check permission
+    if (!["owner", "company_admin", "admin"].includes(role)) {
+      return sendJson(res, 403, {error: "Not authorized to analyze documents"});
+    }
+    
+    const store = readStore();
+    const analysis = analyzeDocumentForApproval(store, documentId, documentType);
+    sendJson(res, 200, analysis);
   }
 
   if (req.url.startsWith("/api/invite/current")) {
