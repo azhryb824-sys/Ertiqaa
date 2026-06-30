@@ -2,6 +2,7 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+require("dotenv").config();
 
 const root = __dirname;
 const port = Number(process.env.PORT || 4173);
@@ -145,6 +146,92 @@ function writeVoiceCache(key, audio, contentType) {
     fs.writeFileSync(path.join(voiceCacheDir, `${key}.audio`), audio);
     fs.writeFileSync(path.join(voiceCacheDir, `${key}.json`), JSON.stringify({contentType, createdAt: new Date().toISOString()}));
   } catch {}
+}
+
+function elevenLabsApiKey() {
+  return process.env.ELEVENLABS_API_KEY || "";
+}
+
+function elevenLabsBaseUrl() {
+  return (process.env.VOICE_CLONE_ENDPOINT || "https://api.elevenlabs.io/v1").replace(/\/+$/, "");
+}
+
+function isElevenLabsMode() {
+  return Boolean(elevenLabsApiKey() && elevenLabsBaseUrl().includes("elevenlabs"));
+}
+
+async function elevenLabsCreateVoice(store, samples) {
+  const apiKey = elevenLabsApiKey();
+  const baseUrl = elevenLabsBaseUrl();
+  const boundary = "----Voice" + crypto.randomBytes(8).toString("hex");
+  let body = "";
+  const enc = (s) => `\r\n--${boundary}\r\nContent-Disposition: form-data; name="${s}"\r\n\r\n`;
+  const filePart = (name, filePath) => {
+    const ext = path.extname(name).toLowerCase();
+    const mime = {".aac":"audio/aac",".m4a":"audio/mp4",".mp3":"audio/mpeg",".wav":"audio/wav",".ogg":"audio/ogg",".flac":"audio/flac"}[ext] || "application/octet-stream";
+    const data = fs.readFileSync(filePath);
+    return `\r\n--${boundary}\r\nContent-Disposition: form-data; name="files"; filename="${name}"\r\nContent-Type: ${mime}\r\n\r\n${data.toString("latin1")}`;
+  };
+  body += enc("name") + "Owner Voice";
+  body += enc("description") + "Voice cloned from local AAC samples for the elevator management system";
+  body += enc("labels") + JSON.stringify({use: "local", source: "aac-samples"});
+  for (const s of samples) {
+    body += filePart(s.name, path.join(root, s.name));
+  }
+  body += `\r\n--${boundary}--\r\n`;
+  const buf = Buffer.from(body, "latin1");
+  const response = await fetch(`${baseUrl}/voices/add`, {
+    method: "POST",
+    headers: {
+      "Content-Type": `multipart/form-data; boundary=${boundary}`,
+      "xi-api-key": apiKey,
+      "Content-Length": buf.length.toString()
+    },
+    signal: AbortSignal.timeout(15000),
+    body: buf
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const errMsg = data.detail || data.message || data.error || `HTTP ${response.status}`;
+    throw new Error(`ElevenLabs voice creation failed: ${errMsg}`);
+  }
+  if (!data.voice_id) throw new Error("ElevenLabs did not return a voice_id");
+  store.elevenlabsVoiceId = data.voice_id;
+  store.elevenlabsVoiceCreatedAt = new Date().toISOString();
+  writeStore(store);
+  return data.voice_id;
+}
+
+async function elevenLabsSynthesize(text, voiceId) {
+  const apiKey = elevenLabsApiKey();
+  const baseUrl = elevenLabsBaseUrl();
+  const model = process.env.VOICE_CLONE_MODEL || "eleven_monolingual_v1";
+  const timeoutMs = Math.max(1500, Math.min(15000, Number(process.env.VOICE_CLONE_TIMEOUT_MS || 5000)));
+  const response = await fetch(`${baseUrl}/text-to-speech/${voiceId}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "xi-api-key": apiKey
+    },
+    signal: AbortSignal.timeout(timeoutMs),
+    body: JSON.stringify({
+      text,
+      model_id: model,
+      voice_settings: {
+        stability: Number(process.env.ELEVENLABS_STABILITY || 0.35),
+        similarity_boost: Number(process.env.ELEVENLABS_SIMILARITY || 0.85),
+        style: Number(process.env.ELEVENLABS_STYLE || 0.2),
+        use_speaker_boost: true
+      }
+    })
+  });
+  if (!response.ok) {
+    const details = await response.text().catch(() => "");
+    throw new Error(`ElevenLabs TTS failed (${response.status}): ${details.slice(0, 300)}`);
+  }
+  const contentType = response.headers.get("content-type") || "audio/mpeg";
+  const audio = Buffer.from(await response.arrayBuffer());
+  return {audio, contentType};
 }
 
 function inviteList(store) {
@@ -2548,7 +2635,10 @@ http.createServer((req, res) => {
   if (pathname === "/api/voice/samples" && req.method === "GET") {
     const samples = voiceSampleList();
     const cachedAudio = fs.existsSync(voiceCacheDir) ? fs.readdirSync(voiceCacheDir).filter(name => name.endsWith(".audio")).length : 0;
-    const ready = Boolean(process.env.VOICE_CLONE_MODEL && process.env.VOICE_CLONE_ENDPOINT && process.env.VOICE_CLONE_MODEL_COMMERCIAL_OK === "1");
+    const store = readStore();
+    const elevenLabsReady = isElevenLabsMode();
+    const elevenLabsVoiceId = store.elevenlabsVoiceId || "";
+    const ready = elevenLabsReady || Boolean(process.env.VOICE_CLONE_MODEL && process.env.VOICE_CLONE_ENDPOINT && process.env.VOICE_CLONE_MODEL_COMMERCIAL_OK === "1");
     return sendJson(res, 200, {
       samples,
       count: samples.length,
@@ -2556,11 +2646,12 @@ http.createServer((req, res) => {
       speechRecognitionLang: "ar-SA",
       speechSynthesisLang: "ar-SA",
       dialect: "Saudi Arabic",
-      voiceCloneModel: process.env.VOICE_CLONE_MODEL || "",
-      voiceCloneEndpointReady: Boolean(process.env.VOICE_CLONE_ENDPOINT),
-      commercialUseVerified: Boolean(process.env.VOICE_CLONE_MODEL_COMMERCIAL_OK === "1"),
+      voiceCloneModel: process.env.VOICE_CLONE_MODEL || (elevenLabsReady ? "eleven_monolingual_v1" : ""),
+      voiceCloneEndpointReady: Boolean(process.env.VOICE_CLONE_ENDPOINT) || elevenLabsReady,
+      commercialUseVerified: ready,
       timeoutMs: Math.max(1500, Math.min(15000, Number(process.env.VOICE_CLONE_TIMEOUT_MS || 5000))),
-      mode: ready ? "my-voice-model-ready" : "my-voice-model-required"
+      mode: ready ? "my-voice-model-ready" : "my-voice-model-required",
+      elevenLabs: {ready: elevenLabsReady, voiceId: elevenLabsVoiceId, apiKeySet: Boolean(elevenLabsApiKey())}
     });
   }
 
@@ -2572,48 +2663,82 @@ http.createServer((req, res) => {
         const input = JSON.parse(body || "{}");
         const text = String(input.text || "").replace(/<[^>]+>/g, " ").trim();
         const samples = voiceSampleList();
-        const model = process.env.VOICE_CLONE_MODEL || "";
-        const endpoint = process.env.VOICE_CLONE_ENDPOINT || "";
-        const commercialOk = process.env.VOICE_CLONE_MODEL_COMMERCIAL_OK === "1";
-        const timeoutMs = Math.max(1500, Math.min(15000, Number(process.env.VOICE_CLONE_TIMEOUT_MS || 5000)));
         if (!text) return sendJson(res, 400, {error: "Missing text"});
         if (!samples.length) return sendJson(res, 409, {error: "لا توجد عينات صوت لاستخدام بصمتك."});
-        const cacheKey = voiceCacheKey(text, model || "pending-owner-model", samples);
-        const cached = readVoiceCache(cacheKey);
-        if (cached) {
-          res.writeHead(200, {"Content-Type": cached.contentType, "Cache-Control": "private, max-age=86400", "X-Voice-Cache": "hit"});
-          res.end(cached.audio);
-          return;
-        }
-        if (!model || !endpoint || !commercialOk) {
-          return sendJson(res, 503, {
-            error: "نموذج بصمة صوتك غير مفعل. يجب ضبط VOICE_CLONE_MODEL و VOICE_CLONE_ENDPOINT و VOICE_CLONE_MODEL_COMMERCIAL_OK=1 قبل تشغيل الدردشة بصوتك.",
-            samples: samples.length,
-            mode: "my-voice-model-required"
+        if (isElevenLabsMode()) {
+          const store = readStore();
+          let voiceId = store.elevenlabsVoiceId;
+          if (!voiceId) {
+            try {
+              voiceId = await elevenLabsCreateVoice(store, samples);
+            } catch (err) {
+              return sendJson(res, 502, {
+                error: "تعذر إنشاء بصمة الصوت عبر ElevenLabs: " + (err.message || "خطأ غير معروف"),
+                fix: "تأكد من صحة ELEVENLABS_API_KEY وأن ملفات AAC مدعومة. بديل: ارفع العينات يدوياً على elevenlabs.io وأنشئ voice_id ثم أضفه إلى storage.json كـ elevenlabsVoiceId"
+              });
+            }
+          }
+          const cacheKey = voiceCacheKey(text, "elevenlabs:" + voiceId, samples);
+          const cached = readVoiceCache(cacheKey);
+          if (cached) {
+            res.writeHead(200, {"Content-Type": cached.contentType, "Cache-Control": "private, max-age=86400", "X-Voice-Cache": "hit"});
+            res.end(cached.audio);
+            return;
+          }
+          try {
+            const {audio, contentType} = await elevenLabsSynthesize(text, voiceId);
+            writeVoiceCache(cacheKey, audio, contentType);
+            res.writeHead(200, {"Content-Type": contentType, "Cache-Control": "private, max-age=86400", "X-Voice-Cache": "miss"});
+            res.end(audio);
+          } catch (err) {
+            if (err.message?.includes("voice_id") || err.message?.includes("404")) {
+              store.elevenlabsVoiceId = "";
+              writeStore(store);
+            }
+            return sendJson(res, 502, {error: "فشل توليد الصوت: " + (err.message || "خطأ غير معروف")});
+          }
+        } else {
+          const model = process.env.VOICE_CLONE_MODEL || "";
+          const endpoint = process.env.VOICE_CLONE_ENDPOINT || "";
+          const commercialOk = process.env.VOICE_CLONE_MODEL_COMMERCIAL_OK === "1";
+          const timeoutMs = Math.max(1500, Math.min(15000, Number(process.env.VOICE_CLONE_TIMEOUT_MS || 5000)));
+          const cacheKey = voiceCacheKey(text, model || "pending-owner-model", samples);
+          const cached = readVoiceCache(cacheKey);
+          if (cached) {
+            res.writeHead(200, {"Content-Type": cached.contentType, "Cache-Control": "private, max-age=86400", "X-Voice-Cache": "hit"});
+            res.end(cached.audio);
+            return;
+          }
+          if (!model || !endpoint || !commercialOk) {
+            return sendJson(res, 503, {
+              error: "نموذج بصمة صوتك غير مفعل. يجب ضبط VOICE_CLONE_MODEL و VOICE_CLONE_ENDPOINT و VOICE_CLONE_MODEL_COMMERCIAL_OK=1 أو ضبط ELEVENLABS_API_KEY.",
+              samples: samples.length,
+              mode: "my-voice-model-required"
+            });
+          }
+          const response = await fetch(endpoint, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            signal: AbortSignal.timeout(timeoutMs),
+            body: JSON.stringify({
+              text,
+              model,
+              language: "ar-SA",
+              dialect: "Saudi Arabic",
+              voiceProfile: "owner-local-samples",
+              sampleFiles: samples.map(s => path.join(root, s.name))
+            })
           });
+          if (!response.ok) {
+            const details = await response.text().catch(() => "");
+            return sendJson(res, 502, {error: "تعذر توليد الصوت من نموذج بصمتك.", details: details.slice(0, 300)});
+          }
+          const contentType = response.headers.get("content-type") || "audio/wav";
+          const audio = Buffer.from(await response.arrayBuffer());
+          writeVoiceCache(cacheKey, audio, contentType);
+          res.writeHead(200, {"Content-Type": contentType, "Cache-Control": "private, max-age=86400", "X-Voice-Cache": "miss"});
+          res.end(audio);
         }
-        const response = await fetch(endpoint, {
-          method: "POST",
-          headers: {"Content-Type": "application/json"},
-          signal: AbortSignal.timeout(timeoutMs),
-          body: JSON.stringify({
-            text,
-            model,
-            language: "ar-SA",
-            dialect: "Saudi Arabic",
-            voiceProfile: "owner-local-samples",
-            sampleFiles: samples.map(s => path.join(root, s.name))
-          })
-        });
-        if (!response.ok) {
-          const details = await response.text().catch(() => "");
-          return sendJson(res, 502, {error: "تعذر توليد الصوت من نموذج بصمتك.", details: details.slice(0, 300)});
-        }
-        const contentType = response.headers.get("content-type") || "audio/wav";
-        const audio = Buffer.from(await response.arrayBuffer());
-        writeVoiceCache(cacheKey, audio, contentType);
-        res.writeHead(200, {"Content-Type": contentType, "Cache-Control": "private, max-age=86400", "X-Voice-Cache": "miss"});
-        res.end(audio);
       } catch (err) {
         sendJson(res, 400, {error: "Invalid voice synthesis request: " + (err.message || "Unknown error")});
       }
