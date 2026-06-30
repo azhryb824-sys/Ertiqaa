@@ -2009,16 +2009,19 @@ function inferAiPlan(question, context, user = {}) {
   const plan = {intent: "answer", action: null, data: {}, allowed: true, needsApproval: false, missing: [], suggestions: []};
 
   // --- Conversational intents (greetings, interviews, etc.) ---
-  if (/^(?:السلام عليكم|وعليكم السلام|مرحبا|مرحباً|أهلا|أهلاً|هاي|هلا|hello|hi|صبحك الله|مساك الله|صباح الخير|مساء الخير|مساء النور|صباح النور|تحية|ترحيب)/i.test(q) || /^(?:how are you|كيف حالك|كيفك|كيف الحال|عامل إيه|عاملين)/i.test(q))
+  if (/^(?:السلام عليكم|وعليكم السلام|مرحبا|مرحباً|أهلا|أهلاً|هاي|هلا|هلو|hello|hi|صبحك الله|مساك الله|صباح الخير|مساء الخير|مساء النور|صباح النور|تحية|ترحيب)/i.test(q) || /^(?:how are you|كيف حالك|كيفك|كيف الحال|عامل إيه|عاملين|شلونك|شخبارك|عساك بخير|الله يحييك)/i.test(q))
     plan.intent = "greet";
-  if (/^(?:مع السلامة|في أمان الله|تصبح على خير|تصبحون على خير|طابت ليلتك|إلى اللقاء|وداعاً|باي|bye|goodbye|see you|الله معك|استودعك الله)/i.test(q))
+  if (/^(?:مع السلامة|في أمان الله|تصبح على خير|تصبحون على خير|طابت ليلتك|إلى اللقاء|وداعاً|باي|bye|goodbye|see you|الله معك|استودعك الله|ليلة سعيدة|تصبحون على نور)/i.test(q))
     plan.intent = "farewell";
-  if (/^(?:شكراً|شكرا|جزاك الله خير|الله يجزاك خير|مشكور|يعطيك العافية|تسلم|تسلم يدك|ثانكس|thank you|thanks|thx|أقدر لك|مقدر)/i.test(q))
+  if (/^(?:شكراً|شكرا|جزاك الله خير|الله يجزاك خير|مشكور|يعطيك العافية|تسلم|تسلم يدك|ثانكس|thank you|thanks|thx|أقدر لك|مقدر|ما قصرت|قصرت|تستاهل|الله يعطيك العافية)/i.test(q))
     plan.intent = "thanks";
-  if (/^(?:آسف|أسف|sorry|معذرة|المعذرة|أعتذر|اعتذر|اعذرني|سمحلي|سامحني|عذراً)/i.test(q))
+  if (/^(?:آسف|أسف|sorry|معذرة|المعذرة|أعتذر|اعتذر|اعذرني|سمحلي|سامحني|عذراً|آسفة)/i.test(q))
     plan.intent = "apologize";
   // Interview / system questions
-  if (/^(من أنت|ما اسمك|وش اسمك|عرفني بنفسك|من وين أنت|وش أنت|introduce yourself|what is your name|what can you do|tell me about yourself)\b/i.test(q) || /^(مهامك|قدراتك|إمكانياتك|وش تقدر|ماذا تفعل|ماذا تستطيع|what are your capabilities)\b/i.test(q) || /^(كيف أستخدمك|كيف أتعامل|كيف اتعامل|كيف أستفيد|كيف ابدأ|how do I use you|how to use)\b/i.test(q) || /^(مميزات|features|capabilities)\b/i.test(q) || /^(لماذا|ليه|why)\b.*(استخدم|استعمل|أستعمل|هذا البرنامج|هذا النظام|هذا التطبيق)/i.test(q) || /^(ما هي|وش هي|what are)\b.*(خدمات|features|مميزات|وظائف)/i.test(q))
+  if (/^(?:من أنت|ما اسمك|وش اسمك|عرفني بنفسك|من وين أنت|وش أنت|introduce yourself|what is your name|what can you do|tell me about yourself)/i.test(q) || /^(?:مهامك|قدراتك|إمكانياتك|وش تقدر|ماذا تفعل|ماذا تستطيع|what are your capabilities)/i.test(q) || /^(?:كيف أستخدمك|كيف أتعامل|كيف اتعامل|كيف أستفيد|كيف ابدأ|how do I use you|how to use)/i.test(q) || /^(?:مميزات|features|capabilities)/i.test(q) || /^(?:لماذا|ليه|why).*(?:استخدم|استعمل|أستعمل|هذا البرنامج|هذا النظام|هذا التطبيق)/i.test(q) || /^(?:ما هي|وش هي|what are).*(?:خدمات|features|مميزات|وظائف)/i.test(q))
+    plan.intent = "interview";
+
+  // --- Analysis intents ---
   if (/حلل|تحليل|تقرير|مؤشرات|إحصائيات|إحصاءات|stats|analysis|analytics/i.test(q)) {
     if (/مخزون|قطع|غيار|مستودع/i.test(q)) plan.intent = "analyze_inventory";
     else if (/فني|technician|engineer|موظف/i.test(q)) plan.intent = "analyze_staff";
@@ -2047,17 +2050,48 @@ function inferAiPlan(question, context, user = {}) {
   // Multi-action detection (generate schedule etc.)
   if (/جدول|schedule|برنامج/i.test(q) && /زيارات|visits/i.test(q)) plan.intent = "redistribute_visits";
 
+  // --- Query intents (show/list/get info) — overrides creation intents when asking for info ---
+  const queryWords = /^(?:عطيني|أرني|ارني|أظهر|اظهر|كم|وش|ايش|ايش|كيف|أبي|ابي|ابغى|ابغا|بدي|نبي|نبغا|أريد|اريد|ورني|دلني|طلعت|أطلع|اطلع|شوف|تعطيني|أعطني|اعطني|خليني|أشوف|اشوف)/i;
+  const knownEntities = [
+    {pattern: /عق[وً]?د|عقد|اتفاق|contract/i, type: "contracts"},
+    {pattern: /فني[ي]?[ن]?|technician|مهندس[ي]?[ن]?|engineer|موظف[ي]?[ن]?|team|الفريق|staff|العمال/i, type: "staff"},
+    {pattern: /زيار[ة]?[ت]?|visit/i, type: "visits"},
+    {pattern: /عرض.{1,4}سعر|عروض|quot|تسعير|قيمة|سعر/i, type: "quotes"},
+    {pattern: /مخز[و]?ن|قطع|غيار|part|inventory/i, type: "parts"},
+    {pattern: /مورد[ي]?[ن]?|supplier/i, type: "suppliers"},
+    {pattern: /بلاغ[ا]?[ت]?|ticket|شكوى|شكاوي|شكاية/i, type: "tickets"}
+  ];
+  if (queryWords.test(q)) {
+    for (const entity of knownEntities) {
+      if (entity.pattern.test(q)) {
+        plan.intent = "query";
+        plan.data = {entity: entity.type, query: q};
+        break;
+      }
+    }
+  }
+  // If just a bare entity name without a query word (e.g. "العقود", "الزيارات") still queries
+  if (plan.intent === "answer") {
+    for (const entity of knownEntities) {
+      if (entity.pattern.test(q) && !/أضف|إنشاء|سوي|عمل|اعمل|جدول|إسناد/i.test(q)) {
+        plan.intent = "query";
+        plan.data = {entity: entity.type, query: q};
+        break;
+      }
+    }
+  }
+
   // --- Conversational intents (lowest priority - only if no action matched) ---
   if (plan.intent === "answer") {
-    if (/^(?:السلام عليكم|وعليكم السلام|مرحبا|مرحباً|أهلا|أهلاً|هاي|هلا|hello|hi|صباح الخير|مساء الخير|مساء النور|صباح النور|تحية|ترحيب)/i.test(q) || /^(?:كيف حالك|كيفك|كيف الحال|عامل إيه|عاملين)/i.test(q))
+    if (/^(?:السلام عليكم|وعليكم السلام|مرحبا|مرحباً|أهلا|أهلاً|هاي|هلا|هلو|hello|hi|صباح الخير|مساء الخير|مساء النور|صباح النور|تحية|ترحيب)/i.test(q) || /^(?:كيف حالك|كيفك|كيف الحال|عامل إيه|عاملين|شلونك|شخبارك|عساك بخير|الله يحييك)/i.test(q))
       plan.intent = "greet";
-    else if (/^(?:مع السلامة|في أمان الله|تصبح على خير|تصبحون على خير|طابت ليلتك|إلى اللقاء|وداعاً|باي|bye|goodbye|see you|الله معك|استودعك الله)/i.test(q))
+    else if (/^(?:مع السلامة|في أمان الله|تصبح على خير|تصبحون على خير|طابت ليلتك|إلى اللقاء|وداعاً|باي|bye|goodbye|see you|الله معك|استودعك الله|ليلة سعيدة|تصبحون على نور)/i.test(q))
       plan.intent = "farewell";
-    else if (/^(?:شكراً|شكرا|جزاك الله خير|الله يجزاك خير|مشكور|يعطيك العافية|تسلم|تسلم يدك|ثانكس|thank you|thanks|thx|أقدر لك|مقدر)/i.test(q))
+    else if (/^(?:شكراً|شكرا|جزاك الله خير|الله يجزاك خير|مشكور|يعطيك العافية|تسلم|تسلم يدك|ثانكس|thank you|thanks|thx|أقدر لك|مقدر|ما قصرت|قصرت|تستاهل|الله يعطيك العافية)/i.test(q))
       plan.intent = "thanks";
-    else if (/^(?:آسف|أسف|sorry|معذرة|المعذرة|أعتذر|اعتذر|اعذرني|سمحلي|سامحني|عذراً)/i.test(q))
+    else if (/^(?:آسف|أسف|sorry|معذرة|المعذرة|أعتذر|اعتذر|اعذرني|سمحلي|سامحني|عذراً|آسفة)/i.test(q))
       plan.intent = "apologize";
-    else if (/^(?:من أنت|ما اسمك|وش اسمك|عرفني بنفسك|من وين أنت|وش أنت|introduce yourself|what is your name|what can you do|tell me about yourself)/i.test(q) || /^(?:مهامك|قدراتك|إمكانياتك|وش تقدر|ماذا تفعل|ماذا تستطيع|what are your capabilities)/i.test(q) || /^(?:كيف أستخدمك|كيف أتعامل|كيف اتعامل|كيف أستفيد|كيف ابدأ|how do I use you|how to use|مميزات|features|capabilities|طريقة الاستخدام|كيف يعمل|كيف تشتغل)/i.test(q) || /^(?:لماذا|ليه)\b.*(?:استخدم|استعمل|أستعمل|هذا البرنامج|هذا النظام|هذا التطبيق)/i.test(q) || /^(?:ما هي|وش هي)\b.*(?:خدمات|features|مميزات|وظائف)/i.test(q))
+    else if (/^(?:من أنت|ما اسمك|وش اسمك|عرفني بنفسك|من وين أنت|وش أنت|introduce yourself|what is your name|what can you do|tell me about yourself)/i.test(q) || /^(?:مهامك|قدراتك|إمكانياتك|وش تقدر|ماذا تفعل|ماذا تستطيع|what are your capabilities)/i.test(q) || /^(?:كيف أستخدمك|كيف أتعامل|كيف اتعامل|كيف أستفيد|كيف ابدأ|how do I use you|how to use|مميزات|features|capabilities|طريقة الاستخدام|كيف يعمل|كيف تشتغل)/i.test(q) || /^(?:لماذا|ليه).*(?:استخدم|استعمل|أستعمل|هذا البرنامج|هذا النظام|هذا التطبيق)/i.test(q) || /^(?:ما هي|وش هي).*(?:خدمات|features|مميزات|وظائف)/i.test(q))
       plan.intent = "interview";
   }
 
