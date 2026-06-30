@@ -2332,27 +2332,42 @@ http.createServer((req, res) => {
         if (result.error) return sendJson(res, result.error.includes("configured") ? 503 : 502, result);
         
         // Parse and execute [EXECUTE:...] blocks from the AI response
-        const executionRegex = /\[EXECUTE:\s*(\{.*?\})\]/gs;
         const executions = [];
         let cleanAnswer = result.answer;
-        let execMatch;
-        while ((execMatch = executionRegex.exec(result.answer)) !== null) {
-          try {
-            const actionData = JSON.parse(execMatch[1]);
-            actionData.userId = userId;
-            const execResult = executeAiAction(actionData, store);
-            executions.push(execResult);
-            
-            // Log the AI operation
-            logAiOperation(store, actionData.action, 
-              {id: userId, name: userName, role}, 
-              {action: actionData.action, data: actionData.data, result: execResult.message}
-            );
-          } catch (parseErr) {
-            executions.push({executed: false, error: `Failed to parse action: ${parseErr.message}`});
+        const execStartTag = "[EXECUTE:";
+        let execIdx = cleanAnswer.indexOf(execStartTag);
+        while (execIdx !== -1) {
+          const jsonStart = execIdx + execStartTag.length;
+          let braceDepth = 0;
+          let jsonEnd = jsonStart;
+          for (; jsonEnd < cleanAnswer.length; jsonEnd++) {
+            if (cleanAnswer[jsonEnd] === "{") braceDepth++;
+            else if (cleanAnswer[jsonEnd] === "}") {
+              braceDepth--;
+              if (braceDepth === 0) { jsonEnd++; break; }
+            }
           }
-          // Remove the EXECUTE block from the answer shown to user
-          cleanAnswer = cleanAnswer.replace(execMatch[0], "");
+          if (braceDepth === 0 && jsonEnd > jsonStart) {
+            try {
+              const jsonStr = cleanAnswer.slice(jsonStart, jsonEnd);
+              const actionData = JSON.parse(jsonStr);
+              actionData.userId = userId;
+              const execResult = executeAiAction(actionData, store);
+              executions.push(execResult);
+              logAiOperation(store, actionData.action,
+                {id: userId, name: userName, role},
+                {action: actionData.action, data: actionData.data, result: execResult.message}
+              );
+            } catch (parseErr) {
+              executions.push({executed: false, error: `Failed to parse action: ${parseErr.message}`});
+            }
+            const blockEnd = cleanAnswer.indexOf("]", jsonEnd) + 1;
+            const fullBlock = cleanAnswer.slice(execIdx, blockEnd || jsonEnd);
+            cleanAnswer = cleanAnswer.replace(fullBlock, "");
+          } else {
+            cleanAnswer = cleanAnswer.replace(execStartTag, "");
+          }
+          execIdx = cleanAnswer.indexOf(execStartTag);
         }
         cleanAnswer = cleanAnswer.trim();
         
