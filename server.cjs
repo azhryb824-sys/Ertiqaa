@@ -2498,8 +2498,55 @@ http.createServer((req, res) => {
       dialect: "Saudi Arabic",
       voiceCloneModel: process.env.VOICE_CLONE_MODEL || "",
       commercialUseVerified: Boolean(process.env.VOICE_CLONE_MODEL_COMMERCIAL_OK === "1"),
-      mode: process.env.VOICE_CLONE_MODEL ? "external-model-ready" : "browser-tts-with-local-samples"
+      mode: process.env.VOICE_CLONE_MODEL ? "my-voice-model-ready" : "my-voice-model-required"
     });
+  }
+
+  if (pathname === "/api/voice/synthesize" && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", async () => {
+      try {
+        const input = JSON.parse(body || "{}");
+        const text = String(input.text || "").replace(/<[^>]+>/g, " ").trim();
+        const samples = voiceSampleList();
+        const model = process.env.VOICE_CLONE_MODEL || "";
+        const endpoint = process.env.VOICE_CLONE_ENDPOINT || "";
+        const commercialOk = process.env.VOICE_CLONE_MODEL_COMMERCIAL_OK === "1";
+        if (!text) return sendJson(res, 400, {error: "Missing text"});
+        if (!samples.length) return sendJson(res, 409, {error: "لا توجد عينات صوت لاستخدام بصمتك."});
+        if (!model || !endpoint || !commercialOk) {
+          return sendJson(res, 503, {
+            error: "نموذج بصمة صوتك غير مفعل. يجب ضبط VOICE_CLONE_MODEL و VOICE_CLONE_ENDPOINT و VOICE_CLONE_MODEL_COMMERCIAL_OK=1 قبل تشغيل الدردشة بصوتك.",
+            samples: samples.length,
+            mode: "my-voice-model-required"
+          });
+        }
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({
+            text,
+            model,
+            language: "ar-SA",
+            dialect: "Saudi Arabic",
+            voiceProfile: "owner-local-samples",
+            sampleFiles: samples.map(s => path.join(root, s.name))
+          })
+        });
+        if (!response.ok) {
+          const details = await response.text().catch(() => "");
+          return sendJson(res, 502, {error: "تعذر توليد الصوت من نموذج بصمتك.", details: details.slice(0, 300)});
+        }
+        const contentType = response.headers.get("content-type") || "audio/wav";
+        const audio = Buffer.from(await response.arrayBuffer());
+        res.writeHead(200, {"Content-Type": contentType, "Cache-Control": "no-store"});
+        res.end(audio);
+      } catch (err) {
+        sendJson(res, 400, {error: "Invalid voice synthesis request: " + (err.message || "Unknown error")});
+      }
+    });
+    return;
   }
 
   if (req.url.startsWith("/api/push/register") && req.method === "POST") {
