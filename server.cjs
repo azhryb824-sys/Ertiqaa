@@ -1740,12 +1740,16 @@ function inferAiPlan(question, context, user = {}) {
   const q = String(question || "");
   const role = String(user.role || "");
   const canManage = ["owner", "company_admin", "admin"].includes(role);
-  const plan = {intent: "answer", allowed: true, needsApproval: false, missing: [], suggestions: []};
-  if (/عقد|contract|سوي.عقد|عمل.عقد|اعمل.عقد|جدول.عقد/i.test(q)) plan.intent = /تركيب/.test(q) ? "create_installation_contract" : "create_maintenance_contract";
+  const plan = {intent: "answer", action: null, data: {}, allowed: true, needsApproval: false, missing: [], suggestions: []};
+  if (/عقد|contract|سوي.عقد|عمل.عقد|اعمل.عقد|جدول.عقد/i.test(q)) plan.intent = /تركيب/i.test(q) ? "create_installation_contract" : "create_maintenance_contract";
   if (/عرض سعر|quote|سوي.عرض|عمل.عرض|اعمل.عرض/i.test(q)) plan.intent = "create_quote";
-  if (/زيارة|فني|إسناد|اسند|انقل|وزع/i.test(q)) plan.intent = /وزع|إعادة توزيع/.test(q) ? "redistribute_visits" : "assign_visit";
+  if (/بلاغ|ticket|سوي.بلاغ|عمل.بلاغ|اعمل.بلاغ/i.test(q)) plan.intent = "create_ticket";
+  if (/زيارة كشفية|كشف|معاينة|سوي.زيارة|عمل.زيارة/i.test(q)) plan.intent = "create_visit";
+  if (/فني|مهندس|technician|engineer|سوي.فني|أضف.فني/i.test(q)) plan.intent = "add_staff";
+  if (/مورد|supplier|سوي.مورد|أضف.مورد/i.test(q)) plan.intent = "create_supplier";
+  if (/زيارة|فني|إسناد|اسند|انقل|وزع/i.test(q)) plan.intent = /وزع|إعادة توزيع/i.test(q) ? "redistribute_visits" : "assign_visit";
   if (/حلل|مخاطر|أولويات|تقرير|مؤشرات/i.test(q)) plan.intent = "analyze_operations";
-  if (["create_maintenance_contract", "create_installation_contract", "create_quote", "assign_visit", "redistribute_visits"].includes(plan.intent)) {
+  if (plan.intent !== "answer") {
     plan.needsApproval = true;
     if (!canManage) {
       plan.allowed = false;
@@ -2489,6 +2493,52 @@ http.createServer((req, res) => {
         sendJson(res, 200, {...result, answer: cleanAnswer, conversationId, contextCounts: filteredContext.counts, executions});
       } catch {
         sendJson(res, 400, {error: "Invalid AI request"});
+      }
+    });
+    return;
+  }
+
+  if (req.url === "/api/ai/execute" && req.method === "POST") {
+    let body = "";
+    req.on("data", c => body += c);
+    req.on("end", () => {
+      try {
+        const input = JSON.parse(body);
+        const question = String(input.question || "").trim();
+        const userId = input.userId || "ai";
+        const role = input.role || "admin";
+        const userName = input.name || "AI";
+        if (!question) return sendJson(res, 400, {executed: false, message: "السؤال فارغ"});
+        const store = readStore();
+        const context = buildAiContext(store);
+        const plan = inferAiPlan(question, context, {id: userId, role, name: userName});
+        if (!plan.allowed) return sendJson(res, 403, {executed: false, message: "لا تملك صلاحية التنفيذ"});
+        const actionMap = {
+          create_maintenance_contract: "create_contract",
+          create_installation_contract: "create_contract",
+          create_quote: "create_quote",
+          create_ticket: "create_ticket",
+          create_visit: "create_visit",
+          assign_visit: "assign_visit",
+          redistribute_visits: "redistribute_visits",
+          add_staff: "add_staff",
+          create_supplier: "create_supplier",
+          analyze_operations: "analyze_report"
+        };
+        const action = actionMap[plan.intent];
+        if (!action) return sendJson(res, 200, {executed: false, message: "لم يتم التعرف على أمر قابل للتنفيذ. يمكنك استخدام نموذج الإدارة الذكية للاستفسارات العامة."});
+        const data = {details: question, userId};
+        if (/بقيمة\s*([\d.,]+)/i.test(question)) data.value = Number(RegExp.$1.replace(/[^\d.]/g, ""));
+        if (/سنة|سنوات|سنين/i.test(question)) data.contractYears = Number((question.match(/(\d+)\s*(سنة|سنوات|سنين)/i)||[,1])[1]);
+        if (/صيانة/i.test(question) && !/تركيب/i.test(question)) data.type = "صيانة";
+        if (/تركيب/i.test(question)) data.type = "تركيب";
+        const clientMatch = question.match(/(?:لـ|لمؤسسة|لشركة|مؤسسة|شركة)\s*([^\d,]+)/i);
+        if (clientMatch) data.clientName = clientMatch[1].trim();
+        const execResult = executeAiAction({action, data, userId}, store);
+        logAiOperation(store, action, {id: userId, name: userName, role}, {action, data, result: execResult.message});
+        sendJson(res, 200, {executed: execResult.executed, message: execResult.message, action, data});
+      } catch (e) {
+        sendJson(res, 500, {executed: false, message: "خطأ في التنفيذ: " + e.message});
       }
     });
     return;
