@@ -2353,7 +2353,7 @@ http.createServer((req, res) => {
     req.on("end", () => {
       try {
         const input = JSON.parse(body || "{}");
-        const notificationId = String(input.notificationId || "");
+        const notificationId = String(input.notificationId || input.id || "");
         const userId = String(input.userId || "");
         
         if (!notificationId || !userId) return sendJson(res, 400, {error: "Missing notificationId or userId"});
@@ -2366,6 +2366,10 @@ http.createServer((req, res) => {
           if (!notification.readBy) notification.readBy = [];
           if (!notification.readBy.includes(userId)) {
             notification.readBy.push(userId);
+          }
+          if (input.archived) {
+            if (!notification.archivedBy) notification.archivedBy = [];
+            if (!notification.archivedBy.includes(userId)) notification.archivedBy.push(userId);
           }
           saveNotifications(store, notifications);
         }
