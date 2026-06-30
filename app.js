@@ -91,7 +91,7 @@
   function sendNotification(n){fetch("/api/notifications",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(n)}).catch(()=>{})}
   function refreshNotificationBadge(){fetch(`/api/notifications?userId=${encodeURIComponent(session.id)}&role=${encodeURIComponent(session.role)}`,{cache:"no-store"}).then(r=>r.json()).then(data=>{const unread=(data.notifications||[]).filter(n=>!(n.readBy||[]).includes(session.id)&&!(n.archivedBy||[]).includes(session.id)).length,b=$("[data-page-link='notifications']"),h=$(".header-actions i");if(b)b.dataset.count=unread||"";if(h)h.style.display=unread?"block":"none"}).catch(()=>{})}
   function notificationsPage(){const c=$("#dashboardContent");c.innerHTML=head("الإشعارات","مركز تنبيهات ذكي ومتزامن حسب الدور والصلاحيات",'<button class="btn soft" data-notification-mark-all>تعليم الكل كمقروء</button>')+`<section class="panel notification-tools"><input id="notificationSearch" class="field" type="search" placeholder="بحث في الإشعارات"><select id="notificationFilter" class="field"><option value="all">الكل</option><option value="unread">غير المقروءة</option><option value="ai">الذكاء الاصطناعي</option><option value="document">المستندات والاعتماد</option><option value="visit">الزيارات</option></select></section><div id="notificationsPanel" class="panel">جاري تحميل الإشعارات...</div>`;fetch(`/api/notifications?userId=${encodeURIComponent(session.id)}&role=${encodeURIComponent(session.role)}`,{cache:"no-store"}).then(r=>r.json()).then(data=>{const all=(data.notifications||[]).filter(n=>!(n.archivedBy||[]).includes(session.id));const paint=()=>{const q=$("#notificationSearch")?.value||"",f=$("#notificationFilter")?.value||"all",list=all.filter(n=>(!q||`${n.title} ${n.body}`.includes(q))&&(f==="all"||(f==="unread"?!(n.readBy||[]).includes(session.id):String(n.type||"").includes(f))));const rows=list.map(n=>[n.title,n.body||"—",fmtDate(n.createdAt),badge((n.readBy||[]).includes(session.id)?"مقروء":"غير مقروء"),`${n.url?`<a class="action-btn primary" href="${esc(n.url)}">فتح</a>`:""} <button class="action-btn" data-notification-read="${esc(n.id)}">مقروء</button> <button class="action-btn" data-notification-archive="${esc(n.id)}">أرشفة</button>`]);$("#notificationsPanel").innerHTML=rows.length?table(["العنوان","التفاصيل","التاريخ","الحالة","الإجراء"],rows):empty("لا توجد إشعارات","ستظهر التنبيهات المهمة هنا.")};$("#notificationSearch").oninput=paint;$("#notificationFilter").onchange=paint;paint();refreshNotificationBadge()}).catch(()=>{$("#notificationsPanel").innerHTML=empty("تعذر تحميل الإشعارات","حاول تحديث الصفحة.")})}
-  function aiAdminPage(){return head("الإدارة الذكية","وكيل شموس المتخصص في تشغيل شركات ومؤسسات المصاعد")+`<section id="aiAgentStatus" class="panel ai-agent-status">جاري تحميل حالة عقل شموس...</section><section class="panel ai-admin-panel"><div class="quick-grid ai-prompts"><button class="quick-card" data-ai-prompt="حلل المخزون وقطع الغيار وحدد القطع التي يجب طلبها وأفضل الموردين حسب أقل سعر."><b>تحليل المخزون</b><small>نواقص وأفضل موردين</small></button><button class="quick-card" data-ai-prompt="راجع العقود والبلاغات والزيارات، وحدد أولويات الإدارة لهذا الأسبوع."><b>أولويات الأسبوع</b><small>عقود وبلاغات وزيارات</small></button><button class="quick-card" data-ai-prompt="اقترح طريقة إنشاء عروض أسعار مربحة مع الحفاظ على أقل تكلفة للقطع من الموردين."><b>تسعير ذكي</b><small>قطع وأرباح وموردون</small></button><button class="quick-card" data-ai-prompt="&#x062d;&#x0644;&#x0644; &#x0627;&#x0644;&#x0641;&#x0646;&#x064a;&#x064a;&#x0646; &#x0648;&#x0627;&#x0644;&#x0632;&#x064a;&#x0627;&#x0631;&#x0627;&#x062a;&#x060c; &#x0648;&#x062d;&#x062f;&#x062f; &#x0627;&#x0644;&#x0632;&#x064a;&#x0627;&#x0631;&#x0627;&#x062a; &#x0627;&#x0644;&#x0645;&#x062a;&#x0623;&#x062e;&#x0631;&#x0629; &#x0648;&#x0627;&#x0644;&#x0641;&#x0646;&#x064a;&#x064a;&#x0646; &#x0627;&#x0644;&#x0623;&#x0643;&#x062b;&#x0631; &#x0636;&#x063a;&#x0637;&#x0627; &#x0648;&#x0627;&#x0642;&#x062a;&#x0631;&#x062d; &#x0625;&#x0639;&#x0627;&#x062f;&#x0629; &#x062a;&#x0648;&#x0632;&#x064a;&#x0639; &#x0627;&#x0644;&#x0632;&#x064a;&#x0627;&#x0631;&#x0627;&#x062a; &#x0625;&#x0646; &#x0623;&#x0645;&#x0643;&#x0646;."><b>&#x0627;&#x0644;&#x0641;&#x0646;&#x064a;&#x0648;&#x0646; &#x0648;&#x0627;&#x0644;&#x0632;&#x064a;&#x0627;&#x0631;&#x0627;&#x062a;</b><small>&#x062a;&#x0648;&#x0632;&#x064a;&#x0639; &#x0648;&#x062a;&#x0623;&#x062e;&#x064a;&#x0631;</small></button></div><form class="modal-form ai-admin-form"><label>سؤالك للإدارة الذكية<textarea name="question" required placeholder="مثال: ما أهم 5 قرارات يجب اتخاذها اليوم؟"></textarea></label><button class="btn-primary">اسأل الوكيل</button></form><div id="aiAnswer" class="ai-answer">جاهز لتحليل بيانات شموس.</div></section><section class="panel" style="margin-top:24px"><h3 style="margin:0 0 12px;color:var(--navy)">الإنشاء الذكي المباشر</h3><p class="ai-assistant-hint" style="margin:0 0 12px">اكتب الأمر مباشرة وسيتم تنفيذه فوراً في النظام</p><form class="modal-form ai-exec-form" style="display:none"><label>وصف الأمر<textarea name="aiExecDesc" required placeholder="مثال: أنشئ عقد صيانة لمؤسسة الأفق للتجارة، مصعدين، بقيمة 12000 ريال، سنتين"></textarea></label><button type="button" class="btn-primary" data-ai-exec-create>تنفيذ الأمر</button></form><div class="voice-chat-container"><div class="voice-chat-messages" id="aiExecMessages"><div class="vc-empty">اضغط 🎤 وابدأ التحدث</div></div><div class="voice-chat-input-bar"><button class="voice-chat-mic" id="aiVoiceMic" data-voice-chat-mic>🎤</button><span class="voice-chat-status" id="aiExecStatus">جاهز</span></div></div><div id="aiExecResult" style="display:none"></div></section>`}
+  function aiAdminPage(){return head("الإدارة الذكية","وكيل شموس المتخصص في تشغيل شركات ومؤسسات المصاعد")+`<section id="aiAgentStatus" class="panel ai-agent-status">جاري تحميل حالة عقل شموس...</section><section class="panel ai-admin-panel"><div class="quick-grid ai-prompts"><button class="quick-card" data-ai-prompt="حلل المخزون وقطع الغيار وحدد القطع التي يجب طلبها وأفضل الموردين حسب أقل سعر."><b>تحليل المخزون</b><small>نواقص وأفضل موردين</small></button><button class="quick-card" data-ai-prompt="راجع العقود والبلاغات والزيارات، وحدد أولويات الإدارة لهذا الأسبوع."><b>أولويات الأسبوع</b><small>عقود وبلاغات وزيارات</small></button><button class="quick-card" data-ai-prompt="اقترح طريقة إنشاء عروض أسعار مربحة مع الحفاظ على أقل تكلفة للقطع من الموردين."><b>تسعير ذكي</b><small>قطع وأرباح وموردون</small></button><button class="quick-card" data-ai-prompt="&#x062d;&#x0644;&#x0644; &#x0627;&#x0644;&#x0641;&#x0646;&#x064a;&#x064a;&#x0646; &#x0648;&#x0627;&#x0644;&#x0632;&#x064a;&#x0627;&#x0631;&#x0627;&#x062a;&#x060c; &#x0648;&#x062d;&#x062f;&#x062f; &#x0627;&#x0644;&#x0632;&#x064a;&#x0627;&#x0631;&#x0627;&#x062a; &#x0627;&#x0644;&#x0645;&#x062a;&#x0623;&#x062e;&#x0631;&#x0629; &#x0648;&#x0627;&#x0644;&#x0641;&#x0646;&#x064a;&#x064a;&#x0646; &#x0627;&#x0644;&#x0623;&#x0643;&#x062b;&#x0631; &#x0636;&#x063a;&#x0637;&#x0627; &#x0648;&#x0627;&#x0642;&#x062a;&#x0631;&#x062d; &#x0625;&#x0639;&#x0627;&#x062f;&#x0629; &#x062a;&#x0648;&#x0632;&#x064a;&#x0639; &#x0627;&#x0644;&#x0632;&#x064a;&#x0627;&#x0631;&#x0627;&#x062a; &#x0625;&#x0646; &#x0623;&#x0645;&#x0643;&#x0646;."><b>&#x0627;&#x0644;&#x0641;&#x0646;&#x064a;&#x0648;&#x0646; &#x0648;&#x0627;&#x0644;&#x0632;&#x064a;&#x0627;&#x0631;&#x0627;&#x062a;</b><small>&#x062a;&#x0648;&#x0632;&#x064a;&#x0639; &#x0648;&#x062a;&#x0623;&#x062e;&#x064a;&#x0631;</small></button></div><form class="modal-form ai-admin-form"><label>سؤالك للإدارة الذكية<textarea name="question" required placeholder="مثال: ما أهم 5 قرارات يجب اتخاذها اليوم؟"></textarea></label><button class="btn-primary">اسأل الوكيل</button></form><div id="aiAnswer" class="ai-answer">جاهز لتحليل بيانات شموس.</div></section><section class="panel" style="margin-top:24px"><h3 style="margin:0 0 12px;color:var(--navy)">الإنشاء الذكي المباشر</h3><p class="ai-assistant-hint" style="margin:0 0 12px">اكتب الأمر مباشرة وسيتم تنفيذه فوراً في النظام</p><form class="modal-form ai-exec-form" style="display:none"><label>وصف الأمر<textarea name="aiExecDesc" required placeholder="مثال: أنشئ عقد صيانة لمؤسسة الأفق للتجارة، مصعدين، بقيمة 12000 ريال، سنتين"></textarea></label><button type="button" class="btn-primary" data-ai-exec-create>تنفيذ الأمر</button></form><div class="voice-chat-container"><div class="voice-chat-messages" id="aiExecMessages"><div class="vc-empty"><svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg><p>اضغط زر المايك وابدأ التحدث<br><small>سيتحدث النظام بعد كل أمر</small></p></div></div><div class="voice-chat-input-bar"><div class="voice-chat-waveform" id="aiWaveform"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div><div class="voice-chat-mic-wrap"><svg class="vc-mic-ring" viewBox="0 0 64 64"><circle cx="32" cy="32" r="29"/></svg><button class="voice-chat-mic" id="aiVoiceMic" data-voice-chat-mic><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg></button></div><div class="voice-chat-status" id="aiExecStatus"><span class="vc-status-dot"></span> جاهز</div><button class="voice-chat-interrupt" id="aiInterruptBtn" title="إيقاف الكلام" style="display:none">⏹</button></div><div class="vc-transcript" id="aiTranscript" style="display:none"></div></div><div id="aiExecResult" style="display:none"></div></section>`}
   function loadAiAgentStatus(){const box=$("#aiAgentStatus");if(!box)return;fetch("/api/ai/agent/status",{cache:"no-store"}).then(r=>r.json()).then(data=>{const counts=data.contextCounts||{},recent=data.recentMemory||[];box.innerHTML=`<div class="ai-agent-grid"><div><small>قاعدة المعرفة</small><b>${data.knowledge?.modules?.length||0}</b><span>وحدة متخصصة للمصاعد</span></div><div><small>ذاكرة المحادثات</small><b>${data.memoryCount||0}</b><span>تستخدم للتحسين والتقييم</span></div><div><small>بلاغات مفتوحة</small><b>${counts.openTickets||0}</b><span>ضمن سياق الوكيل</span></div><div><small>زيارات متأخرة</small><b>${counts.lateVisitsWithoutReport||0}</b><span>للاستدلال التشغيلي</span></div></div>${recent.length?`<h3>آخر نوايا الوكيل</h3><ul class="list-widget">${recent.map(x=>`<li><strong>${esc(x.intent)}</strong><span>${x.allowed?"مسموح":"مرفوض بالصلاحيات"} · ${fmtDate(x.createdAt)}</span></li>`).join("")}</ul>`:""}`}).catch(()=>{box.textContent="تعذر تحميل حالة الوكيل."})}
   async function askAi(question, answerId="aiAnswer"){const box=$(answerId.startsWith("#")?answerId:"#"+answerId);if(!box)return;box.textContent="جاري تحليل بيانات النظام عبر Groq...";try{const local=await handleAiAction(question);if(local){box.innerHTML=String(local).trim().startsWith("<section")?local:`<pre>${esc(local)}</pre>`;return}const r=await fetch("/api/ai/admin",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({question,userId:session.id,role:session.role,name:session.name})}),data=await r.json().catch(()=>({}));if(!r.ok)throw new Error(data.error||"تعذر الاتصال بـ Groq");box.innerHTML=`<pre>${esc(data.answer||"لا توجد إجابة.")}</pre>${data.contextCounts?`<small>تم التحليل على ملخص: ${Object.entries(data.contextCounts).map(([k,v])=>`${k}: ${v}`).join(" · ")}</small>`:""}`}catch(err){box.innerHTML=`<b>تعذر تشغيل الإدارة الذكية.</b><p>${esc(err.message||"تحقق من إعداد GROQ_API_KEY على السيرفر.")}</p>`}}
   const arText=s=>{const el=document.createElement("textarea");el.innerHTML=s;return el.value};
@@ -314,7 +314,211 @@
     const pdf=e.target.closest("[data-pdf-doc]");if(pdf){printDoc(pdf.dataset.pdfDoc,pdf.dataset.pdfId);return}
     const focus=e.target.closest("[data-focus-map]");if(focus){$("#trackingMap").src=mapEmbed(focus.dataset.focusMap,focus.dataset.focusFallback);return}
     const aiPrompt=e.target.closest("[data-ai-prompt]");if(aiPrompt){const f=$(".ai-admin-form");if(f){f.question.value=aiPrompt.dataset.aiPrompt;askAi(f.question.value)}return}
-    const voiceMic=e.target.closest("[data-voice-chat-mic]");if(voiceMic){const msg=document.getElementById("aiExecMessages"),st=document.getElementById("aiExecStatus");const mic=voiceMic;if(!window.voiceChatActive){window.voiceChatActive=true;mic.textContent="\u23F9";mic.classList.add("listening");const mt=msg.querySelector(".vc-empty");if(mt)mt.remove();(function n(){if(!window.voiceChatActive)return;st.textContent="\uD83C\uDFA4 \u0627\u0633\u062A\u0645\u0639...";window.voiceChatRec=listenArabic(function(t){if(!window.voiceChatActive||!t)return;msg.insertAdjacentHTML("beforeend",'<div class="vc-msg vc-user"><div class="vc-bubble">'+esc(t)+'</div></div>');msg.scrollTop=msg.scrollHeight;st.textContent="\u26A1 \u062C\u0627\u0631\u064A \u0627\u0644\u062A\u0646\u0641\u064A\u0630...";fetch("/api/ai/execute",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({question:t,voiceMode:"saudi",voiceProfile:"local-samples",userId:session.id,role:session.role,name:session.name})}).then(function(r){return r.json()}).then(function(d){if(!window.voiceChatActive)return;var reply=d.message||"\u062A\u0645 \u0627\u0644\u062A\u0646\u0641\u064A\u0630";msg.insertAdjacentHTML("beforeend",'<div class="vc-msg vc-ai"><div class="vc-bubble">'+esc(reply)+'</div></div>');msg.scrollTop=msg.scrollHeight;if(d.openForm&&d.formType){var fm={contract:"contract",quote:"quote",ticket:"ticket",visit:"visit",staff:"staff",supplier:"supplier",part:"part"},fk=fm[d.formType]||d.formType,dd=d.data||{};openForm(fk);setTimeout(function(){var f=document.getElementById("modalContent").querySelector("form");if(!f)return;var fl={contract:["clientName","clientCompanyName","clientId","type","value"],quote:["clientName","clientCompanyName","value"],ticket:["title","description","priority"],visit:["clientName","clientCompanyName","scheduledAt"],staff:["name","identity","role"],supplier:["name","phone","city"]},fs=fl[d.formType]||[];fs.forEach(function(k){var v=dd[k];if(!v)return;var el=f.querySelector('[name="'+k+'"]');if(el){el.value=v;el.dispatchEvent(new Event("input",{bubbles:true}))}});if(dd.building&&dd.building.name){var b=f.querySelector('[name="buildingName"]');if(b){b.value=dd.building.name;b.dispatchEvent(new Event("input",{bubbles:true}))}}},300)}st.textContent="\uD83D\uDD0A \u064A\u062A\u062D\u062F\u062B \u0627\u0644\u0646\u0638\u0627\u0645...";speakArabic(reply);var si=setInterval(function(){if(!window.speechSynthesis||!window.speechSynthesis.speaking){clearInterval(si);if(window.voiceChatActive)n();else st.textContent="\u0645\u062A\u0648\u0642\u0641"}},300)}).catch(function(e){if(!window.voiceChatActive)return;msg.insertAdjacentHTML("beforeend",'<div class="vc-msg vc-ai"><div class="vc-bubble vc-error">\u062E\u0637\u0623: '+esc(e.message)+'</div></div>');msg.scrollTop=msg.scrollHeight;if(window.voiceChatActive)n()})},function(s){if(s&&window.voiceChatActive)st.textContent=s})})()}else{window.voiceChatActive=false;if(window.voiceChatRec){window.voiceChatRec.stop();window.voiceChatRec=null}window.speechSynthesis&&window.speechSynthesis.cancel();mic.textContent="\uD83C\uDFA4";mic.classList.remove("listening");st.textContent="\u0645\u062A\u0648\u0642\u0641"}return}
+    const vcBtn = e.target.closest("[data-voice-chat-mic]");
+    if (vcBtn) {
+      const msg = document.getElementById("aiExecMessages"), st = document.getElementById("aiExecStatus"),
+            wave = document.getElementById("aiWaveform"), trn = document.getElementById("aiTranscript"),
+            intr = document.getElementById("aiInterruptBtn"), mic = vcBtn;
+      const dot = st?.querySelector(".vc-status-dot");
+      if (!window.voiceChatActive) {
+        window.voiceChatActive = true;
+        mic.classList.add("listening");
+        if (intr) intr.style.display = "grid";
+        const empty = msg?.querySelector(".vc-empty");
+        if (empty) empty.remove();
+        function setStatus(text, ok) {
+          if (!st) return;
+          st.innerHTML = '<span class="vc-status-dot" style="background:' + (ok ? '#9abf8a' : '#e8b84b') + '"></span> ' + text;
+        }
+        function scrollMsg() { if (msg) { msg.scrollTop = msg.scrollHeight; } }
+        function addMsg(sender, text, err) {
+          const t = new Date().toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
+          const cls = sender === "user" ? "vc-user" : "vc-ai";
+          const extra = err ? " vc-error" : "";
+          if (msg) {
+            msg.insertAdjacentHTML("beforeend", '<div class="vc-msg ' + cls + '"><div class="vc-bubble' + extra + '">' + esc(text) + '<span class="vc-time">' + t + '</span></div></div>');
+            scrollMsg();
+          }
+        }
+        function showTyping(show) {
+          if (!msg) return;
+          const existing = msg.querySelector(".vc-typing");
+          if (show && !existing) {
+            msg.insertAdjacentHTML("beforeend", '<div class="vc-msg vc-ai"><div class="vc-typing"><span></span><span></span><span></span></div></div>');
+            scrollMsg();
+          } else if (!show && existing) {
+            existing.closest(".vc-msg")?.remove();
+          }
+        }
+        function startWave() { if (wave) wave.classList.add("active"); }
+        function stopWave() { if (wave) wave.classList.remove("active"); }
+
+        // Create dedicated recognition for real-time transcription
+        var rec = null;
+        try {
+          var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+          if (SR) {
+            rec = new SR();
+            rec.lang = "ar-SA";
+            rec.interimResults = true;
+            rec.continuous = false;
+            window.voiceChatRec = rec;
+          }
+        } catch (_) { rec = null; }
+
+        function startListen() {
+          if (!window.voiceChatActive) return;
+          setStatus("🎤 استمع...", true);
+          startWave();
+          if (trn) { trn.style.display = "none"; trn.textContent = ""; }
+
+          if (rec) {
+            // Use dedicated recognition with interim results
+            try { rec.abort(); } catch (_) {}
+            var finalText = "";
+            rec.onstart = function () { /* started */ };
+            rec.onerror = function (ev) {
+              if (!window.voiceChatActive) return;
+              if (ev.error === "no-speech") { startListen(); return; }
+              if (ev.error === "aborted") return;
+              stopWave();
+              setStatus("❌ تعذر الاستماع، حاول مرة أخرى", false);
+              setTimeout(function () { if (window.voiceChatActive) startListen(); }, 1500);
+            };
+            rec.onresult = function (ev) {
+              var interim = "";
+              for (var i = 0; i < ev.results.length; i++) {
+                var r = ev.results[i];
+                if (r.isFinal) {
+                  finalText += (finalText ? " " : "") + (r[0]?.transcript || "");
+                } else {
+                  interim += (r[0]?.transcript || "");
+                }
+              }
+              var display = finalText + (interim ? " " + interim : "");
+              if (display && trn) {
+                trn.textContent = display;
+                trn.style.display = "block";
+              }
+            };
+            rec.onend = function () {
+              stopWave();
+              if (trn) trn.style.display = "none";
+              if (!window.voiceChatActive) return;
+              if (finalText.trim()) {
+                handleCommand(finalText.trim());
+              } else {
+                setStatus("🎤 لم أسمعك، حاول مرة أخرى", false);
+                setTimeout(function () { if (window.voiceChatActive) startListen(); }, 1200);
+              }
+            };
+            rec.start();
+          } else {
+            // Fallback: use shared listenArabic
+            window.voiceChatRec = listenArabic(
+              function (text) { if (window.voiceChatActive && text) handleCommand(text); },
+              function (status) { if (window.voiceChatActive && status) setStatus(status, true); }
+            );
+            stopWave();
+          }
+        }
+
+        function handleCommand(text) {
+          if (!window.voiceChatActive) return;
+          addMsg("user", text);
+          setStatus("⚡ جاري التنفيذ...", true);
+          showTyping(true);
+
+          fetch("/api/ai/execute", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ question: text, userId: session.id, role: session.role, name: session.name })
+          })
+          .then(function (r) { return r.json(); })
+          .then(function (d) {
+            showTyping(false);
+            if (!window.voiceChatActive) return;
+            var reply = d.message || "تم التنفيذ";
+            addMsg("ai", reply);
+            if (d.openForm && d.formType) {
+              var fm = { contract: "contract", quote: "quote", ticket: "ticket", visit: "visit", staff: "staff", supplier: "supplier", part: "part" };
+              var fk = fm[d.formType] || d.formType;
+              var dd = d.data || {};
+              openForm(fk);
+              setTimeout(function () {
+                var f = document.getElementById("modalContent")?.querySelector("form");
+                if (!f) return;
+                var fl = { contract: ["clientName", "clientCompanyName", "clientId", "type", "value"], quote: ["clientName", "clientCompanyName", "value"], ticket: ["title", "description", "priority"], visit: ["clientName", "clientCompanyName", "scheduledAt"], staff: ["name", "identity", "role"], supplier: ["name", "phone", "city"] };
+                var fs = fl[d.formType] || [];
+                fs.forEach(function (k) { var v = dd[k]; if (!v) return; var el = f.querySelector('[name="' + k + '"]'); if (el) { el.value = v; el.dispatchEvent(new Event("input", { bubbles: true })); } });
+                if (dd.building && dd.building.name) { var b = f.querySelector('[name="buildingName"]'); if (b) { b.value = dd.building.name; b.dispatchEvent(new Event("input", { bubbles: true })); } }
+              }, 300);
+            }
+            setStatus("🔊 يتحدث النظام...", true);
+            speakArabic(reply);
+            var si = setInterval(function () {
+              if (!window.speechSynthesis || !window.speechSynthesis.speaking) {
+                clearInterval(si);
+                if (window.voiceChatActive) startListen();
+                else setStatus("متوقف", false);
+              }
+            }, 300);
+          })
+          .catch(function (e) {
+            showTyping(false);
+            if (!window.voiceChatActive) return;
+            addMsg("ai", "خطأ: " + e.message, true);
+            if (window.voiceChatActive) startListen();
+          });
+        }
+
+        // Start the first listen cycle
+        startListen();
+      } else {
+        // Stop conversation
+        window.voiceChatActive = false;
+        if (window.voiceChatRec) {
+          try { window.voiceChatRec.stop(); } catch (_) {}
+          try { window.voiceChatRec.abort(); } catch (_) {}
+          window.voiceChatRec = null;
+        }
+        window.speechSynthesis?.cancel();
+        mic.classList.remove("listening");
+        if (intr) intr.style.display = "none";
+        stopWave();
+        if (trn) trn.style.display = "none";
+        setStatus("متوقف", false);
+      }
+      return;
+    }
+
+    // Interrupt button handler
+    const intBtn = e.target.closest("#aiInterruptBtn");
+    if (intBtn && window.voiceChatActive) {
+      window.speechSynthesis?.cancel();
+      // Restart listening directly
+      if (window.voiceChatRec) {
+        try { window.voiceChatRec.stop(); } catch (_) {}
+        try { window.voiceChatRec.abort(); } catch (_) {}
+      }
+      // Find the mic handler's internal state and restart
+      var si2 = document.getElementById("aiExecStatus");
+      if (si2) si2.innerHTML = '<span class="vc-status-dot" style="background:#9abf8a"></span> 🎤 استمع...';
+      // Trigger the mic as if starting fresh (preserve active state)
+      var wr = document.getElementById("aiWaveform");
+      if (wr) wr.classList.add("active");
+      // Re-fetch aiExecMessages and re-start
+      var msg2 = document.getElementById("aiExecMessages");
+      var mt2 = msg2?.querySelector(".vc-typing");
+      if (mt2) mt2.closest(".vc-msg")?.remove();
+      // Restart via dispatching a custom event to the voice handler
+      // The startListen function is scoped inside the vcBtn handler, so we need to trigger a re-start differently
+      // Force a new cycle: briefly toggle active off then on
+      window.voiceChatActive = false;
+      var micEl = document.querySelector("[data-voice-chat-mic]");
+      if (micEl) { micEl.classList.remove("listening"); setTimeout(function () { micEl.click(); }, 50); }
+      return;
+    }
 
     const aiExecCreate=e.target.closest("[data-ai-exec-create]");if(aiExecCreate){const panel=aiExecCreate.closest(".ai-exec-form")||aiExecCreate.closest("section");if(!panel)return;const desc=panel.querySelector("[name=aiExecDesc]")?.value.trim();const box=$("#aiExecResult");if(!desc)return toast("اكتب الأمر المطلوب");box.innerHTML='<div class="ai-assistant-result loading" style="display:block">جاري تحليل الأمر...</div>';fetch("/api/ai/execute",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({question:desc,userId:session.id,role:session.role,name:session.name})}).then(r=>r.json()).then(data=>{if(data.openForm&&data.formType){box.innerHTML=`<pre style="white-space:pre-wrap;background:#dff4eb;color:#267158;padding:14px;border-radius:10px;line-height:1.9">${esc(data.message)}</pre>`;const d=data.data||{};toast("جاري فتح النموذج...");const formKeyMap={contract:"contract",quote:"quote",ticket:"ticket",visit:"visit",staff:"staff",supplier:"supplier",part:"part"};const fk=formKeyMap[data.formType]||data.formType;if(openForm(fk)){setTimeout(()=>{const form=$("#modalContent form");if(!form)return;const fieldMap={contract:["clientName","clientCompanyName","clientCompanyUnifiedNumber","clientId","type","value","details"],quote:["clientName","clientCompanyName","client","value","details"],ticket:["title","description","clientName","clientCompanyName","priority"],visit:["clientName","clientCompanyName","scheduledAt","notes"],staff:["name","identity","role"],supplier:["name","phone","city","category"]};const fields=fieldMap[data.formType]||[];fields.forEach(k=>{const v=d[k];if(!v)return;const el=form.querySelector(`[name="${k}"]`);if(el){el.value=v;el.dispatchEvent(new Event("input",{bubbles:true}));el.dispatchEvent(new Event("change",{bubbles:true}))}});if(d.type){const sel=form.querySelector('[name="type"]');if(sel){sel.value=d.type;sel.dispatchEvent(new Event("change",{bubbles:true}))}}if(d.building?.name){const b=form.querySelector('[name="buildingName"]');if(b){b.value=d.building.name;b.dispatchEvent(new Event("input",{bubbles:true}))}}toast("تم تعبئة البيانات المستخرجة، أكمل الباقي يدوياً")},300)}}else if(data.executed){box.innerHTML=`<pre style="white-space:pre-wrap;background:#dff4eb;color:#267158;padding:14px;border-radius:10px;line-height:1.9">${esc(data.message)}</pre>`;toast("✅ تم التنفيذ");setTimeout(()=>render(),1500)}else{box.innerHTML=`<pre style="white-space:pre-wrap;background:#fff0ed;color:#b33;padding:14px;border-radius:10px;line-height:1.9">${esc(data.message||"لم أتمكن من فهم الأمر")}</pre>`}}).catch(err=>{box.innerHTML=`<pre style="white-space:pre-wrap;background:#fff0ed;color:#b33;padding:14px;border-radius:10px;line-height:1.9">خطأ: ${esc(err.message)}</pre>`});return}
     const aiToggle=e.target.closest("[data-ai-toggle]");if(aiToggle){const body=aiToggle.parentElement.querySelector(".ai-assistant-body");const arrow=aiToggle.querySelector(".ai-arrow");if(body){const open=body.style.display!="none";body.style.display=open?"none":"block";if(arrow)arrow.textContent=open?"▶":"▼"}return}
