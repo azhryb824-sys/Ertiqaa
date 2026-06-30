@@ -1890,29 +1890,84 @@ function buildAiContext(store) {
     recentVisits: compactRows(visits, ["id", "visitType", "status", "assignedTo", "assignedName", "scheduledAt", "clientName", "clientCompanyName"], 25)
   };
 }
+function nextContractId(contracts) {
+  let maxNum = 0;
+  contracts.forEach(c => {
+    const m = String(c.id || "").match(/^CONT(\d{4})$/);
+    if (m) maxNum = Math.max(maxNum, Number(m[1]));
+  });
+  return `CONT${String(maxNum + 1).padStart(4, "0")}`;
+}
+
+function arabicLocaleDate() {
+  return new Date().toLocaleString("ar-SA");
+}
+
+function defaultMaintenanceChecklist() {
+  const sections = [
+    {section: "غرفة المصعد", items:["فحص زيت المحرك والتأكد من سيره الطبيعي.","فحص قماش الفرامل.","فحص عمل الفرامل وتضبيطه وتشحيم المحاور.","فحص السيور والتأكد من سلامتها.","فحص سلكتور والطوابق.","فحص جهاز الهبوط الاضطراري.","فحص منظم السرعة وضبطه.","تنظيف أرضية الغرفة.","التأكد من سلامة التمديدات الكهربائية بالغرفة.","التأكد من عدم وجود تهريب مياه بالغرفة.","التأكد من عدم وجود أي تخزين بالغرفة.","التأكد من وجود التكييف بحالة سليمة."]},
+    {section: "بئر المصعد", items:["فحص التوصيلات الكهربائية أعلى الصاعدة والتأكد من سلامتها.","فحص جهاز الريفيزيون في حالة الصعود والهبوط والتوقف.","فحص حبال الجر وشدادات الحبال.","فحص بكرات الحبال والتأكد من سلامتها.","تزييت وتشحيم أدلة سير الصاعدة والثقل.","فحص قواطع نهاية المشوار.","فحص مغناطيس الأدوار.","الكشف على مروحة الصاعدة."]},
+    {section: "داخل المصعد", items:["الكشف على أزرار التحكم والتشغيل.","الكشف عن الإنارة والجرس والانتركوم.","تنظيف مجاري الأبواب."]},
+    {section: "أبواب الطوابق", items:["فحص أبواب الأدوار وضبطها.","فحص محركات الأبواب.","فحص وتنظيف الشوك والكوالين.","فحص مفصلات الأبواب.","فحص الكابلات والمؤشرات والمبينات وضبط الإضاءة."]},
+    {section: "حفرة البئر", items:["الكشف على بكرة منظم السرعة.","تنظيف وفحص قواطع نهاية المشوار.","فحص التوصيلات الكهربائية أسفل الصاعدة والتأكد من سلامتها.","تنظيف الحفرة."]}
+  ];
+  return sections.flatMap(sec => sec.items.map((title, i) => ({
+    id: `${sec.section}-${i}`, section: sec.section, title, status: "مطلوب", checked: false, note: ""
+  })));
+}
+
+function addYears(date, years) {
+  const d = new Date(date);
+  d.setFullYear(d.getFullYear() + Number(years || 1));
+  d.setDate(d.getDate() - 1);
+  return d;
+}
+
+function dateVal(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 function executeAiAction(actionData, store) {
   const result = {executed: false, action: actionData.action, message: ""};
+  const ownerCompanies = parseStoredJson(store, "misadOwnerCompanies");
+  const owner = ownerCompanies[0] || {id: "", name: "شركة غير محددة"};
   try {
     switch (actionData.action) {
       case "create_contract": {
         const contracts = parseStoredJson(store, "misadContracts");
+        const d = actionData.data || {};
+        const startDate = d.startDate || new Date().toISOString().split("T")[0];
+        const years = Number(d.contractYears || 1);
+        const endDate = d.endDate || dateVal(addYears(new Date(`${startDate}T00:00`), years));
+        const isInstall = d.type === "تركيب";
+        const user = parseStoredJson(store, "misadUsers").find(u => u.id === actionData.userId);
+        const r = user ? {id: user.id, name: user.name} : {id: actionData.userId || "ai", name: "الذكاء الاصطناعي"};
         const contract = {
-          id: `CONT${String(contracts.length + 1).padStart(4, "0")}`,
-          type: actionData.data.type || "صيانة",
-          status: "بانتظار الاعتماد",
-          clientName: actionData.data.clientName || "",
-          clientId: actionData.data.clientId || "",
-          clientCompanyName: actionData.data.clientCompanyName || "",
-          clientCompanyUnifiedNumber: actionData.data.clientCompanyUnifiedNumber || "",
-          startDate: actionData.data.startDate || new Date().toISOString().split("T")[0],
-          endDate: actionData.data.endDate || "",
-          value: Number(actionData.data.value || 0),
-          details: actionData.data.details || "",
-          buildings: actionData.data.buildings || [],
-          elevatorInfo: actionData.data.elevatorInfo || {},
-          maintenanceChecklist: actionData.data.maintenanceChecklist || [],
-          createdAt: new Date().toISOString(),
-          createdBy: actionData.userId || "ai"
+          id: nextContractId(contracts),
+          companyOwnerId: d.companyOwnerId || actionData.userId || "ai",
+          companyId: d.companyId || owner.id || "",
+          type: d.type || "صيانة",
+          targetType: d.targetType || "client",
+          clientId: d.clientId || "",
+          clientName: d.clientName || "",
+          clientCompanyUnifiedNumber: d.clientCompanyUnifiedNumber || "",
+          clientCompanyName: d.clientCompanyName || "",
+          value: Number(d.value || 0),
+          elevatorInfo: Object.assign({count: "", brand: "", age: "", capacity: "", doorType: "", usage: ""}, d.elevatorInfo || {}),
+          installationInfo: isInstall ? Object.assign({stops: "", entrances: "", battery: "", doorOpening: "", shaftSize: "", motor: "", controller: "", outerDoors: "", safetyDoor: "", cabin: "", power: "", speed: "", warranty: "", note: ""}, d.installationInfo || {}) : {},
+          maintenanceChecklist: d.maintenanceChecklist && d.maintenanceChecklist.length ? d.maintenanceChecklist : defaultMaintenanceChecklist(),
+          buildings: d.buildings && d.buildings.length ? d.buildings : [{name: "", district: "", mapUrl: "", guardMobile: ""}],
+          items: d.items || [],
+          customItems: d.customItems || [],
+          details: isInstall ? "" : (d.details || ""),
+          status: "بانتظار موافقة العميل",
+          startDate: startDate,
+          contractYears: years,
+          endDate: endDate,
+          createdAt: arabicLocaleDate(),
+          createdAtMs: Date.now(),
+          createdBy: r.id,
+          company: {name: owner.name || "شركة غير محددة"}
         };
         contracts.unshift(contract);
         store.misadContracts = JSON.stringify(contracts.slice(0, 200));
@@ -1924,27 +1979,47 @@ function executeAiAction(actionData, store) {
       }
       case "create_quote": {
         const quotes = parseStoredJson(store, "misadQuotes");
+        const d = actionData.data || {};
+        const baseValue = Number(d.value || 0);
+        const itemsTotal = (d.items || []).reduce((s, i) => s + Number(i.price || 0), 0);
+        const customTotal = (d.customItems || []).reduce((s, i) => s + Number(i.price || 0), 0);
+        const partsTotal = (d.partsItems || []).reduce((s, i) => s + Number(i.price || 0), 0);
+        const subtotal = baseValue + itemsTotal + customTotal + partsTotal;
+        const taxRate = 0.15;
+        const taxAmount = subtotal * taxRate;
+        const total = subtotal + taxAmount;
+        const clientName = d.clientName || "";
+        const companyName = d.clientCompanyName || "";
         const quote = {
           id: `QTO-${Date.now()}`,
-          title: actionData.data.title || "عرض سعر",
-          client: actionData.data.clientName || "",
-          clientId: actionData.data.clientId || "",
-          clientCompanyName: actionData.data.clientCompanyName || "",
-          clientCompanyUnifiedNumber: actionData.data.clientCompanyUnifiedNumber || "",
-          value: Number(actionData.data.value || 0),
+          companyOwnerId: d.companyOwnerId || actionData.userId || "ai",
+          clientId: d.clientId || "",
+          clientName: clientName,
+          clientCompanyUnifiedNumber: d.clientCompanyUnifiedNumber || "",
+          clientCompanyName: companyName,
+          client: d.client || companyName || clientName || "عميل",
+          title: d.title || "عرض سعر",
+          value: total,
+          subtotal: subtotal,
+          taxRate: taxRate,
+          taxAmount: taxAmount,
+          totalWithTax: total,
           status: "بانتظار المراجعة والاعتماد",
-          items: actionData.data.items || [],
-          customItems: actionData.data.customItems || [],
-          details: actionData.data.details || "",
-          createdBy: actionData.userId || "ai",
-          createdAt: new Date().toISOString(),
-          createdAtMs: Date.now()
+          reportId: d.reportId || "",
+          elevatorInfo: Object.assign({count: "", brand: "", age: "", capacity: "", doorType: "", usage: ""}, d.elevatorInfo || {}),
+          maintenanceChecklist: d.maintenanceChecklist && d.maintenanceChecklist.length ? d.maintenanceChecklist : [],
+          items: d.items || [],
+          partsItems: d.partsItems || [],
+          customItems: d.customItems || [],
+          details: d.details || "",
+          createdAt: arabicLocaleDate(),
+          createdBy: actionData.userId || "ai"
         };
         quotes.unshift(quote);
         store.misadQuotes = JSON.stringify(quotes.slice(0, 200));
         writeStore(store);
         result.executed = true;
-        result.message = `تم إنشاء عرض السعر ${quote.id} بنجاح`;
+        result.message = `تم إنشاء عرض السعر ${quote.id} بنجاح بقيمة ${total.toFixed(2)} ريال`;
         result.quote = quote;
         break;
       }
