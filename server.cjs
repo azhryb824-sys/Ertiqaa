@@ -23,7 +23,13 @@ const types = {
   ".png": "image/png",
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
-  ".svg": "image/svg+xml"
+  ".svg": "image/svg+xml",
+  ".aac": "audio/aac",
+  ".m4a": "audio/mp4",
+  ".mp3": "audio/mpeg",
+  ".wav": "audio/wav",
+  ".ogg": "audio/ogg",
+  ".flac": "audio/flac"
 };
 
 function parseCookies(header = "") {
@@ -83,6 +89,29 @@ function publicOrigin(req) {
   const proto = req.headers["x-forwarded-proto"] || "http";
   const hostName = req.headers["x-forwarded-host"] || req.headers.host || `${host}:${port}`;
   return `${proto}://${hostName}`;
+}
+
+function voiceSampleList() {
+  const allowed = new Set([".aac", ".m4a", ".mp3", ".wav", ".ogg", ".flac"]);
+  try {
+    return fs.readdirSync(root, {withFileTypes: true})
+      .filter(item => item.isFile() && allowed.has(path.extname(item.name).toLowerCase()))
+      .map(item => {
+        const filePath = path.join(root, item.name);
+        const stat = fs.statSync(filePath);
+        return {
+          name: item.name,
+          ext: path.extname(item.name).toLowerCase(),
+          size: stat.size,
+          updatedAt: stat.mtime.toISOString(),
+          url: `/${encodeURIComponent(item.name)}`
+        };
+      })
+      .sort((a, b) => b.size - a.size)
+      .slice(0, 200);
+  } catch {
+    return [];
+  }
 }
 
 function inviteList(store) {
@@ -2385,7 +2414,7 @@ async function askGroq(question, context, user = {}, conversationId = null) {
   }
   
    const systemPrompt = `You are the Shumoos elevator management AI agent. You are not a generic chatbot; you are specialized in elevator company operations.
-Answer in Arabic with a Saudi-friendly professional style. Use the provided system summary, knowledge base, and local agent plan. You can answer questions about the system, summarize records, analyze technician workload, review visits, find delayed visits, suggest technician assignment priorities, support voice chat, and help convert spoken Arabic into clean form-field values across the system. When the user explicitly asks to convert spoken text for a form field, return only the final field value without explanation.
+Answer in Arabic with a clear Saudi white dialect when the request comes from voice chat, and keep a professional Saudi business tone in normal admin answers. Keep voice replies short, natural, and easy to speak aloud. Use the provided system summary, knowledge base, and local agent plan. You can answer questions about the system, summarize records, analyze technician workload, review visits, find delayed visits, suggest technician assignment priorities, support voice chat, and help convert spoken Arabic into clean form-field values across the system. When the user explicitly asks to convert spoken text for a form field, return only the final field value without explanation.
 IMPORTANT: You CAN now directly execute commands. To execute an action, include a JSON block in your response like these examples:
 For a maintenance or installation contract (عقد صيانة / عقد تركيب): [EXECUTE:{"action":"create_contract","data":{"type":"صيانة","clientName":"...","value":0}}]
 For a price quote (عرض سعر): [EXECUTE:{"action":"create_quote","data":{"clientName":"...","value":0,"details":"..."}}]
@@ -2458,6 +2487,20 @@ http.createServer((req, res) => {
   }
 
   if (!hasEntryAccess(req) && !hasDeviceAccess(req)) return sendLocked(res);
+
+  if (pathname === "/api/voice/samples" && req.method === "GET") {
+    const samples = voiceSampleList();
+    return sendJson(res, 200, {
+      samples,
+      count: samples.length,
+      speechRecognitionLang: "ar-SA",
+      speechSynthesisLang: "ar-SA",
+      dialect: "Saudi Arabic",
+      voiceCloneModel: process.env.VOICE_CLONE_MODEL || "",
+      commercialUseVerified: Boolean(process.env.VOICE_CLONE_MODEL_COMMERCIAL_OK === "1"),
+      mode: process.env.VOICE_CLONE_MODEL ? "external-model-ready" : "browser-tts-with-local-samples"
+    });
+  }
 
   if (req.url.startsWith("/api/push/register") && req.method === "POST") {
     let body = "";
@@ -2663,64 +2706,56 @@ http.createServer((req, res) => {
         };
 
         const action = actionMap[plan.intent];
-        if (!action) return sendJson(res, 200, {executed: false, message: "لم يتم التعرف على أمر قابل للتنفيذ. استخدم النموذج الأول للإدارة الذكية للاستفسارات العامة."});
+        if (!action) return sendJson(res, 200, {openForm: false, message: "لم يتم التعرف على الأمر. جرب: أنشئ عقد, عرض سعر, بلاغ, زيارة, فني, مورد"});
 
         // Build data from plan extraction
         const d = Object.assign({}, plan.data, {details: question, userId});
-        const actionData = {action, data: d, userId};
 
-        // Define required fields per action with Arabic labels
-        const requiredFields = {
-          create_contract: [
-            {key: "clientName", label: "اسم العميل أو المنشأة", hint: "مثال: مؤسسة الأفق للتجارة"},
-            {key: "value", label: "قيمة العقد", hint: "مثال: بقيمة 15000 ريال"}
-          ],
-          create_quote: [
-            {key: "clientName", label: "اسم العميل", hint: "مثال: لشركة الأفق"},
-            {key: "value", label: "قيمة عرض السعر", hint: "مثال: بقيمة 5000 ريال"}
-          ],
-          create_ticket: [
-            {key: "title", label: "عنوان البلاغ", hint: "مثال: عطل في المصعد"}
-          ],
-          create_visit: [
-            {key: "clientName", label: "اسم العميل أو المنشأة", hint: "مثال: لمؤسسة الأفق"}
-          ],
-          add_staff: [
-            {key: "name", label: "اسم الفني", hint: "مثال: محمد أحمد"},
-            {key: "identity", label: "رقم الهوية", hint: "مثال: 1234567890"}
-          ],
-          create_supplier: [
-            {key: "name", label: "اسم المورد", hint: "مثال: شركة التقنية"}
-          ],
-          assign_visit: [
-            {key: "visitId", label: "رقم الزيارة", hint: "مثال: VIS-12345"},
-            {key: "technicianName", label: "اسم الفني", hint: "مثال: لـ أحمد"}
-          ]
+        // Map intent to form type that client will open
+        const formMap = {
+          create_maintenance_contract: "contract",
+          create_installation_contract: "contract",
+          create_quote: "quote",
+          create_ticket: "ticket",
+          create_visit: "visit",
+          add_staff: "staff",
+          create_supplier: "supplier",
+          create_part: "part"
         };
 
-        // Validation: check for missing required fields
-        const needs = requiredFields[action] || [];
-        const missing = needs.filter(f => !d[f.key] || String(d[f.key]).trim() === "");
-        if (missing.length > 0) {
-          const fieldHints = missing.map(f => `• ${f.label}: ${f.hint}`).join("\n");
+        // Action labels for user messages
+        const actionLabels = {
+          create_contract: "العقد",
+          create_quote: "عرض السعر",
+          create_ticket: "البلاغ",
+          create_visit: "الزيارة",
+          add_staff: "الفني",
+          create_supplier: "المورد"
+        };
+
+        const creationActions = ["create_contract", "create_quote", "create_ticket", "create_visit", "add_staff", "create_supplier"];
+        const isCreation = creationActions.includes(action);
+
+        if (isCreation && formMap[plan.intent]) {
+          // Return form type and extracted data — client opens the manual form
+          const formType = formMap[plan.intent];
+          let msg = `✅ تم استخراج البيانات. سيتم فتح نموذج ${actionLabels[action] || "الإنشاء"} لتكملة البيانات يدوياً.`;
+          if (!d.clientName && !d.name && !d.title) msg = `⚠️ لم أتمكن من استخراج بيانات كافية. سيتم فتح النموذج فارغاً.`;
           return sendJson(res, 200, {
-            executed: false,
-            message: `⚠️ معلومات ناقصة. يرجى إضافة:\n\n${fieldHints}\n\n📝 مثال كامل: ${actionExamples[action] || ""}`,
-            missing: missing.map(f => f.key),
-            partial: d
+            openForm: true,
+            formType,
+            data: d,
+            message: msg,
+            action
           });
         }
 
-        // Action examples for user guidance
-        const actionExamples = {
-          create_contract: "أنشئ عقد صيانة لمؤسسة الأفق للتجارة بقيمة 15000 ريال لمدة سنتين",
-          create_quote: "أنشئ عرض سعر لشركة الأفق بقيمة 5000 ريال",
-          create_ticket: "أنشئ بلاغ عطل في مصعد مبنى الإدارة أولوية عالية",
-          create_visit: "أنشئ زيارة كشفية لمؤسسة الأفق يوم 2026-07-15",
-          add_staff: "أضف فني محمد أحمد هوية 1234567890",
-          create_supplier: "أضف مورد شركة التقنية جوال 0551234567 الرياض",
-          assign_visit: "أسند زيارة VIS-12345 إلى فني أحمد"
-        };
+        // --- Execute-only actions (assign, redistribute, notify) ---
+        if (action === "assign_visit" || action === "redistribute_visits" || action === "create_notification") {
+          const execResult = executeAiAction({action, data: d, userId}, store);
+          logAiOperation(store, action, {id: userId, name: userName, role}, {action, data: d, result: execResult.message});
+          return sendJson(res, 200, {executed: execResult.executed, message: execResult.message, action, data: execResult});
+        }
 
         // --- Local analysis (no Groq needed) ---
         if (action === "analyze_operations") {
@@ -2787,39 +2822,8 @@ http.createServer((req, res) => {
           return sendJson(res, 200, {executed: true, message: msg, action, data: analysis});
         }
 
-        // --- Execute via executeAiAction ---
-        const execResult = executeAiAction(actionData, store);
-
-        // Build rich response message
-        let msg = execResult.message;
-        if (execResult.executed) {
-          if (execResult.contract) {
-            const c = execResult.contract;
-            msg = `✅ تم إنشاء العقد بنجاح\n\n📋 رقم العقد: ${c.id}\n👤 العميل: ${c.clientName || c.clientCompanyName || "غير محدد"}\n💰 القيمة: ${Number(c.value).toFixed(2)} ريال\n📄 النوع: ${c.type}\n📅 البداية: ${c.startDate}\n📅 النهاية: ${c.endDate}\n🔄 الحالة: ${c.status}\n\nيمكنك الاطلاع على العقد في صفحة العقود.`;
-          } else if (execResult.quote) {
-            const qr = execResult.quote;
-            msg = `✅ تم إنشاء عرض السعر بنجاح\n\n📋 رقم العرض: ${qr.id}\n👤 العميل: ${qr.client}\n💰 القيمة: ${Number(qr.value).toFixed(2)} ريال (شامل الضريبة)\n🔄 الحالة: ${qr.status}\n\nيمكنك الاطلاع على العرض في صفحة عروض الأسعار.`;
-          } else if (execResult.ticket) {
-            const t = execResult.ticket;
-            msg = `✅ تم إنشاء البلاغ بنجاح\n\n📋 رقم البلاغ: ${t.id}\n📌 العنوان: ${t.title}\n🔄 الأولوية: ${t.priority}\n🔄 الحالة: ${t.status}\n\nيمكنك متابعة البلاغ في صفحة البلاغات.`;
-          } else if (execResult.visit) {
-            const v = execResult.visit;
-            msg = `✅ تم إنشاء الزيارة بنجاح\n\n📋 رقم الزيارة: ${v.id}\n🏢 الموقع: ${v.building?.name || "غير محدد"}\n📅 الموعد: ${v.scheduledAt}\n👤 المسند إليه: ${v.assignedName || "غير مسند"}\n🔄 الحالة: ${v.status}`;
-          } else if (execResult.supplier) {
-            const s = execResult.supplier;
-            msg = `✅ تم إضافة المورد بنجاح\n\n📋 اسم المورد: ${s.name}\n📞 الجوال: ${s.phone || "غير محدد"}\n🏙️ المدينة: ${s.city || "غير محدد"}\n📂 التصنيف: ${s.category}\n⭐ التقييم: ${s.rating}`;
-          } else if (execResult.staff) {
-            const s = execResult.staff;
-            msg = `✅ تم إضافة عضو الفريق بنجاح\n\n📋 الاسم: ${s.name}\n🆔 الهوية: ${s.identity}\n👤 الدور: ${s.role === "engineer" ? "مهندس" : "فني"}\n🔄 الحالة: ${s.status}`;
-          } else if (execResult.notification) {
-            msg = `✅ تم إنشاء الإشعار بنجاح\n📌 العنوان: ${execResult.notification.title}`;
-          } else if (execResult.redistribution) {
-            msg = `✅ تم إعادة توزيع ${execResult.redistribution.proposedAssignments?.length || 0} زيارة`;
-          }
-        }
-
-        logAiOperation(store, action, {id: userId, name: userName, role}, {action, data: d, result: execResult.message});
-        sendJson(res, 200, {executed: execResult.executed, message: msg, action, data: execResult});
+        // If nothing matched, return unknown
+        return sendJson(res, 200, {openForm: false, message: "لم يتم التعرف على الأمر. جرب: أنشئ عقد, عرض سعر, بلاغ, زيارة, فني, مورد"});
 
       } catch (e) {
         sendJson(res, 500, {executed: false, message: "خطأ في التنفيذ: " + e.message});
