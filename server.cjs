@@ -1774,15 +1774,45 @@ function inferAiPlan(question, context, user = {}) {
   // --- Data Extraction ---
   const extract = {};
 
-  // Client/Company name: بعد "لـ", "لمؤسسة", "لشركة", "مؤسسة", "شركة", "باسم"
+  // Client/Company name: بعد "لـ", "لمؤسسة", "لشركة", "لكتاب", "للشركة", "للمؤسسة", "باسم"
   const clientPatterns = [
-    /(?:لـ|لمؤسسة|لشركة|لكتاب|للشركة|للمؤسسة)\s*[""]?([^"",\d]{2,40}?)[""]?\s*(?:,|\.|$|بقيمة|بمبلغ|قيمته|مدة|لمدة|عقد|صيانة|تركيب)/i,
+    /(?:لـ|لمؤسسة|لشركة|لكتاب|للشركة|للمؤسسة|لعميل)\s*[""]?([^"",\d]{2,40}?)[""]?\s*(?:,|\.|$|بقيمة|بمبلغ|قيمته|مدة|لمدة|عقد|صيانة|تركيب)/i,
     /(?:مؤسسة|شركة|مكتب|مجموعة)\s*[""]?([^"",\d]{2,40}?)[""]?\s*(?:,|\.|$|بقيمة|بمبلغ|قيمته)/i,
     /باسم\s*[""]?([^"",\d]{3,50}?)[""]?\s*(?:,|\.|$|بقيمة|بمبلغ)/i
   ];
   for (const pattern of clientPatterns) {
     const m = q.match(pattern);
     if (m) { extract.clientName = m[1].trim(); break; }
+  }
+
+  // Title for tickets
+  const titlePatterns = [
+    /(?:عنوانه|عنوان|بلاغ)\s*[""]?([^"",\d]{3,60}?)[""]?\s*(?:,|\.|$|أولوية|في|بـ)/i,
+    /(?:عطل|مشكلة|خلل)\s*(.{3,60}?)(?:,|\.|$|أولوية|في|بـ)/i
+  ];
+  for (const pattern of titlePatterns) {
+    const m = q.match(pattern);
+    if (m) { extract.title = m[1].trim(); break; }
+  }
+
+  // Building name for visits
+  const buildingMatch = q.match(/(?:مبنى|عمارة|موقع|في)\s*[""]?([^"",\d]{3,30}?)[""]?\s*(?:,|\.|$|يوم|بتاريخ|الساعة)/i);
+  if (buildingMatch) extract.building = {name: buildingMatch[1].trim(), district: "", mapUrl: ""};
+
+  // Staff name and identity
+  const staffNameMatch = q.match(/(?:اسمه|اسم|فني|مهندس)\s*[""]?([^"",\d]{3,25}?)[""]?\s*(?:,|\.|$|هوية|رقم)/i);
+  if (staffNameMatch) extract.name = staffNameMatch[1].trim();
+  const identityMatch = q.match(/(?:هوية|رقم)\s*(\d{8,10})/i);
+  if (identityMatch) extract.identity = identityMatch[1];
+  const roleMatch = q.match(/مهندس|engineer/i);
+  if (roleMatch) extract.role = "engineer";
+  // also check if the word "فني" alone means technician
+  if (/فني/i.test(q) && !extract.name) extract.role = "technician";
+
+  // Supplier name
+  if (!extract.name) {
+    const suppMatch = q.match(/مورد\s*[""]?([^"",\d]{3,30}?)[""]?\s*(?:,|\.|$|جوال|في|تخصص)/i);
+    if (suppMatch) extract.name = suppMatch[1].trim();
   }
 
   // Value/Amount
@@ -1812,7 +1842,7 @@ function inferAiPlan(question, context, user = {}) {
   if (timeMatch && extract.scheduledAt) extract.scheduledAt += `T${timeMatch[1]}:${timeMatch[2]}`;
 
   // Technician name for assignment
-  const techMatch = q.match(/(?:لـ|للفني|للمهندس|إلى)\s*[""]?([^"",\d]{3,20}?)[""]?\s*(?:,|\.|$|في|زيارة)/i);
+  const techMatch = q.match(/(?:لـ|للفني|للمهندس|إلى|لـ)\s*[""]?([^"",\d]{3,20}?)[""]?\s*(?:,|\.|$|في|زيارة)/i);
   if (techMatch) extract.technicianName = techMatch[1].trim();
 
   // Visit ID for assignment
@@ -2639,6 +2669,59 @@ http.createServer((req, res) => {
         const d = Object.assign({}, plan.data, {details: question, userId});
         const actionData = {action, data: d, userId};
 
+        // Define required fields per action with Arabic labels
+        const requiredFields = {
+          create_contract: [
+            {key: "clientName", label: "اسم العميل أو المنشأة", hint: "مثال: مؤسسة الأفق للتجارة"},
+            {key: "value", label: "قيمة العقد", hint: "مثال: بقيمة 15000 ريال"}
+          ],
+          create_quote: [
+            {key: "clientName", label: "اسم العميل", hint: "مثال: لشركة الأفق"},
+            {key: "value", label: "قيمة عرض السعر", hint: "مثال: بقيمة 5000 ريال"}
+          ],
+          create_ticket: [
+            {key: "title", label: "عنوان البلاغ", hint: "مثال: عطل في المصعد"}
+          ],
+          create_visit: [
+            {key: "clientName", label: "اسم العميل أو المنشأة", hint: "مثال: لمؤسسة الأفق"}
+          ],
+          add_staff: [
+            {key: "name", label: "اسم الفني", hint: "مثال: محمد أحمد"},
+            {key: "identity", label: "رقم الهوية", hint: "مثال: 1234567890"}
+          ],
+          create_supplier: [
+            {key: "name", label: "اسم المورد", hint: "مثال: شركة التقنية"}
+          ],
+          assign_visit: [
+            {key: "visitId", label: "رقم الزيارة", hint: "مثال: VIS-12345"},
+            {key: "technicianName", label: "اسم الفني", hint: "مثال: لـ أحمد"}
+          ]
+        };
+
+        // Validation: check for missing required fields
+        const needs = requiredFields[action] || [];
+        const missing = needs.filter(f => !d[f.key] || String(d[f.key]).trim() === "");
+        if (missing.length > 0) {
+          const fieldHints = missing.map(f => `• ${f.label}: ${f.hint}`).join("\n");
+          return sendJson(res, 200, {
+            executed: false,
+            message: `⚠️ معلومات ناقصة. يرجى إضافة:\n\n${fieldHints}\n\n📝 مثال كامل: ${actionExamples[action] || ""}`,
+            missing: missing.map(f => f.key),
+            partial: d
+          });
+        }
+
+        // Action examples for user guidance
+        const actionExamples = {
+          create_contract: "أنشئ عقد صيانة لمؤسسة الأفق للتجارة بقيمة 15000 ريال لمدة سنتين",
+          create_quote: "أنشئ عرض سعر لشركة الأفق بقيمة 5000 ريال",
+          create_ticket: "أنشئ بلاغ عطل في مصعد مبنى الإدارة أولوية عالية",
+          create_visit: "أنشئ زيارة كشفية لمؤسسة الأفق يوم 2026-07-15",
+          add_staff: "أضف فني محمد أحمد هوية 1234567890",
+          create_supplier: "أضف مورد شركة التقنية جوال 0551234567 الرياض",
+          assign_visit: "أسند زيارة VIS-12345 إلى فني أحمد"
+        };
+
         // --- Local analysis (no Groq needed) ---
         if (action === "analyze_operations") {
           const counts = context.counts || {};
@@ -2668,6 +2751,7 @@ http.createServer((req, res) => {
           if (analysis.openTickets.urgent > 0) msg += `\n\n⚠️ يوجد ${analysis.openTickets.urgent} بلاغ طارئ يحتاج استجابة فورية.`;
           if (analysis.expiringContracts > 0) msg += `\n\n⚠️ ${analysis.expiringContracts} عقد على وشك الانتهاء - يوصى بالتواصل مع العملاء للتجديد.`;
           if (analysis.lateVisits > 0) msg += `\n\n📋 يوصى بإعادة توزيع الزيارات المتأخرة على الفنيين المتفرغين.`;
+          if (analysis.lowParts > 0) msg += `\n\n📦 يوصى بمراجعة المخزون وطلب القطع الناقصة.`;
 
           return sendJson(res, 200, {executed: true, message: msg, action, data: analysis});
         }
@@ -2677,9 +2761,6 @@ http.createServer((req, res) => {
           const suppliers = parseStoredJson(store, "misadSuppliers");
           const low = parts.filter(p => Number(p.qty || 0) <= Number(p.minQty || 1));
           const outOfStock = parts.filter(p => Number(p.qty || 0) === 0);
-          const byCategory = {};
-          parts.forEach(p => { const cat = p.category || "أخرى"; if (!byCategory[cat]) byCategory[cat] = []; byCategory[cat].push(p); });
-
           let msg = `📦 تحليل المخزون:\n• ${parts.length} قطعة غيار مسجلة\n• ${low.length} أصناف عند حد الطلب أو أقل\n• ${outOfStock.length} أصناف نفدت بالكامل\n• ${suppliers.length} مورد\n`;
           if (low.length > 0) {
             msg += `\n⚠️ الأصناف التي تحتاج إعادة طلب:\n`;
