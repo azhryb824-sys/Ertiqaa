@@ -1885,6 +1885,123 @@ function elevatorKnowledgeBase() {
   };
 }
 
+function searchLocalData(query, store) {
+  const q = String(query || "").toLowerCase();
+  const results = [];
+  
+  const contracts = parseStoredJson(store, "misadContracts");
+  const quotes = parseStoredJson(store, "misadQuotes");
+  const tickets = parseStoredJson(store, "misadTickets");
+  const visits = parseStoredJson(store, "misadVisits");
+  const parts = parseStoredJson(store, "misadParts");
+  const staff = parseStoredJson(store, "misadCompanyStaff");
+  const suppliers = parseStoredJson(store, "misadSuppliers");
+  
+  if (/عق[وً]?د|عقود?|اتفاقات?|اتفاقية|contract/i.test(q)) {
+    const matched = contracts.filter(c => {
+      const name = String(c.clientName || c.clientCompanyName || c.title || "").toLowerCase();
+      const status = String(c.status || "").toLowerCase();
+      const details = String(c.details || "").toLowerCase();
+      return name.includes(q) || status.includes(q) || details.includes(q) || q.includes(name);
+    });
+    if (matched.length === 0 && contracts.length > 0) {
+      const pending = contracts.filter(c => /pending|waiting|review|approval|انتظار|بانتظار/i.test(String(c.status || "")));
+      results.push(`📋 إجمالي العقود: ${contracts.length}`);
+      if (pending.length) results.push(`⏳ قيد الانتظار: ${pending.length}`);
+      if (!/كل|جميع|total|count|عدد|إحصاء/i.test(q)) {
+        const recent = contracts.slice(-3).reverse();
+        results.push("آخر العقود:");
+        recent.forEach(c => {
+          results.push(`• ${c.clientName || c.clientCompanyName || "عميل"}: ${c.type === "installation" ? "تركيب" : "صيانة"}${c.value ? ` - ${Number(c.value).toLocaleString()} ريال` : ""}`);
+        });
+      }
+    } else if (matched.length > 0) {
+      matched.slice(0, 5).forEach(c => {
+        results.push(`• ${c.clientName || c.clientCompanyName || "عميل"}: ${c.type === "installation" ? "تركيب" : "صيانة"}${c.status ? ` (${c.status})` : ""}${c.value ? ` - ${Number(c.value).toLocaleString()} ريال` : ""}${c.startDate ? `\n  من ${c.startDate}` : ""}${c.endDate ? ` إلى ${c.endDate}` : ""}`);
+      });
+    }
+  }
+  
+  if (/عرض.{1,4}سعر|quot|تسعير|قيمة/i.test(q)) {
+    const matched = quotes.filter(qt => {
+      const name = String(qt.clientName || qt.clientCompanyName || qt.title || "").toLowerCase();
+      const details = String(qt.details || "").toLowerCase();
+      return name.includes(q) || details.includes(q) || q.includes(name);
+    });
+    if (matched.length === 0 && quotes.length > 0) {
+      results.push(`💰 إجمالي عروض الأسعار: ${quotes.length}`);
+      const recent = quotes.slice(-3).reverse();
+      recent.forEach(qt => {
+        results.push(`• ${qt.clientName || qt.clientCompanyName || "عميل"}: ${qt.value ? `${Number(qt.value).toLocaleString()} ريال` : "بدون سعر"}${qt.status ? ` (${qt.status})` : ""}`);
+      });
+    } else if (matched.length > 0) {
+      matched.slice(0, 5).forEach(qt => {
+        results.push(`• ${qt.clientName || qt.clientCompanyName || "عميل"}: ${qt.value ? `${Number(qt.value).toLocaleString()} ريال` : "بدون سعر"}${qt.status ? ` (${qt.status})` : ""}`);
+      });
+    }
+  }
+  
+  if (/فني[ي]?[ن]?|technician|مهندس[ي]?[ن]?|موظف[ي]?[ن]?|staff/i.test(q)) {
+    results.push(`👥 الفريق: ${staff.length} أعضاء`);
+    staff.forEach(s => {
+      const roleAr = s.role === "engineer" ? "مهندس" : s.role === "technician" ? "فني" : s.role || "موظف";
+      results.push(`• ${s.name || "غير محدد"} (${roleAr})${s.availability ? ` - ${s.availability === "working" ? "نشط" : s.availability === "idle" ? "متفرغ" : s.availability === "vacation" ? "إجازة" : s.availability}` : ""}`);
+    });
+  }
+  
+  if (/مخز[و]?ن|قطع|غيار|part|inventory/i.test(q)) {
+    const low = parts.filter(p => Number(p.qty || 0) <= Number(p.minQty || 1));
+    results.push(`📦 المخزون: ${parts.length} صنف${low.length ? ` (${low.length} يحتاج إعادة طلب)` : ""}`);
+    low.slice(0, 5).forEach(p => {
+      results.push(`• ${p.name || p.title || "قطعة"}: ${p.qty || 0} متبقي (الحد: ${p.minQty || 1})`);
+    });
+  }
+  
+  if (/مورد[ي]?[ن]?|supplier/i.test(q)) {
+    results.push(`🏢 الموردون: ${suppliers.length}`);
+    suppliers.slice(0, 5).forEach(s => {
+      results.push(`• ${s.name || "غير محدد"}${s.city ? ` - ${s.city}` : ""}${s.phone ? ` (${s.phone})` : ""}`);
+    });
+  }
+  
+  if (/زيار[ة]?[ت]?|visit/i.test(q)) {
+    const now = Date.now();
+    const upcoming = visits.filter(v => v.scheduledAt && new Date(v.scheduledAt).getTime() >= now);
+    const late = visits.filter(v => v.scheduledAt && new Date(v.scheduledAt).getTime() < now);
+    results.push(`📅 الزيارات: ${visits.length} إجمالاً${upcoming.length ? ` (${upcoming.length} قادمة)` : ""}${late.length ? ` (${late.length} سابقة)` : ""}`);
+    upcoming.slice(0, 3).forEach(v => {
+      results.push(`• ${v.clientName || "عميل"}: ${v.scheduledAt ? new Date(v.scheduledAt).toLocaleDateString("ar-SA") : "غير محدد"}`);
+    });
+  }
+  
+  if (/بلاغ[ا]?[ت]?|ticket/i.test(q)) {
+    const open = tickets.filter(t => t.status !== "مغلق" && t.status !== "closed");
+    results.push(`🎫 البلاغات: ${tickets.length} إجمالاً (${open.length} مفتوحة)`);
+    open.slice(0, 5).forEach(t => {
+      results.push(`• ${t.title || t.description || "بلاغ"}${t.priority === "urgent" ? " 🔴 طارئ" : ""}${t.clientName ? ` - ${t.clientName}` : ""}`);
+    });
+  }
+  
+  // General system summary for vague queries like "وش وضع النظام", "اعطيني معلومات"
+  if (results.length === 0 && !/^(?:من أنت|ما اسمك|وش اسمك)/i.test(q)) {
+    const ctx = {contracts, quotes, tickets, visits, staff, suppliers, parts};
+    const openTickets = tickets.filter(t => t.status !== "مغلق" && t.status !== "closed");
+    const lateVisits = visits.filter(v => v.scheduledAt && new Date(v.scheduledAt).getTime() < Date.now());
+    const lowParts = parts.filter(p => Number(p.qty || 0) <= Number(p.minQty || 1));
+    results.push(`📊 ملخص النظام:`);
+    results.push(`• ${contracts.length} عقد${contracts.filter(c => /pending|waiting|review|approval|انتظار/i.test(String(c.status || ""))).length ? ` (${contracts.filter(c => /pending|waiting|review|approval|انتظار/i.test(String(c.status || ""))).length} قيد الانتظار)` : ""}`);
+    results.push(`• ${visits.length} زيارة (${lateVisits.length} متأخرة)`);
+    results.push(`• ${openTickets.length} بلاغ مفتوح`);
+    results.push(`• ${staff.length} فني/مهندس`);
+    results.push(`• ${parts.length} صنف في المخزون${lowParts.length ? ` (${lowParts.length} يحتاج إعادة طلب)` : ""}`);
+    results.push(`• ${quotes.length} عرض سعر`);
+    results.push(`• ${suppliers.length} مورد`);
+    results.push(`\n💡 جرب تسأل عن: العقود، عروض الأسعار، الفنيين، المخزون، الزيارات، أو البلاغات`);
+  }
+  
+  return results.length > 0 ? results.join("\n") : null;
+}
+
 function inferAiPlan(question, context, user = {}) {
   const q = String(question || "");
   const role = String(user.role || "");
@@ -1892,13 +2009,13 @@ function inferAiPlan(question, context, user = {}) {
   const plan = {intent: "answer", action: null, data: {}, allowed: true, needsApproval: false, missing: [], suggestions: []};
 
   // --- Conversational intents (greetings, interviews, etc.) ---
-  if (/^(السلام عليكم|وعليكم السلام|مرحبا|مرحباً|أهلا|أهلاً|هاي|هلا|hello|hi)\b/i.test(q) || /^(صبحك الله|مساك الله|صباح الخير|مساء الخير|مساء النور|صباح النور)\b/i.test(q) || /^(تحية|ترحيب)\b/i.test(q) || /^(how are you|كيف حالك|كيفك|كيف الحال|عامل إيه|عاملين)\b/i.test(q))
+  if (/^(?:السلام عليكم|وعليكم السلام|مرحبا|مرحباً|أهلا|أهلاً|هاي|هلا|hello|hi|صبحك الله|مساك الله|صباح الخير|مساء الخير|مساء النور|صباح النور|تحية|ترحيب)/i.test(q) || /^(?:how are you|كيف حالك|كيفك|كيف الحال|عامل إيه|عاملين)/i.test(q))
     plan.intent = "greet";
-  if (/^(مع السلامة|في أمان الله|تصبح على خير|تصبحون على خير|طابت ليلتك|إلى اللقاء|وداعاً|باي|bye|goodbye|see you)\b/i.test(q) || /^(الله معك|استودعك الله)\b/i.test(q))
+  if (/^(?:مع السلامة|في أمان الله|تصبح على خير|تصبحون على خير|طابت ليلتك|إلى اللقاء|وداعاً|باي|bye|goodbye|see you|الله معك|استودعك الله)/i.test(q))
     plan.intent = "farewell";
-  if (/^(شكراً|شكرا|جزاك الله خير|الله يجزاك خير|مشكور|يعطيك العافية|تسلم|تسلم يدك|ثانكس|thank you|thanks|thx)\b/i.test(q) || /^(أقدر لك|مقدر)\b/i.test(q))
+  if (/^(?:شكراً|شكرا|جزاك الله خير|الله يجزاك خير|مشكور|يعطيك العافية|تسلم|تسلم يدك|ثانكس|thank you|thanks|thx|أقدر لك|مقدر)/i.test(q))
     plan.intent = "thanks";
-  if (/^(آسف|أسف|sorry|معذرة|المعذرة|أعتذر|اعتذر|اعذرني|سمحلي|سامحني|عذراً)\b/i.test(q))
+  if (/^(?:آسف|أسف|sorry|معذرة|المعذرة|أعتذر|اعتذر|اعذرني|سمحلي|سامحني|عذراً)/i.test(q))
     plan.intent = "apologize";
   // Interview / system questions
   if (/^(من أنت|ما اسمك|وش اسمك|عرفني بنفسك|من وين أنت|وش أنت|introduce yourself|what is your name|what can you do|tell me about yourself)\b/i.test(q) || /^(مهامك|قدراتك|إمكانياتك|وش تقدر|ماذا تفعل|ماذا تستطيع|what are your capabilities)\b/i.test(q) || /^(كيف أستخدمك|كيف أتعامل|كيف اتعامل|كيف أستفيد|كيف ابدأ|how do I use you|how to use)\b/i.test(q) || /^(مميزات|features|capabilities)\b/i.test(q) || /^(لماذا|ليه|why)\b.*(استخدم|استعمل|أستعمل|هذا البرنامج|هذا النظام|هذا التطبيق)/i.test(q) || /^(ما هي|وش هي|what are)\b.*(خدمات|features|مميزات|وظائف)/i.test(q))
@@ -1932,15 +2049,15 @@ function inferAiPlan(question, context, user = {}) {
 
   // --- Conversational intents (lowest priority - only if no action matched) ---
   if (plan.intent === "answer") {
-    if (/^(السلام عليكم|وعليكم السلام|مرحبا|مرحباً|أهلا|أهلاً|هاي|هلا|hello|hi|صباح الخير|مساء الخير|مساء النور|صباح النور|تحية|ترحيب)\b/i.test(q) || /^(كيف حالك|كيفك|كيف الحال|عامل إيه|عاملين)\b/i.test(q))
+    if (/^(?:السلام عليكم|وعليكم السلام|مرحبا|مرحباً|أهلا|أهلاً|هاي|هلا|hello|hi|صباح الخير|مساء الخير|مساء النور|صباح النور|تحية|ترحيب)/i.test(q) || /^(?:كيف حالك|كيفك|كيف الحال|عامل إيه|عاملين)/i.test(q))
       plan.intent = "greet";
-    else if (/^(مع السلامة|في أمان الله|تصبح على خير|تصبحون على خير|طابت ليلتك|إلى اللقاء|وداعاً|باي|bye|goodbye|see you|الله معك|استودعك الله)\b/i.test(q))
+    else if (/^(?:مع السلامة|في أمان الله|تصبح على خير|تصبحون على خير|طابت ليلتك|إلى اللقاء|وداعاً|باي|bye|goodbye|see you|الله معك|استودعك الله)/i.test(q))
       plan.intent = "farewell";
-    else if (/^(شكراً|شكرا|جزاك الله خير|الله يجزاك خير|مشكور|يعطيك العافية|تسلم|تسلم يدك|ثانكس|thank you|thanks|thx|أقدر لك|مقدر)\b/i.test(q))
+    else if (/^(?:شكراً|شكرا|جزاك الله خير|الله يجزاك خير|مشكور|يعطيك العافية|تسلم|تسلم يدك|ثانكس|thank you|thanks|thx|أقدر لك|مقدر)/i.test(q))
       plan.intent = "thanks";
-    else if (/^(آسف|أسف|sorry|معذرة|المعذرة|أعتذر|اعتذر|اعذرني|سمحلي|سامحني|عذراً)\b/i.test(q))
+    else if (/^(?:آسف|أسف|sorry|معذرة|المعذرة|أعتذر|اعتذر|اعذرني|سمحلي|سامحني|عذراً)/i.test(q))
       plan.intent = "apologize";
-    else if (/^(من أنت|ما اسمك|وش اسمك|عرفني بنفسك|من وين أنت|وش أنت|introduce yourself|what is your name|what can you do|tell me about yourself)\b/i.test(q) || /^(مهامك|قدراتك|إمكانياتك|وش تقدر|ماذا تفعل|ماذا تستطيع|what are your capabilities)\b/i.test(q) || /^(كيف أستخدمك|كيف أتعامل|كيف اتعامل|كيف أستفيد|كيف ابدأ|how do I use you|how to use|مميزات|features|capabilities|طريقة الاستخدام|كيف يعمل|كيف تشتغل)\b/i.test(q) || /^(لماذا|ليه)\b.*(استخدم|استعمل|أستعمل|هذا البرنامج|هذا النظام|هذا التطبيق)/i.test(q) || /^(ما هي|وش هي)\b.*(خدمات|features|مميزات|وظائف)/i.test(q))
+    else if (/^(?:من أنت|ما اسمك|وش اسمك|عرفني بنفسك|من وين أنت|وش أنت|introduce yourself|what is your name|what can you do|tell me about yourself)/i.test(q) || /^(?:مهامك|قدراتك|إمكانياتك|وش تقدر|ماذا تفعل|ماذا تستطيع|what are your capabilities)/i.test(q) || /^(?:كيف أستخدمك|كيف أتعامل|كيف اتعامل|كيف أستفيد|كيف ابدأ|how do I use you|how to use|مميزات|features|capabilities|طريقة الاستخدام|كيف يعمل|كيف تشتغل)/i.test(q) || /^(?:لماذا|ليه)\b.*(?:استخدم|استعمل|أستعمل|هذا البرنامج|هذا النظام|هذا التطبيق)/i.test(q) || /^(?:ما هي|وش هي)\b.*(?:خدمات|features|مميزات|وظائف)/i.test(q))
       plan.intent = "interview";
   }
 
@@ -2914,7 +3031,7 @@ http.createServer((req, res) => {
   if (req.url === "/api/ai/execute" && req.method === "POST") {
     let body = "";
     req.on("data", c => body += c);
-    req.on("end", () => {
+    req.on("end", async () => {
       try {
         const input = JSON.parse(body);
         const question = String(input.question || "").trim();
@@ -2953,26 +3070,43 @@ http.createServer((req, res) => {
 
         // --- Conversational intents (greetings, thanks, apologies, etc.) ---
         if (!action && plan.intent !== "answer") {
+          const ctx = context.counts || {};
+          const greetWithContext = (greeting) => {
+            const parts = [];
+            parts.push(greeting);
+            if (ctx.contracts > 0 || ctx.visits > 0) {
+              parts.push("📊 ملخص سريع للنظام:");
+              const items = [];
+              if (ctx.contracts) items.push(`${ctx.contracts} عقد`);
+              if (ctx.openTickets) items.push(`${ctx.openTickets} بلاغ مفتوح`);
+              if (ctx.upcomingVisits) items.push(`${ctx.upcomingVisits} زيارة قادمة`);
+              if (ctx.lateVisitsWithoutReport) items.push(`${ctx.lateVisitsWithoutReport} زيارة متأخرة ⚠️`);
+              if (ctx.staff) items.push(`${ctx.staff} فني`);
+              if (items.length) parts.push(items.join(" · "));
+            }
+            parts.push("كيف أقدر أساعدك؟");
+            return parts.join("\n\n");
+          };
           const convResponses = {
             greet: [
-              "وعليكم السلام والرحمة والإكرام 🌟 أهلاً بك في نظام شموس لإدارة شركات ومؤسسات المصاعد. أنا المساعد الذكي، تحت أمرك. أستطيع تنفيذ أوامرك بسرعة مثل:\n\n• إنشاء عقود صيانة وتركيب\n• إنشاء عروض أسعار\n• تسجيل بلاغات الصيانة\n• جدولة زيارات كشفية\n• إضافة فنيين وموردين\n• تحليل المخزون والعمليات\n\nتحدث معي بصوتك أو اكتب الأمر مباشرة.",
-              "أهلاً وسهلاً بك 🌸 أسعد الله وقتك بكل خير. أنا وكيل شموس الذكي، وأنا هنا لخدمتك في إدارة أعمال المصاعد بكل سهولة. جرب تقول:\n\n• \"أنشئ عقد صيانة\"\n• \"سوي بلاغ عطل في المصعد\"\n• \"أضف فني جديد\"\n• \"عرض سعر لعميل\"\n\nأنا أستمع لك 👂",
-              "مرحباً بك في شموس ✨ منصة إدارة شركات ومؤسسات صيانة وتركيب المصاعد.\n\nأنا مساعدك الرقمي، أستطيع:\n✅ تنفيذ الأوامر الصوتية والنصية فوراً\n✅ فتح النماذج وتعبئتها بالبيانات التي تقدمها\n✅ تحليل البيانات وإصدار التقارير\n\nكيف أقدر أساعدك اليوم؟"
+              greetWithContext("وعليكم السلام والرحمة والإكرام 🌟 أهلاً بك في شموس."),
+              greetWithContext("أهلاً وسهلاً بك 🌸 أسعد الله وقتك بكل خير."),
+              greetWithContext("مرحباً بك في شموس ✨ منصة إدارة شركات ومؤسسات المصاعد.")
             ],
             thanks: [
-              "الشكر لله ثم لك 🤲 يسعدني أن أخدمك. أنا هنا لأي أمر تحتاج إليه في أي وقت. لا تتردد في طلب أي شيء يتعلق بإدارة المصاعد والعقود والزيارات.",
-              "العفو، هذا واجبي 🙏 سررت بمساعدتك. إذا احتجت شيئاً ثانياً، أنا موجود. تذكر أنك تستطيع التحدث معي بصوتك الطبيعي وأنا أنفذ فوراً.",
-              "الله يسلمك 🤍 شكراً لك على كلماتك الجميلة. أنا هنا لخدمتك في أي وقت، فقط تكلم وأنا أسمع وأنفذ."
+              ctx.contracts || ctx.visits ? `الشكر لله ثم لك 🤲 يسعدني أن أخدمك. النظام يضم ${ctx.contracts || 0} عقد و ${ctx.visits || 0} زيارة، أنا هنا لإدارة كل ذلك بكفاءة.` : "الشكر لله ثم لك 🤲 يسعدني أن أخدمك. أنا هنا لأي أمر تحتاج إليه.",
+              "العفو، هذا واجبي 🙏 تذكر أنك تستطيع التحدث معي بصوتك الطبيعي وأنا أنفذ فوراً.",
+              "الله يسلمك 🤍 شكراً لك. أنا هنا لخدمتك في أي وقت."
             ],
             apologize: [
-              "لا عذراً على الإطلاق 🙏 أنا هنا لخدمتك، وأعتذر إذا كان هناك أي تقصير. أنا أتعلم باستمرار لأقدم لك أفضل خدمة. هل تريد مني تنفيذ أمر معين؟ فقط أخبرني وسأقوم باللازم.",
-              "أبداً، لا داعي للاعتذار 😊 أنا مساعد رقمي، وهدفي مساعدتك. إذا كان هناك شيء لم يعجبك أو لم أفهمه بشكل صحيح، فقط أعد صياغة طلبك وأنا سأعمل على تنفيذه بدقة. شموس هنا لخدمتك.",
-              "معذرة إذا حصل أي خطأ 🤝 أقدر صبرك وتعاونك. دعني أساعدك الآن، فقط أخبرني وش المطلوب وسأشتغل عليه فوراً. هدفنا هو تسهيل عملك اليومي في إدارة المصاعد."
+              "لا عذراً على الإطلاق 🙏 أنا هنا لخدمتك. هل تريد مني تنفيذ أمر معين؟ فقط أخبرني وسأقوم باللازم.",
+              "أبداً، لا داعي للاعتذار 😊 أنا مساعد رقمي وهدفي مساعدتك. أعد صياغة طلبك وأنا سأعمل على تنفيذه بدقة.",
+              "معذرة إذا حصل أي خطأ 🤝 دعني أساعدك الآن، أخبرني وش المطلوب وسأشتغل عليه فوراً."
             ],
             farewell: [
-              "في أمان الله 🤲 كان شرف لي مساعدتك. إذا احتجت أي شيء في المستقبل، أنا موجود. أتمنى لك يوماً موفقاً ومليئاً بالإنجازات. مع السلامة ✨",
-              "الله معك ويوفقك 🌟 أتمنى لك التوفيق في أعمالك. تذكر أنني هنا في أي وقت تحتاج مساعدة في إدارة المصاعد والعقود والزيارات. إلى اللقاء 👋",
-              "يسعد مساؤك/صباحك 🌷 أشكرك على تواصلك مع شموس. إذا احتجت مساعدة في أي وقت، فقط افتح صفحة الإدارة الذكية وتكلم. في حفظ الله ورعايته."
+              "في أمان الله 🤲 كان شرف لي مساعدتك. إذا احتجت أي شيء في المستقبل، أنا موجود. مع السلامة ✨",
+              "الله معك ويوفقك 🌟 تذكر أنني هنا في أي وقت تحتاج مساعدة في إدارة المصاعد والعقود والزيارات. إلى اللقاء 👋",
+              "يسعد مساؤك/صباحك 🌷 أشكرك على تواصلك مع شموس. في حفظ الله ورعايته."
             ]
           };
 
@@ -2992,7 +3126,28 @@ http.createServer((req, res) => {
           }
         }
 
-        if (!action) return sendJson(res, 200, {openForm: false, message: "لم يتم التعرف على الأمر. جرب: أنشئ عقد, عرض سعر, بلاغ, زيارة, فني, مورد"});
+        if (!action) {
+          const groqKey = process.env.GROQ_API_KEY || "";
+          if (groqKey) {
+            try {
+              const groqResult = await askGroq(question, context, {id: userId, role, name: userName});
+              if (groqResult.answer && !groqResult.error) {
+                if (groqResult.plan?.intent !== "answer") {
+                  const groqPlan = groqResult.plan || {};
+                  if (groqPlan.action && groqPlan.data) {
+                    const execR = executeAiAction({action: groqPlan.action, data: Object.assign({}, groqPlan.data, {userId}), userId}, store);
+                    logAiOperation(store, groqPlan.action, {id: userId, name: userName, role}, {action: groqPlan.action, data: groqPlan.data, result: execR.message});
+                    return sendJson(res, 200, {executed: true, message: groqResult.answer + "\n\n✅ تم تنفيذ الأمر.", action: groqPlan.action, data: execR});
+                  }
+                }
+                return sendJson(res, 200, {executed: true, message: groqResult.answer, action: "answer", groqModel: groqResult.model});
+              }
+            } catch {}
+          }
+          const local = searchLocalData(question, store);
+          if (local) return sendJson(res, 200, {executed: true, message: local, action: "answer"});
+          return sendJson(res, 200, {openForm: false, message: "لم يتم التعرف على الأمر. جرب: أنشئ عقد, عرض سعر, بلاغ, زيارة, فني, مورد"});
+        }
 
         // Build data from plan extraction
         const d = Object.assign({}, plan.data, {details: question, userId});
@@ -3109,6 +3264,17 @@ http.createServer((req, res) => {
         }
 
         // If nothing matched, return unknown
+        const groqKey = process.env.GROQ_API_KEY || "";
+        if (groqKey) {
+          try {
+            const groqResult = await askGroq(question, context, {id: userId, role, name: userName});
+            if (groqResult.answer && !groqResult.error) {
+              return sendJson(res, 200, {executed: true, message: groqResult.answer, action: "answer", groqModel: groqResult.model});
+            }
+          } catch {}
+        }
+        const local = searchLocalData(question, store);
+        if (local) return sendJson(res, 200, {executed: true, message: local, action: "answer"});
         return sendJson(res, 200, {openForm: false, message: "لم يتم التعرف على الأمر. جرب: أنشئ عقد, عرض سعر, بلاغ, زيارة, فني, مورد"});
 
       } catch (e) {
