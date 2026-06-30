@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/main_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!-- This is where Capacitor will put its WebView -->
+    <FrameLayout
+        android:id="@+id/capacitor_web_view_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!-- Our URL bar on top -->
+    <LinearLayout
+        android:id="@+id/url_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="8dp"
+        android:background="#FFFFFF"
+        android:elevation="8dp">
+
+        <EditText
+            android:id="@+id/url_input"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:hint="أدخل الرابط هنا"
+            android:inputType="textUri"
+            android:padding="12dp"
+            android:autofillHints="url"
+            android:background="@android:drawable/edit_text"/>
+
+        <Button
+            android:id="@+id/btn_go"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="دخول"
+            android:layout_marginStart="8dp"/>
+    </LinearLayout>
+</FrameLayout>

@@ -1851,8 +1851,8 @@ function buildAiContext(store) {
       canAnalyzeTechnicians: true,
       canAnalyzeVisits: true,
       canRecommendAssignments: true,
-      canExecuteChanges: false,
-      note: "The assistant can recommend operational actions but cannot directly change records unless a system endpoint is added."
+      canExecuteChanges: true,
+      note: "The assistant can now directly execute operational actions through the system APIs."
     },
     counts: {
       contracts: contracts.length,
@@ -1890,6 +1890,274 @@ function buildAiContext(store) {
     recentVisits: compactRows(visits, ["id", "visitType", "status", "assignedTo", "assignedName", "scheduledAt", "clientName", "clientCompanyName"], 25)
   };
 }
+function executeAiAction(actionData, store) {
+  const result = {executed: false, action: actionData.action, message: ""};
+  try {
+    switch (actionData.action) {
+      case "create_contract": {
+        const contracts = parseStoredJson(store, "misadContracts");
+        const contract = {
+          id: `CONT${String(contracts.length + 1).padStart(4, "0")}`,
+          type: actionData.data.type || "صيانة",
+          status: "بانتظار الاعتماد",
+          clientName: actionData.data.clientName || "",
+          clientId: actionData.data.clientId || "",
+          clientCompanyName: actionData.data.clientCompanyName || "",
+          clientCompanyUnifiedNumber: actionData.data.clientCompanyUnifiedNumber || "",
+          startDate: actionData.data.startDate || new Date().toISOString().split("T")[0],
+          endDate: actionData.data.endDate || "",
+          value: Number(actionData.data.value || 0),
+          details: actionData.data.details || "",
+          buildings: actionData.data.buildings || [],
+          elevatorInfo: actionData.data.elevatorInfo || {},
+          maintenanceChecklist: actionData.data.maintenanceChecklist || [],
+          createdAt: new Date().toISOString(),
+          createdBy: actionData.userId || "ai"
+        };
+        contracts.unshift(contract);
+        store.misadContracts = JSON.stringify(contracts.slice(0, 200));
+        writeStore(store);
+        result.executed = true;
+        result.message = `تم إنشاء العقد ${contract.id} بنجاح`;
+        result.contract = contract;
+        break;
+      }
+      case "create_quote": {
+        const quotes = parseStoredJson(store, "misadQuotes");
+        const quote = {
+          id: `QTO-${Date.now()}`,
+          title: actionData.data.title || "عرض سعر",
+          client: actionData.data.clientName || "",
+          clientId: actionData.data.clientId || "",
+          clientCompanyName: actionData.data.clientCompanyName || "",
+          clientCompanyUnifiedNumber: actionData.data.clientCompanyUnifiedNumber || "",
+          value: Number(actionData.data.value || 0),
+          status: "بانتظار المراجعة والاعتماد",
+          items: actionData.data.items || [],
+          customItems: actionData.data.customItems || [],
+          details: actionData.data.details || "",
+          createdBy: actionData.userId || "ai",
+          createdAt: new Date().toISOString(),
+          createdAtMs: Date.now()
+        };
+        quotes.unshift(quote);
+        store.misadQuotes = JSON.stringify(quotes.slice(0, 200));
+        writeStore(store);
+        result.executed = true;
+        result.message = `تم إنشاء عرض السعر ${quote.id} بنجاح`;
+        result.quote = quote;
+        break;
+      }
+      case "create_ticket": {
+        const tickets = parseStoredJson(store, "misadTickets");
+        const ticket = {
+          id: `TCK-${Date.now()}`,
+          title: actionData.data.title || "بلاغ",
+          description: actionData.data.description || "",
+          priority: actionData.data.priority || "medium",
+          status: "مفتوح",
+          clientName: actionData.data.clientName || "",
+          clientId: actionData.data.clientId || "",
+          clientCompanyName: actionData.data.clientCompanyName || "",
+          clientCompanyUnifiedNumber: actionData.data.clientCompanyUnifiedNumber || "",
+          contractId: actionData.data.contractId || "",
+          building: actionData.data.building || {},
+          assignedTo: actionData.data.assignedTo || "",
+          createdBy: actionData.userId || "ai",
+          createdAt: new Date().toISOString(),
+          createdAtMs: Date.now()
+        };
+        tickets.unshift(ticket);
+        store.misadTickets = JSON.stringify(tickets.slice(0, 200));
+        writeStore(store);
+        result.executed = true;
+        result.message = `تم إنشاء البلاغ ${ticket.id} بنجاح`;
+        result.ticket = ticket;
+        break;
+      }
+      case "create_visit": {
+        const visits = parseStoredJson(store, "misadVisits");
+        const visit = {
+          id: `VIS-${Date.now()}`,
+          visitType: actionData.data.visitType || "صيانة دورية",
+          status: "مجدولة",
+          clientName: actionData.data.clientName || "",
+          clientId: actionData.data.clientId || "",
+          clientCompanyName: actionData.data.clientCompanyName || "",
+          clientCompanyUnifiedNumber: actionData.data.clientCompanyUnifiedNumber || "",
+          contractId: actionData.data.contractId || "",
+          building: actionData.data.building || {},
+          scheduledAt: actionData.data.scheduledAt || new Date().toISOString(),
+          assignedTo: actionData.data.assignedTo || "",
+          assignedName: actionData.data.assignedName || "",
+          createdBy: actionData.userId || "ai",
+          createdAt: new Date().toISOString()
+        };
+        visits.unshift(visit);
+        store.misadVisits = JSON.stringify(visits.slice(0, 200));
+        writeStore(store);
+        result.executed = true;
+        result.message = `تم إنشاء الزيارة ${visit.id} بنجاح`;
+        result.visit = visit;
+        break;
+      }
+      case "assign_visit": {
+        const visits = parseStoredJson(store, "misadVisits");
+        const visitIndex = visits.findIndex(v => v.id === actionData.data.visitId);
+        if (visitIndex === -1) {
+          result.message = "الزيارة غير موجودة";
+          break;
+        }
+        visits[visitIndex].assignedTo = actionData.data.technicianId || "";
+        visits[visitIndex].assignedName = actionData.data.technicianName || "";
+        visits[visitIndex].assignedAt = new Date().toISOString();
+        store.misadVisits = JSON.stringify(visits);
+        writeStore(store);
+        result.executed = true;
+        result.message = `تم إسناد الزيارة ${actionData.data.visitId} إلى ${actionData.data.technicianName}`;
+        break;
+      }
+      case "redistribute_visits": {
+        const redistributeAll = actionData.data.redistributeAll === true;
+        const analysis = redistributeVisits(store, {redistributeAll});
+        if (analysis.proposedAssignments.length > 0) {
+          const visits = parseStoredJson(store, "misadVisits");
+          analysis.proposedAssignments.forEach(assignment => {
+            const idx = visits.findIndex(v => v.id === assignment.visitId);
+            if (idx !== -1) {
+              visits[idx].assignedTo = assignment.proposedTechnicianId;
+              visits[idx].assignedName = assignment.proposedTechnician;
+              visits[idx].rebalancedAt = new Date().toISOString();
+              visits[idx].rebalancedBy = actionData.userId || "ai";
+            }
+          });
+          store.misadVisits = JSON.stringify(visits);
+          writeStore(store);
+        }
+        result.executed = true;
+        result.message = `تم إعادة توزيع ${analysis.proposedAssignments.length} زيارة`;
+        result.redistribution = analysis;
+        break;
+      }
+      case "create_supplier": {
+        const suppliers = parseStoredJson(store, "misadSuppliers");
+        const supplier = {
+          id: `SUP-${Date.now()}`,
+          name: actionData.data.name || "مورد جديد",
+          phone: actionData.data.phone || "",
+          email: actionData.data.email || "",
+          city: actionData.data.city || "",
+          category: actionData.data.category || "توريد شامل",
+          rating: actionData.data.rating || "تحت التجربة",
+          notes: actionData.data.notes || "أنشئ بواسطة الذكاء الاصطناعي",
+          createdAt: new Date().toISOString(),
+          createdBy: actionData.userId || "ai"
+        };
+        suppliers.unshift(supplier);
+        store.misadSuppliers = JSON.stringify(suppliers.slice(0, 200));
+        writeStore(store);
+        result.executed = true;
+        result.message = `تم إنشاء المورد ${supplier.name} بنجاح`;
+        result.supplier = supplier;
+        break;
+      }
+      case "add_staff": {
+        const staff = parseStoredJson(store, "misadCompanyStaff");
+        const member = {
+          id: `STF-${Date.now()}`,
+          identity: actionData.data.identity || "",
+          name: actionData.data.name || "فني جديد",
+          role: actionData.data.role || "technician",
+          availability: actionData.data.availability || "working",
+          status: actionData.data.status || "مرتبط",
+          phone: actionData.data.phone || "",
+          createdAt: new Date().toISOString(),
+          createdBy: actionData.userId || "ai"
+        };
+        staff.unshift(member);
+        store.misadCompanyStaff = JSON.stringify(staff.slice(0, 200));
+        writeStore(store);
+        result.executed = true;
+        result.message = `تم إضافة ${member.name} إلى فريق العمل`;
+        result.staff = member;
+        break;
+      }
+      case "create_notification": {
+        const notifications = notificationList(store);
+        const notification = {
+          id: `NTF-${Date.now()}`,
+          title: actionData.data.title || "إشعار ذكي",
+          body: actionData.data.body || "",
+          userId: actionData.data.userId || "",
+          roles: actionData.data.roles || [],
+          url: actionData.data.url || "/dashboard.html",
+          createdAt: new Date().toISOString(),
+          readBy: []
+        };
+        notifications.unshift(notification);
+        saveNotifications(store, notifications);
+        const tokens = pushTokenList(store).filter(t => !notification.userId || t.userId === notification.userId);
+        sendNativePush(tokens, notification);
+        result.executed = true;
+        result.message = `تم إنشاء الإشعار بنجاح`;
+        result.notification = notification;
+        break;
+      }
+      case "analyze_report": {
+        const reports = parseStoredJson(store, "misadVisitReports");
+        const report = reports.find(r => r.id === actionData.data.reportId);
+        if (!report) {
+          result.message = "التقرير غير موجود";
+          break;
+        }
+        const analysis = analyzeReportForQuote(report, store);
+        const autoGenerateQuote = actionData.data.autoGenerateQuote !== false;
+        let quote = null;
+        if (autoGenerateQuote && (analysis.needsSpareParts || analysis.needsInstallation || analysis.needsUpdate || analysis.needsReplacement || analysis.needsAdditionalWorks)) {
+          quote = generateAutoQuote(report, analysis, store, actionData.userId || "ai");
+          const quotes = parseStoredJson(store, "misadQuotes");
+          quotes.unshift(quote);
+          store.misadQuotes = JSON.stringify(quotes.slice(0, 200));
+          writeStore(store);
+        }
+        result.executed = true;
+        result.message = `تم تحليل التقرير ${actionData.data.reportId}` + (quote ? ` وإنشاء عرض السعر ${quote.id}` : "");
+        result.analysis = analysis;
+        result.quote = quote;
+        break;
+      }
+      case "optimize_quote": {
+        const quotes = parseStoredJson(store, "misadQuotes");
+        const quoteIndex = quotes.findIndex(q => q.id === actionData.data.quoteId);
+        if (quoteIndex === -1) {
+          result.message = "عرض السعر غير موجود";
+          break;
+        }
+        const targetValue = Number(actionData.data.targetValue || 0);
+        const quoteCopy = JSON.parse(JSON.stringify(quotes[quoteIndex]));
+        const optimization = optimizeQuotePrices(quoteCopy, targetValue, store);
+        let newQuote = null;
+        if (optimization.achievable) {
+          newQuote = createQuoteVersion(quoteCopy, optimization.changes, actionData.userId || "ai");
+          quotes.unshift(newQuote);
+          store.misadQuotes = JSON.stringify(quotes.slice(0, 200));
+          writeStore(store);
+        }
+        result.executed = true;
+        result.message = optimization.achievable ? `تم تحسين عرض السعر. القيمة الجديدة: ${optimization.newValue}` : "تعذر تحسين عرض السعر للقيمة المطلوبة";
+        result.optimization = optimization;
+        result.newQuote = newQuote;
+        break;
+      }
+      default:
+        result.message = `الإجراء ${actionData.action} غير مدعوم`;
+    }
+  } catch (err) {
+    result.message = `خطأ في التنفيذ: ${err.message}`;
+  }
+  return result;
+}
+
 async function askGroq(question, context, user = {}, conversationId = null) {
   const apiKey = process.env.GROQ_API_KEY || "";
   if (!apiKey) return {error: "GROQ_API_KEY is not configured"};
@@ -1910,9 +2178,23 @@ async function askGroq(question, context, user = {}, conversationId = null) {
     }
   }
   
-  const systemPrompt = `You are the Shumoos elevator management AI agent. You are not a generic chatbot; you are specialized in elevator company operations.
-Answer in Arabic with a Saudi-friendly professional style. Use the provided system summary, knowledge base, and local agent plan. You can answer questions about the system, summarize records, analyze technician workload, review visits, find delayed visits, suggest technician assignment priorities, support voice chat, and help convert spoken Arabic into clean form-field values across the system. When the user explicitly asks to convert spoken text for a form field, return only the final field value without explanation. You cannot directly modify database records from chat; if the user asks for execution, explain the required system action or endpoint. If data is missing, ask only for the minimum missing data.
-Do not ask for secrets or passwords. Do not claim that you performed actions inside the system; provide recommendations and executable steps.
+   const systemPrompt = `You are the Shumoos elevator management AI agent. You are not a generic chatbot; you are specialized in elevator company operations.
+Answer in Arabic with a Saudi-friendly professional style. Use the provided system summary, knowledge base, and local agent plan. You can answer questions about the system, summarize records, analyze technician workload, review visits, find delayed visits, suggest technician assignment priorities, support voice chat, and help convert spoken Arabic into clean form-field values across the system. When the user explicitly asks to convert spoken text for a form field, return only the final field value without explanation.
+IMPORTANT: You CAN now directly execute commands. To execute an action, include a JSON block in your response like this: [EXECUTE:{"action":"create_contract","data":{"type":"صيانة","clientName":"..."}}]. The system will execute it automatically. For supported actions, immediately execute instead of just explaining.
+Supported actions:
+- create_contract: type, clientName, clientId, clientCompanyName, clientCompanyUnifiedNumber, startDate, endDate, value, details, buildings, elevatorInfo
+- create_quote: clientName, clientId, value, details, items
+- create_ticket: title, description, clientName, clientId, priority, contractId
+- create_visit: clientName, clientId, contractId, scheduledAt, building, assignedTo
+- assign_visit: visitId, technicianId, technicianName
+- redistribute_visits: redistributeAll (true/false)
+- create_supplier: name, phone, city, category
+- add_staff: name, identity, role
+- create_notification: title, body, userId, roles
+- analyze_report: reportId, autoGenerateQuote
+- optimize_quote: quoteId, targetValue
+If data is missing, ask only for the minimum missing data.
+Do not ask for secrets or passwords. Do not claim that you performed the action unless you include the EXECUTE block.
 Focus on contracts, visits, tickets, suppliers, spare parts, quotes, inventory, and operational risks.
 Respect permissions. If the local plan says the action is not allowed, refuse execution and offer safe alternatives.
 Maintain conversation context. Remember previous questions and answers. Do not repeat information already provided. Ask only for missing essential information, prioritizing required data over optional data. Execute operations as soon as all required data is available.
@@ -2049,13 +2331,66 @@ http.createServer((req, res) => {
         const result = await askGroq(question, filteredContext, {id: userId, role, name: userName}, conversationId);
         if (result.error) return sendJson(res, result.error.includes("configured") ? 503 : 502, result);
         
-        // Add AI response to conversation
-        addMessageToConversation(store, conversationId, "assistant", result.answer);
+        // Parse and execute [EXECUTE:...] blocks from the AI response
+        const executionRegex = /\[EXECUTE:\s*(\{.*?\})\]/gs;
+        const executions = [];
+        let cleanAnswer = result.answer;
+        let execMatch;
+        while ((execMatch = executionRegex.exec(result.answer)) !== null) {
+          try {
+            const actionData = JSON.parse(execMatch[1]);
+            actionData.userId = userId;
+            const execResult = executeAiAction(actionData, store);
+            executions.push(execResult);
+            
+            // Log the AI operation
+            logAiOperation(store, actionData.action, 
+              {id: userId, name: userName, role}, 
+              {action: actionData.action, data: actionData.data, result: execResult.message}
+            );
+          } catch (parseErr) {
+            executions.push({executed: false, error: `Failed to parse action: ${parseErr.message}`});
+          }
+          // Remove the EXECUTE block from the answer shown to user
+          cleanAnswer = cleanAnswer.replace(execMatch[0], "");
+        }
+        cleanAnswer = cleanAnswer.trim();
+        
+        // Use the plan from inferAiPlan to also auto-execute if Groq didn't include EXECUTE block
+        const plan = result.plan || inferAiPlan(question, filteredContext, {id: userId, role, name: userName});
+        if (plan.allowed && plan.needsApproval && executions.length === 0 && !cleanAnswer.includes("[EXECUTE")) {
+          // If the plan detects an action intent but Groq didn't execute, try direct execution
+          let autoExecute = null;
+          if (plan.intent === "create_maintenance_contract" || plan.intent === "create_installation_contract") {
+            autoExecute = {action: "create_contract", data: {type: plan.intent === "create_installation_contract" ? "تركيب" : "صيانة", details: question}};
+          } else if (plan.intent === "create_quote") {
+            autoExecute = {action: "create_quote", data: {details: question}};
+          } else if (plan.intent === "assign_visit" && /زيارة\s*(\S+)/i.test(question)) {
+            autoExecute = {action: "assign_visit", data: {visitId: RegExp.$1}};
+          } else if (plan.intent === "redistribute_visits") {
+            autoExecute = {action: "redistribute_visits", data: {redistributeAll: /الكل|جميع|all/i.test(question)}};
+          }
+          if (autoExecute) {
+            autoExecute.userId = userId;
+            const execResult = executeAiAction(autoExecute, store);
+            if (execResult.executed) {
+              executions.push(execResult);
+              logAiOperation(store, autoExecute.action,
+                {id: userId, name: userName, role},
+                {action: autoExecute.action, data: autoExecute.data, result: execResult.message}
+              );
+              cleanAnswer += `\n\n✅ ${execResult.message}`;
+            }
+          }
+        }
+        
+        // Add AI response to conversation (with EXECUTE blocks removed)
+        addMessageToConversation(store, conversationId, "assistant", cleanAnswer);
         
         const memory = aiMemoryList(store);
-        memory.unshift({id: `AIM-${Date.now()}`, userId, role, question, answer: result.answer, plan: result.plan, model: result.model, conversationId, createdAt: new Date().toISOString(), rating: "unrated"});
+        memory.unshift({id: `AIM-${Date.now()}`, userId, role, question, answer: cleanAnswer, plan, model: result.model, conversationId, executions, createdAt: new Date().toISOString(), rating: "unrated"});
         saveAiMemory(store, memory);
-        sendJson(res, 200, {...result, conversationId, contextCounts: filteredContext.counts});
+        sendJson(res, 200, {...result, answer: cleanAnswer, conversationId, contextCounts: filteredContext.counts, executions});
       } catch {
         sendJson(res, 400, {error: "Invalid AI request"});
       }
