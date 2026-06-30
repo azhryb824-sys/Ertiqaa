@@ -1741,25 +1741,121 @@ function inferAiPlan(question, context, user = {}) {
   const role = String(user.role || "");
   const canManage = ["owner", "company_admin", "admin"].includes(role);
   const plan = {intent: "answer", action: null, data: {}, allowed: true, needsApproval: false, missing: [], suggestions: []};
-  if (/عقد|contract|سوي.عقد|عمل.عقد|اعمل.عقد|جدول.عقد/i.test(q)) plan.intent = /تركيب/i.test(q) ? "create_installation_contract" : "create_maintenance_contract";
-  if (/عرض سعر|quote|سوي.عرض|عمل.عرض|اعمل.عرض/i.test(q)) plan.intent = "create_quote";
-  if (/بلاغ|ticket|سوي.بلاغ|عمل.بلاغ|اعمل.بلاغ/i.test(q)) plan.intent = "create_ticket";
-  if (/زيارة كشفية|كشف|معاينة|سوي.زيارة|عمل.زيارة/i.test(q)) plan.intent = "create_visit";
-  if (/فني|مهندس|technician|engineer|سوي.فني|أضف.فني/i.test(q)) plan.intent = "add_staff";
-  if (/مورد|supplier|سوي.مورد|أضف.مورد/i.test(q)) plan.intent = "create_supplier";
-  if (/زيارة|فني|إسناد|اسند|انقل|وزع/i.test(q)) plan.intent = /وزع|إعادة توزيع/i.test(q) ? "redistribute_visits" : "assign_visit";
-  if (/حلل|مخاطر|أولويات|تقرير|مؤشرات/i.test(q)) plan.intent = "analyze_operations";
+
+  // --- Intent Detection (ordered by specificity) ---
+  if (/حلل|تحليل|تقرير|مؤشرات|إحصائيات|إحصاءات|stats|analysis|analytics/i.test(q)) {
+    if (/مخزون|قطع|غيار|مستودع/i.test(q)) plan.intent = "analyze_inventory";
+    else if (/فني|technician|engineer|موظف/i.test(q)) plan.intent = "analyze_staff";
+    else plan.intent = "analyze_operations";
+  }
+  if (/توزيع|إعادة توزيع|وزع|وزع.الكل|redistribute/i.test(q)) plan.intent = "redistribute_visits";
+  if (/إسناد|اسند|انقل|assign/i.test(q) && /زيارة|visit/i.test(q)) plan.intent = "assign_visit";
+  if (/إشعار|notification|أرسل.إشعار|نبه/i.test(q)) plan.intent = "create_notification";
+  if (/تحسين|تسعير|optimize|أمثل/i.test(q) && /عرض سعر|quote/i.test(q)) plan.intent = "optimize_quote";
+  if (/تقرير|report/i.test(q) && /تحليل|analyze/i.test(q)) plan.intent = "analyze_report";
+
+  // Creation intents
+  if (/عقد|contract/i.test(q) || /سوي.عقد|عمل.عقد|اعمل.عقد|جدول.عقد|إنشاء.عقد/i.test(q))
+    plan.intent = /تركيب|توريد|install/i.test(q) ? "create_installation_contract" : "create_maintenance_contract";
+  if (/عرض سعر|عرض.{0,3}سعر|quotation|quote/i.test(q) || /سوي.عرض|عمل.عرض|اعمل.عرض/i.test(q))
+    plan.intent = "create_quote";
+  if (/بلاغ|ticket/i.test(q) || /سوي.بلاغ|عمل.بلاغ|اعمل.بلاغ|إنشاء.بلاغ|أضف.بلاغ/i.test(q))
+    plan.intent = "create_ticket";
+  if ((/زيارة.{0,5}كشف|كشف|معاينة/i.test(q) && !/إسناد|assign/i.test(q)) || /سوي.زيارة|عمل.زيارة|إنشاء.زيارة/i.test(q))
+    plan.intent = "create_visit";
+  if (/فني|technician/i.test(q) && !/زيارة|visit/i.test(q)) plan.intent = "add_staff";
+  if (/مهندس|engineer/i.test(q) && !/زيارة|visit/i.test(q)) plan.intent = "add_staff";
+  if (/مورد|supplier/i.test(q)) plan.intent = "create_supplier";
+  if (/قطعة.{0,3}غيار|part|inventory|مخزون/i.test(q) && /أضف|إنشاء|سوي|عمل|اعمل/i.test(q)) plan.intent = "create_part";
+
+  // Multi-action detection (generate schedule etc.)
+  if (/جدول|schedule|برنامج/i.test(q) && /زيارات|visits/i.test(q)) plan.intent = "redistribute_visits";
+
+  // --- Data Extraction ---
+  const extract = {};
+
+  // Client/Company name: بعد "لـ", "لمؤسسة", "لشركة", "مؤسسة", "شركة", "باسم"
+  const clientPatterns = [
+    /(?:لـ|لمؤسسة|لشركة|لكتاب|للشركة|للمؤسسة)\s*[""]?([^"",\d]{2,40}?)[""]?\s*(?:,|\.|$|بقيمة|بمبلغ|قيمته|مدة|لمدة|عقد|صيانة|تركيب)/i,
+    /(?:مؤسسة|شركة|مكتب|مجموعة)\s*[""]?([^"",\d]{2,40}?)[""]?\s*(?:,|\.|$|بقيمة|بمبلغ|قيمته)/i,
+    /باسم\s*[""]?([^"",\d]{3,50}?)[""]?\s*(?:,|\.|$|بقيمة|بمبلغ)/i
+  ];
+  for (const pattern of clientPatterns) {
+    const m = q.match(pattern);
+    if (m) { extract.clientName = m[1].trim(); break; }
+  }
+
+  // Value/Amount
+  const valueMatch = q.match(/(?:بقيمة|قيمة|بمبلغ|مبلغ|سعر|تكلفة|بـ)\s*([\d,]+(?:\.[\d]+)?)/i);
+  if (valueMatch) extract.value = Number(valueMatch[1].replace(/,/g, ""));
+  const directValue = q.match(/([\d,]+(?:\.[\d]+)?)\s*(?:ريال|ر\.س|SAR)/i);
+  if (directValue && !extract.value) extract.value = Number(directValue[1].replace(/,/g, ""));
+
+  // Contract type
+  if (/تركيب|توريد.{0,5}تركيب/i.test(q)) extract.type = "تركيب";
+  else if (/صيانة|صيانة.{0,5}دورية/i.test(q)) extract.type = "صيانة";
+
+  // Duration (سنوات)
+  const durationMatch = q.match(/(\d+)\s*(سنة|سنوات|سنين|عام|أعوام)/i);
+  if (durationMatch) extract.contractYears = Number(durationMatch[1]);
+
+  // Priority
+  if (/طارئ|طارئة|urgent|عاجل/i.test(q)) extract.priority = "urgent";
+  else if (/عالية|عالي|high/i.test(q)) extract.priority = "high";
+  else if (/منخفضة|منخفض|low/i.test(q)) extract.priority = "low";
+  else if (/متوسطة|medium/i.test(q)) extract.priority = "medium";
+
+  // Date/Time
+  const dateMatch = q.match(/(\d{4}[-/]\d{1,2}[-/]\d{1,2})/);
+  if (dateMatch) extract.scheduledAt = dateMatch[1];
+  const timeMatch = q.match(/(?:الساعة|ساعة)\s*(\d{1,2}):(\d{2})/i);
+  if (timeMatch && extract.scheduledAt) extract.scheduledAt += `T${timeMatch[1]}:${timeMatch[2]}`;
+
+  // Technician name for assignment
+  const techMatch = q.match(/(?:لـ|للفني|للمهندس|إلى)\s*[""]?([^"",\d]{3,20}?)[""]?\s*(?:,|\.|$|في|زيارة)/i);
+  if (techMatch) extract.technicianName = techMatch[1].trim();
+
+  // Visit ID for assignment
+  const visitIdMatch = q.match(/(VIS-[\w-]+|زيارة\s*(\S+))/i);
+  if (visitIdMatch) extract.visitId = visitIdMatch[1];
+
+  // Supplier fields
+  const phoneMatch = q.match(/(05\d{8})/);
+  if (phoneMatch) extract.phone = phoneMatch[1];
+  const cityMatch = q.match(/(?:في|بـ|من)\s*(الرياض|جدة|مكة|المدينة|الدمام|الخبر|القصيم|تبوك|أبها|حائل|نجران|جيزان|الحدود الشمالية|الجبيل|ينبع|بريدة|عنيزة|سكاكا|عرعر)/i);
+  if (cityMatch) extract.city = cityMatch[1];
+
+  // Supplier category
+  if (/كهرباء|تحكم|electric/i.test(q)) extract.category = "قطع كهرباء وتحكم";
+  else if (/أبواب|door/i.test(q)) extract.category = "أبواب ومداخل";
+  else if (/محرك|motor|مكينة/i.test(q)) extract.category = "محركات ومكائن";
+  else if (/حساس|sensor/i.test(q)) extract.category = "حساسات وأنظمة أمان";
+  else if (/زيت|مستهلكات/i.test(q)) extract.category = "زيوت ومستهلكات";
+
+  // --- Validation ---
+  plan.data = extract;
+
   if (plan.intent !== "answer") {
     plan.needsApproval = true;
+    plan.action = plan.intent; // will be mapped later
     if (!canManage) {
       plan.allowed = false;
-      plan.suggestions.push("المستخدم لا يملك صلاحية تنفيذ العمليات الإدارية. يمكن تقديم شرح أو توصية فقط.");
+      plan.suggestions.push("المستخدم لا يملك صلاحية تنفيذ العمليات الإدارية.");
     }
   }
+
+  // Context suggestions
   const counts = context.counts || {};
   if (counts.lateVisitsWithoutReport) plan.suggestions.push(`يوجد ${counts.lateVisitsWithoutReport} زيارة متأخرة دون تقرير.`);
   if (counts.openTickets) plan.suggestions.push(`يوجد ${counts.openTickets} بلاغ مفتوح يحتاج متابعة.`);
   if (counts.lowParts) plan.suggestions.push(`يوجد ${counts.lowParts} صنف مخزون عند حد الطلب أو أقل.`);
+
+  // If nothing detected, try to figure out from context
+  if (plan.intent === "answer" && canManage) {
+    if (/إدارة|تشغيل|عمليات/i.test(q)) plan.intent = "analyze_operations";
+    else if (/مخزون|قطع|غيار/i.test(q)) plan.intent = "analyze_inventory";
+  }
+
   return plan;
 }
 
@@ -2509,10 +2605,14 @@ http.createServer((req, res) => {
         const role = input.role || "admin";
         const userName = input.name || "AI";
         if (!question) return sendJson(res, 400, {executed: false, message: "السؤال فارغ"});
+
         const store = readStore();
         const context = buildAiContext(store);
         const plan = inferAiPlan(question, context, {id: userId, role, name: userName});
+
         if (!plan.allowed) return sendJson(res, 403, {executed: false, message: "لا تملك صلاحية التنفيذ"});
+
+        // Action mapping
         const actionMap = {
           create_maintenance_contract: "create_contract",
           create_installation_contract: "create_contract",
@@ -2523,20 +2623,123 @@ http.createServer((req, res) => {
           redistribute_visits: "redistribute_visits",
           add_staff: "add_staff",
           create_supplier: "create_supplier",
-          analyze_operations: "analyze_report"
+          create_notification: "create_notification",
+          create_part: "add_staff", // placeholder - would need separate handler
+          optimize_quote: "optimize_quote",
+          analyze_report: "analyze_report",
+          analyze_operations: "analyze_operations",
+          analyze_inventory: "analyze_inventory",
+          analyze_staff: "analyze_staff"
         };
+
         const action = actionMap[plan.intent];
-        if (!action) return sendJson(res, 200, {executed: false, message: "لم يتم التعرف على أمر قابل للتنفيذ. يمكنك استخدام نموذج الإدارة الذكية للاستفسارات العامة."});
-        const data = {details: question, userId};
-        if (/بقيمة\s*([\d.,]+)/i.test(question)) data.value = Number(RegExp.$1.replace(/[^\d.]/g, ""));
-        if (/سنة|سنوات|سنين/i.test(question)) data.contractYears = Number((question.match(/(\d+)\s*(سنة|سنوات|سنين)/i)||[,1])[1]);
-        if (/صيانة/i.test(question) && !/تركيب/i.test(question)) data.type = "صيانة";
-        if (/تركيب/i.test(question)) data.type = "تركيب";
-        const clientMatch = question.match(/(?:لـ|لمؤسسة|لشركة|مؤسسة|شركة)\s*([^\d,]+)/i);
-        if (clientMatch) data.clientName = clientMatch[1].trim();
-        const execResult = executeAiAction({action, data, userId}, store);
-        logAiOperation(store, action, {id: userId, name: userName, role}, {action, data, result: execResult.message});
-        sendJson(res, 200, {executed: execResult.executed, message: execResult.message, action, data});
+        if (!action) return sendJson(res, 200, {executed: false, message: "لم يتم التعرف على أمر قابل للتنفيذ. استخدم النموذج الأول للإدارة الذكية للاستفسارات العامة."});
+
+        // Build data from plan extraction
+        const d = Object.assign({}, plan.data, {details: question, userId});
+        const actionData = {action, data: d, userId};
+
+        // --- Local analysis (no Groq needed) ---
+        if (action === "analyze_operations") {
+          const counts = context.counts || {};
+          const tickets = parseStoredJson(store, "misadTickets");
+          const visits = parseStoredJson(store, "misadVisits");
+          const reports = parseStoredJson(store, "misadVisitReports");
+          const staff = parseStoredJson(store, "misadCompanyStaff");
+          const parts = parseStoredJson(store, "misadParts");
+          const contracts = parseStoredJson(store, "misadContracts");
+          const openTickets = tickets.filter(t => t.status !== "مغلق" && t.status !== "closed");
+          const lateVisits = visits.filter(v => new Date(v.scheduledAt) < new Date() && !reports.find(r => r.visitId === v.id));
+          const lowParts = parts.filter(p => Number(p.qty || 0) <= Number(p.minQty || 1));
+          const activeTechs = staff.filter(s => s.availability === "working" || s.availability === "available");
+          const expiringContracts = contracts.filter(c => c.endDate && new Date(c.endDate) > new Date() && new Date(c.endDate) < new Date(Date.now() + 30*86400000));
+
+          const analysis = {
+            openTickets: {count: openTickets.length, urgent: openTickets.filter(t => t.priority === "urgent").length},
+            lateVisits: lateVisits.length,
+            lowParts: lowParts.length,
+            activeStaff: activeTechs.length,
+            totalStaff: staff.length,
+            expiringContracts: expiringContracts.length,
+            totalContracts: contracts.length
+          };
+
+          let msg = `📊 تحليل النظام:\n• ${analysis.openTickets.count} بلاغ مفتوح (${analysis.openTickets.urgent} طارئ)\n• ${analysis.lateVisits} زيارة متأخرة دون تقرير\n• ${analysis.lowParts} صنف مخزون عند حد الطلب\n• ${analysis.activeStaff}/${analysis.totalStaff} فنيين نشطين\n• ${analysis.expiringContracts} عقد ينتهي خلال 30 يوم\n• ${analysis.totalContracts} عقد إجمالاً`;
+          if (analysis.openTickets.urgent > 0) msg += `\n\n⚠️ يوجد ${analysis.openTickets.urgent} بلاغ طارئ يحتاج استجابة فورية.`;
+          if (analysis.expiringContracts > 0) msg += `\n\n⚠️ ${analysis.expiringContracts} عقد على وشك الانتهاء - يوصى بالتواصل مع العملاء للتجديد.`;
+          if (analysis.lateVisits > 0) msg += `\n\n📋 يوصى بإعادة توزيع الزيارات المتأخرة على الفنيين المتفرغين.`;
+
+          return sendJson(res, 200, {executed: true, message: msg, action, data: analysis});
+        }
+
+        if (action === "analyze_inventory") {
+          const parts = parseStoredJson(store, "misadParts");
+          const suppliers = parseStoredJson(store, "misadSuppliers");
+          const low = parts.filter(p => Number(p.qty || 0) <= Number(p.minQty || 1));
+          const outOfStock = parts.filter(p => Number(p.qty || 0) === 0);
+          const byCategory = {};
+          parts.forEach(p => { const cat = p.category || "أخرى"; if (!byCategory[cat]) byCategory[cat] = []; byCategory[cat].push(p); });
+
+          let msg = `📦 تحليل المخزون:\n• ${parts.length} قطعة غيار مسجلة\n• ${low.length} أصناف عند حد الطلب أو أقل\n• ${outOfStock.length} أصناف نفدت بالكامل\n• ${suppliers.length} مورد\n`;
+          if (low.length > 0) {
+            msg += `\n⚠️ الأصناف التي تحتاج إعادة طلب:\n`;
+            low.slice(0, 10).forEach(p => { msg += `• ${p.name || p.title || "قطعة"}: الكمية ${p.qty || 0} (الحد: ${p.minQty || 1})\n`; });
+          }
+          return sendJson(res, 200, {executed: true, message: msg, action, data: {total: parts.length, lowStock: low.length, outOfStock: outOfStock.length}});
+        }
+
+        if (action === "analyze_staff") {
+          const staff = parseStoredJson(store, "misadCompanyStaff");
+          const visits = parseStoredJson(store, "misadVisits");
+          const reports = parseStoredJson(store, "misadVisitReports");
+          const analysis = staff.map(s => {
+            const assigned = visits.filter(v => v.assignedTo === s.identity);
+            const completed = assigned.filter(v => reports.find(r => r.visitId === v.id));
+            const late = assigned.filter(v => new Date(v.scheduledAt) < new Date() && !reports.find(r => r.visitId === v.id));
+            return {name: s.name, role: s.role, total: assigned.length, completed: completed.length, late: late.length, availability: s.availability || "working"};
+          });
+          let msg = `👥 تحليل فريق العمل:\n`;
+          analysis.forEach(a => {
+            const status = a.availability === "working" ? "نشط" : a.availability === "idle" ? "متفرغ" : a.availability === "vacation" ? "إجازة" : a.availability || "غير محدد";
+            msg += `• ${a.name} (${a.role === "engineer" ? "مهندس" : "فني"}) - ${status}: ${a.completed}/${a.total} زيارات مكتملة${a.late > 0 ? `, ${a.late} متأخرة ⚠️` : ""}\n`;
+          });
+          return sendJson(res, 200, {executed: true, message: msg, action, data: analysis});
+        }
+
+        // --- Execute via executeAiAction ---
+        const execResult = executeAiAction(actionData, store);
+
+        // Build rich response message
+        let msg = execResult.message;
+        if (execResult.executed) {
+          if (execResult.contract) {
+            const c = execResult.contract;
+            msg = `✅ تم إنشاء العقد بنجاح\n\n📋 رقم العقد: ${c.id}\n👤 العميل: ${c.clientName || c.clientCompanyName || "غير محدد"}\n💰 القيمة: ${Number(c.value).toFixed(2)} ريال\n📄 النوع: ${c.type}\n📅 البداية: ${c.startDate}\n📅 النهاية: ${c.endDate}\n🔄 الحالة: ${c.status}\n\nيمكنك الاطلاع على العقد في صفحة العقود.`;
+          } else if (execResult.quote) {
+            const qr = execResult.quote;
+            msg = `✅ تم إنشاء عرض السعر بنجاح\n\n📋 رقم العرض: ${qr.id}\n👤 العميل: ${qr.client}\n💰 القيمة: ${Number(qr.value).toFixed(2)} ريال (شامل الضريبة)\n🔄 الحالة: ${qr.status}\n\nيمكنك الاطلاع على العرض في صفحة عروض الأسعار.`;
+          } else if (execResult.ticket) {
+            const t = execResult.ticket;
+            msg = `✅ تم إنشاء البلاغ بنجاح\n\n📋 رقم البلاغ: ${t.id}\n📌 العنوان: ${t.title}\n🔄 الأولوية: ${t.priority}\n🔄 الحالة: ${t.status}\n\nيمكنك متابعة البلاغ في صفحة البلاغات.`;
+          } else if (execResult.visit) {
+            const v = execResult.visit;
+            msg = `✅ تم إنشاء الزيارة بنجاح\n\n📋 رقم الزيارة: ${v.id}\n🏢 الموقع: ${v.building?.name || "غير محدد"}\n📅 الموعد: ${v.scheduledAt}\n👤 المسند إليه: ${v.assignedName || "غير مسند"}\n🔄 الحالة: ${v.status}`;
+          } else if (execResult.supplier) {
+            const s = execResult.supplier;
+            msg = `✅ تم إضافة المورد بنجاح\n\n📋 اسم المورد: ${s.name}\n📞 الجوال: ${s.phone || "غير محدد"}\n🏙️ المدينة: ${s.city || "غير محدد"}\n📂 التصنيف: ${s.category}\n⭐ التقييم: ${s.rating}`;
+          } else if (execResult.staff) {
+            const s = execResult.staff;
+            msg = `✅ تم إضافة عضو الفريق بنجاح\n\n📋 الاسم: ${s.name}\n🆔 الهوية: ${s.identity}\n👤 الدور: ${s.role === "engineer" ? "مهندس" : "فني"}\n🔄 الحالة: ${s.status}`;
+          } else if (execResult.notification) {
+            msg = `✅ تم إنشاء الإشعار بنجاح\n📌 العنوان: ${execResult.notification.title}`;
+          } else if (execResult.redistribution) {
+            msg = `✅ تم إعادة توزيع ${execResult.redistribution.proposedAssignments?.length || 0} زيارة`;
+          }
+        }
+
+        logAiOperation(store, action, {id: userId, name: userName, role}, {action, data: d, result: execResult.message});
+        sendJson(res, 200, {executed: execResult.executed, message: msg, action, data: execResult});
+
       } catch (e) {
         sendJson(res, 500, {executed: false, message: "خطأ في التنفيذ: " + e.message});
       }
