@@ -1722,12 +1722,13 @@ function elevatorKnowledgeBase() {
       "اطلب أقل قدر لازم من البيانات الناقصة.",
       "فرّق بين التوصية والتنفيذ، ولا تنفذ إلا عبر أدوات النظام وبموافقة المستخدم.",
       "اعتمد على الحمل الحالي للفنيين وموقع الزيارة وحالة المصعد عند اقتراح الإسناد.",
-      "راقب العقود المنتظرة والبلاغات المفتوحة والزيارات المتأخرة ونقص المخزون."
+      "راقب العقود المنتظرة والبلاغات المفتوحة والزيارات المتأخرة ونقص المخزون.",
+      "إذا قال المستخدم 'باسم X' فإن X هو اسم العميل. استخدمه في clientName."
     ],
     intents: {
-      create_contract: ["عقد", "صيانة", "تركيب", "أنشئ عقد"],
-      create_quote: ["عرض سعر", "تسعير", "قطع غيار"],
-      assign_visit: ["اسند", "انقل زيارة", "فني"],
+      create_contract: ["عقد", "صيانة", "تركيب", "أنشئ عقد", "سوي عقد", "اعمل عقد", "عمل عقد"],
+      create_quote: ["عرض سعر", "تسعير", "قطع غيار", "سوي عرض", "اعمل عرض", "سعر"],
+      assign_visit: ["اسند", "انقل زيارة", "فني", "سوي زيارة"],
       redistribute_visits: ["إعادة توزيع", "وزع الزيارات", "أقل تكلفة"],
       analyze_operations: ["حلل", "أولويات", "مخاطر", "تشغيل"],
       field_voice_cleanup: ["نظف النص", "إدخال صوتي", "قيمة الحقل"]
@@ -1740,8 +1741,8 @@ function inferAiPlan(question, context, user = {}) {
   const role = String(user.role || "");
   const canManage = ["owner", "company_admin", "admin"].includes(role);
   const plan = {intent: "answer", allowed: true, needsApproval: false, missing: [], suggestions: []};
-  if (/عقد|contract/i.test(q)) plan.intent = /تركيب/.test(q) ? "create_installation_contract" : "create_maintenance_contract";
-  if (/عرض سعر|quote/i.test(q)) plan.intent = "create_quote";
+  if (/عقد|contract|سوي.عقد|عمل.عقد|اعمل.عقد|جدول.عقد/i.test(q)) plan.intent = /تركيب/.test(q) ? "create_installation_contract" : "create_maintenance_contract";
+  if (/عرض سعر|quote|سوي.عرض|عمل.عرض|اعمل.عرض/i.test(q)) plan.intent = "create_quote";
   if (/زيارة|فني|إسناد|اسند|انقل|وزع/i.test(q)) plan.intent = /وزع|إعادة توزيع/.test(q) ? "redistribute_visits" : "assign_visit";
   if (/حلل|مخاطر|أولويات|تقرير|مؤشرات/i.test(q)) plan.intent = "analyze_operations";
   if (["create_maintenance_contract", "create_installation_contract", "create_quote", "assign_visit", "redistribute_visits"].includes(plan.intent)) {
@@ -2255,10 +2256,15 @@ async function askGroq(question, context, user = {}, conversationId = null) {
   
    const systemPrompt = `You are the Shumoos elevator management AI agent. You are not a generic chatbot; you are specialized in elevator company operations.
 Answer in Arabic with a Saudi-friendly professional style. Use the provided system summary, knowledge base, and local agent plan. You can answer questions about the system, summarize records, analyze technician workload, review visits, find delayed visits, suggest technician assignment priorities, support voice chat, and help convert spoken Arabic into clean form-field values across the system. When the user explicitly asks to convert spoken text for a form field, return only the final field value without explanation.
-IMPORTANT: You CAN now directly execute commands. To execute an action, include a JSON block in your response like this: [EXECUTE:{"action":"create_contract","data":{"type":"صيانة","clientName":"..."}}]. The system will execute it automatically. For supported actions, immediately execute instead of just explaining.
+IMPORTANT: You CAN now directly execute commands. To execute an action, include a JSON block in your response like these examples:
+For a maintenance or installation contract (عقد صيانة / عقد تركيب): [EXECUTE:{"action":"create_contract","data":{"type":"صيانة","clientName":"...","value":0}}]
+For a price quote (عرض سعر): [EXECUTE:{"action":"create_quote","data":{"clientName":"...","value":0,"details":"..."}}]
+Always distinguish between contracts (عقود) and quotes (عروض سعر). If the user says "سوي عرض سعر" or "عرض سعر", use create_quote. If the user says "عقد صيانة" or "عقد", use create_contract.
+If the user says "باسم X" or "للعميل X", the client name is X.
+The system will execute the action automatically. For supported actions, immediately execute instead of just explaining.
 Supported actions:
-- create_contract: type, clientName, clientId, clientCompanyName, clientCompanyUnifiedNumber, startDate, endDate, value, details, buildings, elevatorInfo
-- create_quote: clientName, clientId, value, details, items
+- create_contract (لإنشاء عقود الصيانة والتركيب): type, clientName, clientId, clientCompanyName, clientCompanyUnifiedNumber, startDate, endDate, value, details, buildings, elevatorInfo
+- create_quote (لإنشاء عروض الأسعار): clientName, clientId, value, details, items
 - create_ticket: title, description, clientName, clientId, priority, contractId
 - create_visit: clientName, clientId, contractId, scheduledAt, building, assignedTo
 - assign_visit: visitId, technicianId, technicianName
