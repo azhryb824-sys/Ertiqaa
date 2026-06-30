@@ -7,6 +7,7 @@ const root = __dirname;
 const port = Number(process.env.PORT || 4173);
 const host = process.env.HOST || "0.0.0.0";
 const storagePath = path.join(root, "storage.json");
+const voiceCacheDir = path.join(root, ".voice-cache");
 const entrySecret = process.env.SECRET_ENTRY_TOKEN || crypto.randomBytes(32).toString("hex");
 const entryCookie = "misad_entry";
 const inviteCookie = "misad_invite";
@@ -112,6 +113,38 @@ function voiceSampleList() {
   } catch {
     return [];
   }
+}
+
+function voiceSampleSignature(samples) {
+  return crypto.createHash("sha256")
+    .update(samples.map(s => `${s.name}:${s.size}:${s.updatedAt}`).join("|"))
+    .digest("hex");
+}
+
+function voiceCacheKey(text, model, samples) {
+  return crypto.createHash("sha256")
+    .update(JSON.stringify({text, model, samples: voiceSampleSignature(samples)}))
+    .digest("hex");
+}
+
+function readVoiceCache(key) {
+  const audioPath = path.join(voiceCacheDir, `${key}.audio`);
+  const metaPath = path.join(voiceCacheDir, `${key}.json`);
+  if (!fs.existsSync(audioPath) || !fs.existsSync(metaPath)) return null;
+  try {
+    const meta = JSON.parse(fs.readFileSync(metaPath, "utf8") || "{}");
+    return {audio: fs.readFileSync(audioPath), contentType: meta.contentType || "audio/wav"};
+  } catch {
+    return null;
+  }
+}
+
+function writeVoiceCache(key, audio, contentType) {
+  try {
+    fs.mkdirSync(voiceCacheDir, {recursive: true});
+    fs.writeFileSync(path.join(voiceCacheDir, `${key}.audio`), audio);
+    fs.writeFileSync(path.join(voiceCacheDir, `${key}.json`), JSON.stringify({contentType, createdAt: new Date().toISOString()}));
+  } catch {}
 }
 
 function inviteList(store) {
@@ -2514,15 +2547,20 @@ http.createServer((req, res) => {
 
   if (pathname === "/api/voice/samples" && req.method === "GET") {
     const samples = voiceSampleList();
+    const cachedAudio = fs.existsSync(voiceCacheDir) ? fs.readdirSync(voiceCacheDir).filter(name => name.endsWith(".audio")).length : 0;
+    const ready = Boolean(process.env.VOICE_CLONE_MODEL && process.env.VOICE_CLONE_ENDPOINT && process.env.VOICE_CLONE_MODEL_COMMERCIAL_OK === "1");
     return sendJson(res, 200, {
       samples,
       count: samples.length,
+      cachedAudio,
       speechRecognitionLang: "ar-SA",
       speechSynthesisLang: "ar-SA",
       dialect: "Saudi Arabic",
       voiceCloneModel: process.env.VOICE_CLONE_MODEL || "",
+      voiceCloneEndpointReady: Boolean(process.env.VOICE_CLONE_ENDPOINT),
       commercialUseVerified: Boolean(process.env.VOICE_CLONE_MODEL_COMMERCIAL_OK === "1"),
-      mode: process.env.VOICE_CLONE_MODEL ? "my-voice-model-ready" : "my-voice-model-required"
+      timeoutMs: Math.max(1500, Math.min(15000, Number(process.env.VOICE_CLONE_TIMEOUT_MS || 5000))),
+      mode: ready ? "my-voice-model-ready" : "my-voice-model-required"
     });
   }
 
@@ -2537,8 +2575,16 @@ http.createServer((req, res) => {
         const model = process.env.VOICE_CLONE_MODEL || "";
         const endpoint = process.env.VOICE_CLONE_ENDPOINT || "";
         const commercialOk = process.env.VOICE_CLONE_MODEL_COMMERCIAL_OK === "1";
+        const timeoutMs = Math.max(1500, Math.min(15000, Number(process.env.VOICE_CLONE_TIMEOUT_MS || 5000)));
         if (!text) return sendJson(res, 400, {error: "Missing text"});
         if (!samples.length) return sendJson(res, 409, {error: "لا توجد عينات صوت لاستخدام بصمتك."});
+        const cacheKey = voiceCacheKey(text, model || "pending-owner-model", samples);
+        const cached = readVoiceCache(cacheKey);
+        if (cached) {
+          res.writeHead(200, {"Content-Type": cached.contentType, "Cache-Control": "private, max-age=86400", "X-Voice-Cache": "hit"});
+          res.end(cached.audio);
+          return;
+        }
         if (!model || !endpoint || !commercialOk) {
           return sendJson(res, 503, {
             error: "نموذج بصمة صوتك غير مفعل. يجب ضبط VOICE_CLONE_MODEL و VOICE_CLONE_ENDPOINT و VOICE_CLONE_MODEL_COMMERCIAL_OK=1 قبل تشغيل الدردشة بصوتك.",
@@ -2549,6 +2595,7 @@ http.createServer((req, res) => {
         const response = await fetch(endpoint, {
           method: "POST",
           headers: {"Content-Type": "application/json"},
+          signal: AbortSignal.timeout(timeoutMs),
           body: JSON.stringify({
             text,
             model,
@@ -2564,7 +2611,8 @@ http.createServer((req, res) => {
         }
         const contentType = response.headers.get("content-type") || "audio/wav";
         const audio = Buffer.from(await response.arrayBuffer());
-        res.writeHead(200, {"Content-Type": contentType, "Cache-Control": "no-store"});
+        writeVoiceCache(cacheKey, audio, contentType);
+        res.writeHead(200, {"Content-Type": contentType, "Cache-Control": "private, max-age=86400", "X-Voice-Cache": "miss"});
         res.end(audio);
       } catch (err) {
         sendJson(res, 400, {error: "Invalid voice synthesis request: " + (err.message || "Unknown error")});
