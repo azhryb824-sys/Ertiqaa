@@ -2511,7 +2511,8 @@ function getMissingFields(action, data) {
     ]
   };
   const fields = required[action] || [];
-  return fields.filter(f => !f.check(d[f.field])).map(f => ({field: f.field, label: f.label}));
+  const missing = fields.filter(f => !f.check(d[f.field]));
+  return missing.length > 0 ? [missing[0]] : [];
 }
 
 function executeAiAction(actionData, store) {
@@ -3303,6 +3304,66 @@ http.createServer((req, res) => {
         if (!question) return sendJson(res, 400, {executed: false, message: "السؤال فارغ"});
 
         const store = readStore();
+
+        // --- Pending creation follow-up: handle BEFORE intent detection ---
+        if (input._pendingAction && input._pendingData) {
+          const pendingAction = input._pendingAction;
+          const pendingData = JSON.parse(JSON.stringify(input._pendingData));
+          const q = String(input.question || "");
+
+          const valMatch1 = q.match(/(?:بقيمة|قيمة|بمبلغ|مبلغ|سعر|تكلفة|بـ)\s*([\d,]+(?:\.[\d]+)?)/i);
+          if (valMatch1) pendingData.value = Number(valMatch1[1].replace(/,/g, ""));
+          const valMatch2 = q.match(/([\d,]+(?:\.[\d]+)?)\s*(?:ريال|ر\.س|SAR)/i);
+          if (valMatch2 && !pendingData.value) pendingData.value = Number(valMatch2[1].replace(/,/g, ""));
+
+          const clientPats = [
+            /(?:لـ|لمؤسسة|لشركة|للشركة|للمؤسسة|لعميل)\s*[""]?([^"",\d]{2,40}?)[""]?\s*(?:,|\.|$|بقيمة|بمبلغ)/i,
+            /(?:مؤسسة|شركة|مكتب|مجموعة)\s*[""]?([^"",\d]{2,40}?)[""]?\s*(?:,|\.|$|بقيمة|بمبلغ)/i,
+            /(?:اسمه|اسم العميل|العميل)\s*[""]?([^"",\d]{2,30}?)[""]?\s*(?:,|\.|$)/i
+          ];
+          for (const pat of clientPats) { const m = q.match(pat); if (m) { pendingData.clientName = m[1].trim(); break; } }
+
+          const titlePat = q.match(/(?:عنوانه|عنوان|بلاغ)\s*[""]?([^"",\d]{3,60}?)[""]?\s*(?:,|\.|$|أولوية)/i);
+          if (titlePat) pendingData.title = titlePat[1].trim();
+
+          const staffPat = q.match(/(?:اسمه|اسم الفني|الفني)\s*[""]?([^"",\d]{3,25}?)[""]?\s*(?:,|\.|$|هوية)/i);
+          if (staffPat) pendingData.name = staffPat[1].trim();
+
+          const suppPat = q.match(/مورد\s*[""]?([^"",\d]{3,30}?)[""]?\s*(?:,|\.|$)/i);
+          if (suppPat && !pendingData.name) pendingData.name = suppPat[1].trim();
+
+          const idPat = q.match(/(?:هوية|رقم)\s*(\d{8,10})/i);
+          if (idPat) pendingData.identity = idPat[1];
+
+          const datePat = q.match(/(\d{4}[-/]\d{1,2}[-/]\d{1,2})/);
+          if (datePat) pendingData.scheduledAt = datePat[1];
+
+          if (/تركيب|توريد/i.test(q)) pendingData.type = "تركيب";
+          else if (/صيانة/i.test(q)) pendingData.type = "صيانة";
+
+          const missing = getMissingFields(pendingAction, pendingData);
+          if (missing.length) {
+            return sendJson(res, 200, {
+              executed: false,
+              missingFields: missing,
+              message: missing.length === 1
+                ? `ينقصني ${missing[0].label}. تفضل بذكره.`
+                : `ينقصني ${missing.map(m => m.label).join(" و ")}. اذكرهم لو تكرمت.`,
+              data: pendingData,
+              action: pendingAction
+            });
+          }
+
+          const execResult = executeAiAction({action: pendingAction, data: pendingData, userId}, store);
+          logAiOperation(store, pendingAction, {id: userId, name: userName, role}, {action: pendingAction, data: pendingData, result: execResult.message});
+          return sendJson(res, 200, {
+            executed: execResult.executed,
+            message: execResult.message || (execResult.executed ? `تم التنفيذ بنجاح.` : "لم أتمكن من تنفيذ الأمر."),
+            action: pendingAction,
+            data: execResult
+          });
+        }
+
         const context = buildAiContext(store);
         const plan = inferAiPlan(question, context, {id: userId, role, name: userName});
 
@@ -3415,11 +3476,6 @@ http.createServer((req, res) => {
 
         // Build data from plan extraction
         var d = Object.assign({}, plan.data, {details: question, userId});
-
-        // Merge pending data from incomplete creation (user providing missing fields)
-        if (input._pendingAction && input._pendingData) {
-          d = Object.assign({}, input._pendingData, plan.data, {details: question, userId});
-        }
 
         // Map intent to form type that client will open
         const formMap = {
