@@ -442,10 +442,17 @@
           setStatus("⚡ جاري التنفيذ...", true);
           showTyping(true);
 
+          var body = { question: text, userId: session.id, role: session.role, name: session.name };
+          if (window._pendingCreation) {
+            body._pendingAction = window._pendingCreation.action;
+            body._pendingData = window._pendingCreation.data;
+            delete window._pendingCreation;
+          }
+
           fetch("/api/ai/execute", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ question: text, userId: session.id, role: session.role, name: session.name })
+            body: JSON.stringify(body)
           })
           .then(function (r) { return r.json(); })
           .then(async function (d) {
@@ -453,6 +460,9 @@
             if (!window.voiceChatActive) return;
             var reply = d.message || "تم التنفيذ";
             addMsg("ai", reply);
+            if (d.executed === false && d.missingFields && d.missingFields.length) {
+              window._pendingCreation = { action: d.action, data: d.data || {} };
+            }
             if (d.openForm && d.formType) {
               var fm = { contract: "contract", quote: "quote", ticket: "ticket", visit: "visit", staff: "staff", supplier: "supplier", part: "part" };
               var fk = fm[d.formType] || d.formType;

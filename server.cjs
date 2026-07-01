@@ -2382,6 +2382,36 @@ function dateVal(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+function getMissingFields(action, data) {
+  const d = data || {};
+  const required = {
+    create_contract: [
+      {field: "clientName", label: "اسم العميل", check: v => v && String(v).trim()},
+      {field: "value", label: "قيمة العقد", check: v => Number(v) > 0}
+    ],
+    create_quote: [
+      {field: "clientName", label: "اسم العميل", check: v => v && String(v).trim()},
+      {field: "value", label: "قيمة عرض السعر", check: v => Number(v) > 0}
+    ],
+    create_ticket: [
+      {field: "title", label: "عنوان البلاغ", check: v => v && String(v).trim().length > 1}
+    ],
+    create_visit: [
+      {field: "clientName", label: "اسم العميل", check: v => v && String(v).trim()},
+      {field: "scheduledAt", label: "تاريخ الزيارة", check: v => v && String(v).trim()}
+    ],
+    add_staff: [
+      {field: "name", label: "اسم الفني", check: v => v && String(v).trim()},
+      {field: "identity", label: "هوية الفني", check: v => v && String(v).trim()}
+    ],
+    create_supplier: [
+      {field: "name", label: "اسم المورد", check: v => v && String(v).trim()}
+    ]
+  };
+  const fields = required[action] || [];
+  return fields.filter(f => !f.check(d[f.field])).map(f => ({field: f.field, label: f.label}));
+}
+
 function executeAiAction(actionData, store) {
   const result = {executed: false, action: actionData.action, message: ""};
   const ownerCompanies = parseStoredJson(store, "misadOwnerCompanies");
@@ -3196,7 +3226,12 @@ http.createServer((req, res) => {
           analyze_staff: "analyze_staff"
         };
 
-        const action = actionMap[plan.intent];
+        var action = actionMap[plan.intent];
+
+        // If client is following up on a pending creation, use the original action
+        if (input._pendingAction && input._pendingData) {
+          action = input._pendingAction;
+        }
 
         // --- Conversational intents (greetings, thanks, apologies, etc.) ---
         if (!action && plan.intent !== "answer") {
@@ -3277,7 +3312,12 @@ http.createServer((req, res) => {
         }
 
         // Build data from plan extraction
-        const d = Object.assign({}, plan.data, {details: question, userId});
+        var d = Object.assign({}, plan.data, {details: question, userId});
+
+        // Merge pending data from incomplete creation (user providing missing fields)
+        if (input._pendingAction && input._pendingData) {
+          d = Object.assign({}, input._pendingData, plan.data, {details: question, userId});
+        }
 
         // Map intent to form type that client will open
         const formMap = {
@@ -3305,16 +3345,25 @@ http.createServer((req, res) => {
         const isCreation = creationActions.includes(action);
 
         if (isCreation && formMap[plan.intent]) {
-          // Return form type and extracted data — client opens the manual form
-          const formType = formMap[plan.intent];
-          let msg = `✅ تم استخراج البيانات. سيتم فتح نموذج ${actionLabels[action] || "الإنشاء"} لتكملة البيانات يدوياً.`;
-          if (!d.clientName && !d.name && !d.title) msg = `⚠️ لم أتمكن من استخراج بيانات كافية. سيتم فتح النموذج فارغاً.`;
+          const missing = getMissingFields(action, d);
+          if (missing.length) {
+            return sendJson(res, 200, {
+              executed: false,
+              missingFields: missing,
+              message: missing.length === 1
+                ? `ينقصني ${missing[0].label}. تفضل بذكره.`
+                : `ينقصني ${missing.map(m => m.label).join(" و ")}. اذكرهم لو تكرمت.`,
+              data: d,
+              action
+            });
+          }
+          const execResult = executeAiAction({action, data: d, userId}, store);
+          logAiOperation(store, action, {id: userId, name: userName, role}, {action, data: d, result: execResult.message});
           return sendJson(res, 200, {
-            openForm: true,
-            formType,
-            data: d,
-            message: msg,
-            action
+            executed: execResult.executed,
+            message: execResult.message || (execResult.executed ? `تم تنفيذ ${actionLabels[action] || "الأمر"}.` : "لم أتمكن من تنفيذ الأمر."),
+            action,
+            data: execResult
           });
         }
 
