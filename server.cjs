@@ -2688,10 +2688,81 @@ function executeAiAction(actionData, store) {
   return result;
 }
 
-async function askGroq(question, context, user = {}, conversationId = null) {
-  const apiKey = process.env.GROQ_API_KEY || "";
-  if (!apiKey) return {error: "GROQ_API_KEY is not configured"};
-  const model = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
+function aiTimeoutMs() {
+  return Math.max(1500, Math.min(20000, Number(process.env.AI_MODEL_TIMEOUT_MS || 7000)));
+}
+
+function aiModelProviders() {
+  return [
+    {
+      id: "primary",
+      label: "Groq primary",
+      apiKey: process.env.GROQ_API_KEY || "",
+      model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
+      endpoint: process.env.GROQ_CHAT_ENDPOINT || "https://api.groq.com/openai/v1/chat/completions"
+    },
+    {
+      id: "fallback",
+      label: "Custom fallback model",
+      type: process.env.AI_FALLBACK_TYPE || "custom",
+      apiKey: process.env.AI_FALLBACK_API_KEY || process.env.OPENAI_API_KEY || "",
+      model: process.env.AI_FALLBACK_MODEL || process.env.OPENAI_MODEL || "custom-local-model",
+      endpoint: process.env.AI_FALLBACK_CHAT_ENDPOINT || process.env.CUSTOM_AI_ENDPOINT || ""
+    }
+  ];
+}
+
+function readAiAnswer(data) {
+  if (typeof data === "string") return data.trim();
+  return String(
+    data?.choices?.[0]?.message?.content ||
+    data?.answer ||
+    data?.message ||
+    data?.response ||
+    data?.text ||
+    data?.output ||
+    data?.result ||
+    ""
+  ).trim();
+}
+
+async function requestAiProvider(provider, messages, meta = {}) {
+  if (!provider.endpoint) throw new Error(`${provider.label} endpoint is not configured`);
+  if (provider.id === "primary" && !provider.apiKey) throw new Error(`${provider.label} API key is not configured`);
+  const headers = {"Content-Type": "application/json"};
+  if (provider.apiKey) headers.Authorization = `Bearer ${provider.apiKey}`;
+  const openAiCompatible = provider.id === "primary" || provider.type === "openai";
+  const body = openAiCompatible ? {
+    model: provider.model,
+    messages,
+    temperature: 0.3,
+    max_tokens: 1500
+  } : {
+    model: provider.model,
+    messages,
+    prompt: messages.map(m => `${m.role}: ${m.content}`).join("\n\n"),
+    question: meta.question || messages[messages.length - 1]?.content || "",
+    primaryAnswer: meta.primaryAnswer || "",
+    user: meta.user || {},
+    context: meta.context || {},
+    plan: meta.plan || {},
+    language: "ar-SA",
+    dialect: "Saudi Arabic",
+    mode: "voice-first"
+  };
+  const response = await fetch(provider.endpoint, {
+    method: "POST",
+    headers,
+    signal: AbortSignal.timeout(aiTimeoutMs()),
+    body: JSON.stringify(body)
+  });
+  const contentType = response.headers.get("content-type") || "";
+  const data = contentType.includes("application/json") ? await response.json().catch(() => ({})) : await response.text().catch(() => "");
+  if (!response.ok) throw new Error(data?.error?.message || data?.error || data?.message || `${provider.label} request failed`);
+  return readAiAnswer(data);
+}
+
+async function askUnifiedAi(question, context, user = {}, conversationId = null) {
   const knowledge = elevatorKnowledgeBase();
   const plan = inferAiPlan(question, context, user);
   
@@ -2745,21 +2816,47 @@ System summary: ${JSON.stringify(context)}`;
     {role: "user", content: question}
   ];
   
-  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: {"Content-Type": "application/json", "Authorization": `Bearer ${apiKey}`},
-    body: JSON.stringify({
-      model,
-      messages,
-      temperature: 0.3,
-      max_tokens: 1500
-    })
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) return {error: data.error?.message || "Groq request failed"};
-  const answer = data.choices?.[0]?.message?.content?.trim() || "No answer was returned from Groq.";
-  return {answer, model, plan};
+  const providers = aiModelProviders();
+  const attempts = [];
+  const primary = providers.find(p => p.id === "primary");
+  const fallback = providers.find(p => p.id === "fallback");
+  let primaryAnswer = "";
+  let primaryModel = primary?.model || "";
+  try {
+    primaryAnswer = await requestAiProvider(primary, messages, {question, context, user, plan});
+    if (!primaryAnswer) throw new Error(`${primary.label} returned an empty answer`);
+    attempts.push({provider: primary.id, model: primary.model, ok: true});
+  } catch (err) {
+    attempts.push({provider: primary.id, model: primary.model, error: err.message || "AI request failed"});
+  }
+
+  if (fallback?.endpoint) {
+    const mergedMessages = primaryAnswer ? [
+      ...messages,
+      {role: "assistant", content: primaryAnswer},
+      {role: "user", content: "راجع الإجابة السابقة ووحّدها مع منطق النظام. أعد جواباً نهائياً عربياً قصيراً صالحاً للصوت، ونفّذ نفس صيغة EXECUTE عند الحاجة بدون تعارض."}
+    ] : messages;
+    try {
+      const answer = await requestAiProvider(fallback, mergedMessages, {question, context, user, plan, primaryAnswer});
+      if (!answer) throw new Error(`${fallback.label} returned an empty answer`);
+      attempts.push({provider: fallback.id, model: fallback.model, ok: true, mergedWithPrimary: Boolean(primaryAnswer)});
+      return {answer, model: primaryAnswer ? `${primaryModel}+${fallback.model}` : fallback.model, provider: primaryAnswer ? "unified" : "fallback", providerLabel: primaryAnswer ? "Unified primary/custom model" : fallback.label, attempts, plan};
+    } catch (err) {
+      attempts.push({provider: fallback.id, model: fallback.model, error: err.message || "AI request failed"});
+      if (primaryAnswer) return {answer: primaryAnswer, model: primaryModel, provider: "primary", providerLabel: primary.label, attempts, plan};
+    }
+  }
+
+  if (primaryAnswer) return {answer: primaryAnswer, model: primaryModel, provider: "primary", providerLabel: primary.label, attempts, plan};
+  const primaryMissing = attempts[0]?.error?.includes("not configured");
+  const fallbackMissing = !fallback?.endpoint || attempts.some(a => a.provider === "fallback" && String(a.error || "").includes("not configured"));
+  return {
+    error: primaryMissing && fallbackMissing ? "No AI model is configured. Set GROQ_API_KEY for the primary model or AI_FALLBACK_CHAT_ENDPOINT/CUSTOM_AI_ENDPOINT for your custom fallback model." : (attempts.at(-1)?.error || "No AI model was able to answer."),
+    attempts,
+    plan
+  };
 }
+
 http.createServer((req, res) => {
   const pathname = decodeURIComponent(req.url.split("?")[0]);
   if (sendMobileAssociation(res, pathname)) return;
@@ -2795,7 +2892,6 @@ http.createServer((req, res) => {
       count: samples.length,
       cachedAudio,
       speechRecognitionLang: "ar-SA",
-      speechSynthesisLang: "ar-SA",
       dialect: "Saudi Arabic",
       voiceCloneModel: process.env.VOICE_CLONE_MODEL || (elevenLabsReady ? "eleven_monolingual_v1" : ""),
       voiceCloneEndpointReady: Boolean(process.env.VOICE_CLONE_ENDPOINT) || elevenLabsReady,
@@ -2977,7 +3073,7 @@ http.createServer((req, res) => {
         // Add user message to conversation
         addMessageToConversation(store, conversationId, "user", question);
         
-        const result = await askGroq(question, filteredContext, {id: userId, role, name: userName}, conversationId);
+        const result = await askUnifiedAi(question, filteredContext, {id: userId, role, name: userName}, conversationId);
         if (result.error) return sendJson(res, result.error.includes("configured") ? 503 : 502, result);
         
         // Parse and execute [EXECUTE:...] blocks from the AI response
@@ -3020,10 +3116,10 @@ http.createServer((req, res) => {
         }
         cleanAnswer = cleanAnswer.trim();
         
-        // Use the plan from inferAiPlan to also auto-execute if Groq didn't include EXECUTE block
+        // Use the plan from inferAiPlan to also auto-execute if the unified model did not include EXECUTE block
         const plan = result.plan || inferAiPlan(question, filteredContext, {id: userId, role, name: userName});
         if (plan.allowed && plan.needsApproval && executions.length === 0 && !cleanAnswer.includes("[EXECUTE")) {
-          // If the plan detects an action intent but Groq didn't execute, try direct execution
+          // If the plan detects an action intent but the unified model did not execute, try direct execution
           let autoExecute = null;
           if (plan.intent === "create_maintenance_contract" || plan.intent === "create_installation_contract") {
             autoExecute = {action: "create_contract", data: {type: plan.intent === "create_installation_contract" ? "تركيب" : "صيانة", details: question}};
@@ -3161,23 +3257,20 @@ http.createServer((req, res) => {
         }
 
         if (!action) {
-          const groqKey = process.env.GROQ_API_KEY || "";
-          if (groqKey) {
-            try {
-              const groqResult = await askGroq(question, context, {id: userId, role, name: userName});
-              if (groqResult.answer && !groqResult.error) {
-                if (groqResult.plan?.intent !== "answer") {
-                  const groqPlan = groqResult.plan || {};
-                  if (groqPlan.action && groqPlan.data) {
-                    const execR = executeAiAction({action: groqPlan.action, data: Object.assign({}, groqPlan.data, {userId}), userId}, store);
-                    logAiOperation(store, groqPlan.action, {id: userId, name: userName, role}, {action: groqPlan.action, data: groqPlan.data, result: execR.message});
-                    return sendJson(res, 200, {executed: true, message: groqResult.answer + "\n\n✅ تم تنفيذ الأمر.", action: groqPlan.action, data: execR});
-                  }
+          try {
+            const aiResult = await askUnifiedAi(question, context, {id: userId, role, name: userName});
+            if (aiResult.answer && !aiResult.error) {
+              if (aiResult.plan?.intent !== "answer") {
+                const aiPlan = aiResult.plan || {};
+                if (aiPlan.action && aiPlan.data) {
+                  const execR = executeAiAction({action: aiPlan.action, data: Object.assign({}, aiPlan.data, {userId}), userId}, store);
+                  logAiOperation(store, aiPlan.action, {id: userId, name: userName, role}, {action: aiPlan.action, data: aiPlan.data, result: execR.message});
+                  return sendJson(res, 200, {executed: true, message: aiResult.answer + "\n\n✅ تم تنفيذ الأمر.", action: aiPlan.action, data: execR, model: aiResult.model, provider: aiResult.provider});
                 }
-                return sendJson(res, 200, {executed: true, message: groqResult.answer, action: "answer", groqModel: groqResult.model});
               }
-            } catch {}
-          }
+              return sendJson(res, 200, {executed: true, message: aiResult.answer, action: "answer", model: aiResult.model, provider: aiResult.provider});
+            }
+          } catch {}
           const local = searchLocalData(question, store);
           if (local) return sendJson(res, 200, {executed: true, message: local, action: "answer"});
           return sendJson(res, 200, {openForm: false, message: "لم يتم التعرف على الأمر. جرب: أنشئ عقد, عرض سعر, بلاغ, زيارة, فني, مورد"});
@@ -3232,7 +3325,7 @@ http.createServer((req, res) => {
           return sendJson(res, 200, {executed: execResult.executed, message: execResult.message, action, data: execResult});
         }
 
-        // --- Local analysis (no Groq needed) ---
+        // --- Local analysis when no remote model is needed ---
         if (action === "analyze_operations") {
           const counts = context.counts || {};
           const tickets = parseStoredJson(store, "misadTickets");
@@ -3298,15 +3391,12 @@ http.createServer((req, res) => {
         }
 
         // If nothing matched, return unknown
-        const groqKey = process.env.GROQ_API_KEY || "";
-        if (groqKey) {
-          try {
-            const groqResult = await askGroq(question, context, {id: userId, role, name: userName});
-            if (groqResult.answer && !groqResult.error) {
-              return sendJson(res, 200, {executed: true, message: groqResult.answer, action: "answer", groqModel: groqResult.model});
-            }
-          } catch {}
-        }
+        try {
+          const aiResult = await askUnifiedAi(question, context, {id: userId, role, name: userName});
+          if (aiResult.answer && !aiResult.error) {
+            return sendJson(res, 200, {executed: true, message: aiResult.answer, action: "answer", model: aiResult.model, provider: aiResult.provider});
+          }
+        } catch {}
         const local = searchLocalData(question, store);
         if (local) return sendJson(res, 200, {executed: true, message: local, action: "answer"});
         return sendJson(res, 200, {openForm: false, message: "لم يتم التعرف على الأمر. جرب: أنشئ عقد, عرض سعر, بلاغ, زيارة, فني, مورد"});
