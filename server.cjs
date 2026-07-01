@@ -1887,8 +1887,8 @@ function elevatorKnowledgeBase() {
 
 function searchLocalData(query, store) {
   const q = String(query || "").toLowerCase();
-  const isCount = /^(?:كم|عدد|كم عدد|إجمالي|total|count)\b/i.test(q);
-  const isList = /^(?:أرني|أظهر|ورني|أطلع|شوف|show|list|عطيني)\b/i.test(q);
+  const isCount = /^(?:كم|عدد|كم عدد|إجمالي)(?:\s|$)|^(?:total|count)\b/i.test(q);
+  const isList = /^(?:أرني|أظهر|ورني|أطلع|شوف|عطيني)(?:\s|$)|^(?:show|list)\b/i.test(q);
   const isSpecific = /(?:من\s*(?:هو|هم|يكون)?|عن\s*.{2,}|بخصوص|تفاصيل|معلومات|details|info\s+about|specific|حالة)/i.test(q);
   const results = [];
   
@@ -2144,7 +2144,7 @@ function inferAiPlan(question, context, user = {}) {
   // Query words indicate user wants information, not creation
   const hasQueryWord = /^(?:عطيني|أرني|ارني|أظهر|اظهر|كم|وش|ايش|كيف|أبي|ابي|ابغى|ابغا|بدي|نبي|نبغا|أريد|اريد|ورني|دلني|أطلع|اطلع|شوف|تعطيني|أعطني|اعطني|خليني|أشوف|اشوف|عدد|إجمالي)/i.test(q);
   // Creation action words indicate user wants to create something
-  const hasCreateWord = /إنشاء|سوي|سو|سوى|اعمل|أضف|اضف|إضافة|إضافة|new|create|add|جدول|تسجيل/i.test(q);
+  const hasCreateWord = /إنشاء|أنشئ|أنشي|إنشي|سوي|سو|سوى|اعمل|أضف|اضف|إضافة|new|create|add|جدول|تسجيل/i.test(q);
   
   const entityMap = [
     {pattern: /عق[وً]?د|عقود?|اتفاقات?|اتفاقية|contract/i, intent: "create_maintenance_contract", type: "contracts", isInstall: /تركيب|توريد|install/i.test(q)},
@@ -2226,7 +2226,7 @@ function inferAiPlan(question, context, user = {}) {
   if (buildingMatch) extract.building = {name: buildingMatch[1].trim(), district: "", mapUrl: ""};
 
   // Staff name and identity
-  const staffNameMatch = q.match(/(?:اسمه|اسم|فني|مهندس)\s*[""]?([^"",\d]{3,25}?)[""]?\s*(?:,|\.|$|هوية|رقم)/i);
+  const staffNameMatch = q.match(/(?:اسمه|اسم)\s*[""]?([^"",\d]{3,25}?)[""]?\s*(?:,|\.|$|هوية|رقم|\d{6,})/i) || q.match(/(?:فني|مهندس)\s*[""]?([^"",\d]{3,25}?)[""]?\s*(?:,|\.|$|هوية|رقم|\d{6,})/i);
   if (staffNameMatch) extract.name = staffNameMatch[1].trim();
   const identityMatch = q.match(/(?:هوية|رقم)\s*(\d{8,10})/i);
   if (identityMatch) extract.identity = identityMatch[1];
@@ -3307,6 +3307,10 @@ http.createServer((req, res) => {
 
         // --- Pending creation follow-up: handle BEFORE intent detection ---
         if (input._pendingAction && input._pendingData) {
+          // If the follow-up text starts a new command, ignore pending
+          if (/^(?:سوي|أنشئ|أنشي|إنشي|اعمل|أضف|اضف|كم|عطيني|أرني|ارني|أظهر|اظهر|شوف|من أنت|السلام|شكراً|مرحبا|حلل)/i.test(String(input.question || ""))) {
+            // Fall through to normal processing
+          } else {
           const pendingAction = input._pendingAction;
           const pendingData = JSON.parse(JSON.stringify(input._pendingData));
           const q = String(input.question || "");
@@ -3326,13 +3330,13 @@ http.createServer((req, res) => {
           const titlePat = q.match(/(?:عنوانه|عنوان|بلاغ)\s*[""]?([^"",\d]{3,60}?)[""]?\s*(?:,|\.|$|أولوية)/i);
           if (titlePat) pendingData.title = titlePat[1].trim();
 
-          const staffPat = q.match(/(?:اسمه|اسم الفني|الفني)\s*[""]?([^"",\d]{3,25}?)[""]?\s*(?:,|\.|$|هوية)/i);
+          const staffPat = q.match(/(?:اسمه|اسم)\s*[""]?([^"",\d]{3,25}?)[""]?\s*(?:,|\.|$|هوية|\d{6,})/i) || q.match(/(?:الفني)\s*[""]?([^"",\d]{3,25}?)[""]?\s*(?:,|\.|$|هوية|\d{6,})/i);
           if (staffPat) pendingData.name = staffPat[1].trim();
 
           const suppPat = q.match(/مورد\s*[""]?([^"",\d]{3,30}?)[""]?\s*(?:,|\.|$)/i);
           if (suppPat && !pendingData.name) pendingData.name = suppPat[1].trim();
 
-          const idPat = q.match(/(?:هوية|رقم)\s*(\d{8,10})/i);
+          const idPat = q.match(/(?:هوية|هويته|رقم)\s*(\d{6,10})/i);
           if (idPat) pendingData.identity = idPat[1];
 
           const datePat = q.match(/(\d{4}[-/]\d{1,2}[-/]\d{1,2})/);
@@ -3362,6 +3366,7 @@ http.createServer((req, res) => {
             action: pendingAction,
             data: execResult
           });
+          } // end else (pending follow-up processing)
         }
 
         const context = buildAiContext(store);
@@ -3393,7 +3398,9 @@ http.createServer((req, res) => {
 
         // If client is following up on a pending creation, use the original action
         if (input._pendingAction && input._pendingData) {
-          action = input._pendingAction;
+          if (!/^(?:سوي|أنشئ|أنشي|إنشي|اعمل|أضف|اضف|كم|عطيني|أرني|ارني|أظهر|اظهر|شوف|من أنت|السلام|شكراً|مرحبا|حلل)/i.test(String(input.question || ""))) {
+            action = input._pendingAction;
+          }
         }
 
         // --- Conversational intents (greetings, thanks, apologies, etc.) ---

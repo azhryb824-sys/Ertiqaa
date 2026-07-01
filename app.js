@@ -444,9 +444,14 @@
 
           var body = { question: text, userId: session.id, role: session.role, name: session.name };
           if (window._pendingCreation) {
-            body._pendingAction = window._pendingCreation.action;
-            body._pendingData = window._pendingCreation.data;
-            delete window._pendingCreation;
+            // If the new text starts with a fresh command word, discard pending
+            if (/^(?:سوي|أنشئ|أنشي|إنشي|اعمل|أضف|اضف|كم|عطيني|أرني|ارني|أظهر|اظهر|شوف|من أنت|السلام|شكراً|مرحبا|حلل)/i.test(text)) {
+              delete window._pendingCreation;
+            } else {
+              body._pendingAction = window._pendingCreation.action;
+              body._pendingData = window._pendingCreation.data;
+              delete window._pendingCreation;
+            }
           }
 
           fetch("/api/ai/execute", {
