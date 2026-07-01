@@ -439,7 +439,7 @@
             body: JSON.stringify({ question: text, userId: session.id, role: session.role, name: session.name })
           })
           .then(function (r) { return r.json(); })
-          .then(function (d) {
+          .then(async function (d) {
             showTyping(false);
             if (!window.voiceChatActive) return;
             var reply = d.message || "تم التنفيذ";
@@ -459,14 +459,9 @@
               }, 300);
             }
             setStatus("🔊 يتحدث النظام...", true);
-            speakArabic(reply);
-            var si = setInterval(function () {
-              if (!window.speechSynthesis || !window.speechSynthesis.speaking) {
-                clearInterval(si);
-                if (window.voiceChatActive) startListen();
-                else setStatus("متوقف", false);
-              }
-            }, 300);
+            await speakArabic(reply);
+            if (window.voiceChatActive) startListen();
+            else setStatus("متوقف", false);
           })
           .catch(function (e) {
             showTyping(false);
