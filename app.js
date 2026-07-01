@@ -370,22 +370,26 @@
           }
         } catch (_) { rec = null; }
 
+        var _vcListenTimeout = null;
+
         function startListen() {
           if (!window.voiceChatActive) return;
+          if (window._vcListening) return;
+          window._vcListening = true;
           setStatus("🎤 استمع...", true);
           startWave();
           if (trn) { trn.style.display = "none"; trn.textContent = ""; }
 
           if (rec) {
-            // Use dedicated recognition with interim results
             try { rec.abort(); } catch (_) {}
             var finalText = "";
             rec.onstart = function () { /* started */ };
             rec.onerror = function (ev) {
-              if (!window.voiceChatActive) return;
-              if (ev.error === "no-speech") { startListen(); return; }
-              if (ev.error === "aborted") return;
+              if (!window.voiceChatActive) { window._vcListening = false; return; }
+              if (ev.error === "no-speech") { window._vcListening = false; _vcListenTimeout = setTimeout(function () { if (window.voiceChatActive) startListen(); }, 800); return; }
+              if (ev.error === "aborted") { window._vcListening = false; return; }
               stopWave();
+              window._vcListening = false;
               setStatus("❌ تعذر الاستماع، حاول مرة أخرى", false);
               setTimeout(function () { if (window.voiceChatActive) startListen(); }, 1500);
             };
@@ -407,18 +411,20 @@
             };
             rec.onend = function () {
               stopWave();
+              window._vcListening = false;
               if (trn) trn.style.display = "none";
               if (!window.voiceChatActive) return;
-              if (finalText.trim()) {
-                handleCommand(finalText.trim());
+              var txt = finalText.trim();
+              if (txt && txt.length > 1) {
+                handleCommand(txt);
               } else {
                 setStatus("🎤 لم أسمعك، حاول مرة أخرى", false);
-                setTimeout(function () { if (window.voiceChatActive) startListen(); }, 1200);
+                _vcListenTimeout = setTimeout(function () { if (window.voiceChatActive) startListen(); }, 1200);
               }
             };
             rec.start();
           } else {
-            // Fallback: use shared listenArabic
+            window._vcListening = false;
             window.voiceChatRec = listenArabic(
               function (text) { if (window.voiceChatActive && text) handleCommand(text); },
               function (status) { if (window.voiceChatActive && status) setStatus(status, true); }
@@ -460,6 +466,7 @@
             }
             setStatus("🔊 يتحدث النظام...", true);
             await speakArabic(reply);
+            await new Promise(function (r) { return setTimeout(r, 600); });
             if (window.voiceChatActive) startListen();
             else setStatus("متوقف", false);
           })
@@ -476,6 +483,8 @@
       } else {
         // Stop conversation
         window.voiceChatActive = false;
+        window._vcListening = false;
+        if (_vcListenTimeout) { clearTimeout(_vcListenTimeout); _vcListenTimeout = null; }
         if (window.voiceChatRec) {
           try { window.voiceChatRec.stop(); } catch (_) {}
           try { window.voiceChatRec.abort(); } catch (_) {}
@@ -495,24 +504,19 @@
     const intBtn = e.target.closest("#aiInterruptBtn");
     if (intBtn && window.voiceChatActive) {
       stopVoiceOutput();
-      // Restart listening directly
+      window._vcListening = false;
+      if (_vcListenTimeout) { clearTimeout(_vcListenTimeout); _vcListenTimeout = null; }
       if (window.voiceChatRec) {
         try { window.voiceChatRec.stop(); } catch (_) {}
         try { window.voiceChatRec.abort(); } catch (_) {}
       }
-      // Find the mic handler's internal state and restart
       var si2 = document.getElementById("aiExecStatus");
       if (si2) si2.innerHTML = '<span class="vc-status-dot" style="background:#9abf8a"></span> 🎤 استمع...';
-      // Trigger the mic as if starting fresh (preserve active state)
       var wr = document.getElementById("aiWaveform");
       if (wr) wr.classList.add("active");
-      // Re-fetch aiExecMessages and re-start
       var msg2 = document.getElementById("aiExecMessages");
       var mt2 = msg2?.querySelector(".vc-typing");
       if (mt2) mt2.closest(".vc-msg")?.remove();
-      // Restart via dispatching a custom event to the voice handler
-      // The startListen function is scoped inside the vcBtn handler, so we need to trigger a re-start differently
-      // Force a new cycle: briefly toggle active off then on
       window.voiceChatActive = false;
       var micEl = document.querySelector("[data-voice-chat-mic]");
       if (micEl) { micEl.classList.remove("listening"); setTimeout(function () { micEl.click(); }, 50); }
