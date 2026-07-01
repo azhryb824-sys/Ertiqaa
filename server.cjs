@@ -3305,17 +3305,6 @@ http.createServer((req, res) => {
         const isCreation = creationActions.includes(action);
 
         if (isCreation && formMap[plan.intent]) {
-          const execResult = executeAiAction({action, data: d, userId}, store);
-          logAiOperation(store, action, {id: userId, name: userName, role}, {action, data: d, result: execResult.message});
-          return sendJson(res, 200, {
-            executed: execResult.executed,
-            message: execResult.message || (execResult.executed ? `تم تنفيذ ${actionLabels[action] || "الأمر"}.` : "لم أتمكن من تنفيذ الأمر."),
-            action,
-            data: execResult
-          });
-        }
-
-        if (isCreation && formMap[plan.intent]) {
           // Return form type and extracted data — client opens the manual form
           const formType = formMap[plan.intent];
           let msg = `✅ تم استخراج البيانات. سيتم فتح نموذج ${actionLabels[action] || "الإنشاء"} لتكملة البيانات يدوياً.`;
