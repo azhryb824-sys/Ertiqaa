@@ -2140,53 +2140,48 @@ function inferAiPlan(question, context, user = {}) {
   if (/تحسين|تسعير|optimize|أمثل/i.test(q) && /عرض سعر|quote/i.test(q)) plan.intent = "optimize_quote";
   if (/تقرير|report/i.test(q) && /تحليل|analyze/i.test(q)) plan.intent = "analyze_report";
 
-  // Creation intents
-  if (/عقد|contract/i.test(q) || /سوي.عقد|عمل.عقد|اعمل.عقد|جدول.عقد|إنشاء.عقد/i.test(q))
-    plan.intent = /تركيب|توريد|install/i.test(q) ? "create_installation_contract" : "create_maintenance_contract";
-  if (/عرض سعر|عرض.{0,3}سعر|quotation|quote/i.test(q) || /سوي.عرض|عمل.عرض|اعمل.عرض/i.test(q))
-    plan.intent = "create_quote";
-  if (/بلاغ|ticket/i.test(q) || /سوي.بلاغ|عمل.بلاغ|اعمل.بلاغ|إنشاء.بلاغ|أضف.بلاغ/i.test(q))
-    plan.intent = "create_ticket";
-  if ((/زيارة.{0,5}كشف|كشف|معاينة/i.test(q) && !/إسناد|assign/i.test(q)) || /سوي.زيارة|عمل.زيارة|إنشاء.زيارة/i.test(q))
-    plan.intent = "create_visit";
-  if (/فني|technician/i.test(q) && !/زيارة|visit/i.test(q)) plan.intent = "add_staff";
-  if (/مهندس|engineer/i.test(q) && !/زيارة|visit/i.test(q)) plan.intent = "add_staff";
-  if (/مورد|supplier/i.test(q)) plan.intent = "create_supplier";
-  if (/قطعة.{0,3}غيار|part|inventory|مخزون/i.test(q) && /أضف|إنشاء|سوي|عمل|اعمل/i.test(q)) plan.intent = "create_part";
+  // --- Query vs Creation intents ---
+  // Query words indicate user wants information, not creation
+  const hasQueryWord = /^(?:عطيني|أرني|ارني|أظهر|اظهر|كم|وش|ايش|كيف|أبي|ابي|ابغى|ابغا|بدي|نبي|نبغا|أريد|اريد|ورني|دلني|أطلع|اطلع|شوف|تعطيني|أعطني|اعطني|خليني|أشوف|اشوف|عدد|إجمالي)/i.test(q);
+  // Creation action words indicate user wants to create something
+  const hasCreateWord = /إنشاء|سوي|سو|سوى|اعمل|أضف|اضف|إضافة|إضافة|new|create|add|جدول|تسجيل/i.test(q);
+  
+  const entityMap = [
+    {pattern: /عق[وً]?د|عقود?|اتفاقات?|اتفاقية|contract/i, intent: "create_maintenance_contract", type: "contracts", isInstall: /تركيب|توريد|install/i.test(q)},
+    {pattern: /عرض.{1,4}سعر|عروض|quotation|quote|تسعير/i, intent: "create_quote", type: "quotes"},
+    {pattern: /بلاغ[ا]?[ت]?|ticket|شكوى|شكاوي|شكاية/i, intent: "create_ticket", type: "tickets"},
+    {pattern: /زيار[ة]?[ت]?|visit/i, intent: "create_visit", type: "visits"},
+    {pattern: /فني[ي]?[ن]?|technician|مهندس[ي]?[ن]?|engineer|موظف[ي]?[ن]?|staff/i, intent: "add_staff", type: "staff"},
+    {pattern: /مورد[ي]?[ن]?|supplier/i, intent: "create_supplier", type: "suppliers"},
+    {pattern: /قطعة.{0,3}غيار|part|مخز[و]?ن|inventory/i, intent: "create_part", type: "parts"}
+  ];
+
+  let matchedEntity = null;
+  for (const entity of entityMap) {
+    if (entity.pattern.test(q)) {
+      matchedEntity = entity;
+      break;
+    }
+  }
+
+  if (matchedEntity) {
+    if (hasQueryWord) {
+      // User explicitly asked for info → query
+      plan.intent = "query";
+      plan.data = {entity: matchedEntity.type, query: q};
+    } else if (hasCreateWord) {
+      // User explicitly wants to create
+      plan.intent = matchedEntity.intent;
+      if (matchedEntity.isInstall) plan.intent = "create_installation_contract";
+    } else {
+      // Just a bare entity name or general mention → treat as query
+      plan.intent = "query";
+      plan.data = {entity: matchedEntity.type, query: q};
+    }
+  }
 
   // Multi-action detection (generate schedule etc.)
   if (/جدول|schedule|برنامج/i.test(q) && /زيارات|visits/i.test(q)) plan.intent = "redistribute_visits";
-
-  // --- Query intents (show/list/get info) — overrides creation intents when asking for info ---
-  const queryWords = /^(?:عطيني|أرني|ارني|أظهر|اظهر|كم|وش|ايش|ايش|كيف|أبي|ابي|ابغى|ابغا|بدي|نبي|نبغا|أريد|اريد|ورني|دلني|طلعت|أطلع|اطلع|شوف|تعطيني|أعطني|اعطني|خليني|أشوف|اشوف)/i;
-  const knownEntities = [
-    {pattern: /عق[وً]?د|عقد|اتفاق|contract/i, type: "contracts"},
-    {pattern: /فني[ي]?[ن]?|technician|مهندس[ي]?[ن]?|engineer|موظف[ي]?[ن]?|team|الفريق|staff|العمال/i, type: "staff"},
-    {pattern: /زيار[ة]?[ت]?|visit/i, type: "visits"},
-    {pattern: /عرض.{1,4}سعر|عروض|quot|تسعير|قيمة|سعر/i, type: "quotes"},
-    {pattern: /مخز[و]?ن|قطع|غيار|part|inventory/i, type: "parts"},
-    {pattern: /مورد[ي]?[ن]?|supplier/i, type: "suppliers"},
-    {pattern: /بلاغ[ا]?[ت]?|ticket|شكوى|شكاوي|شكاية/i, type: "tickets"}
-  ];
-  if (queryWords.test(q)) {
-    for (const entity of knownEntities) {
-      if (entity.pattern.test(q)) {
-        plan.intent = "query";
-        plan.data = {entity: entity.type, query: q};
-        break;
-      }
-    }
-  }
-  // If just a bare entity name without a query word (e.g. "العقود", "الزيارات") still queries
-  if (plan.intent === "answer") {
-    for (const entity of knownEntities) {
-      if (entity.pattern.test(q) && !/أضف|إنشاء|سوي|عمل|اعمل|جدول|إسناد/i.test(q)) {
-        plan.intent = "query";
-        plan.data = {entity: entity.type, query: q};
-        break;
-      }
-    }
-  }
 
   // --- Conversational intents (lowest priority - only if no action matched) ---
   if (plan.intent === "answer") {
