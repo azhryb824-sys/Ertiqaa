@@ -115,8 +115,8 @@
   let activeVoiceAudio=null,voiceOutputActive=false;
   try{if("speechSynthesis" in window)Object.defineProperty(window.speechSynthesis,"speaking",{configurable:true,get:()=>voiceOutputActive})}catch{}
   function stopVoiceOutput(){voiceOutputActive=false;try{window.speechSynthesis?.cancel()}catch{}try{if(activeVoiceAudio){activeVoiceAudio.pause();activeVoiceAudio.src=""}}catch{}activeVoiceAudio=null}
-  function arabicTextOptimize(text){var t=String(text||"").replace(/<[^>]+>/g,"").replace(/[*#_>\[\]()]/g," ").trim();if(!t)return"";t=t.replace(/\.\.\./g,". ").replace(/!(\s*)/g,"! ").replace(/\?(\s*)/g,"? ").replace(/([،,;])\1+/g,"$1");t=t.replace(/([^.!?])\s*$/,"$1.");t=t.replace(/(\d)(?:\s*-\s*)(\d)/g,"$1 إلى $2");t=t.replace(/(\d+)\s*\/\s*(\d+)/g,"$1 من $2");t=t.replace(/ر\.س\b/g,"ريال");t=t.replace(/٪/g," في المئة");t=t.replace(/ـ/g,"");t=t.replace(/ ,/g,"،").replace(/,/g,"،");t=t.replace(/([.!?])\s*/g,"$1 ");t=t.replace(/\s{2,}/g," ");return t.trim()}
-  function speakWithDeviceVoice(text){return new Promise((resolve,reject)=>{if(!("speechSynthesis" in window))return reject(new Error("لا يوجد محرك صوت في المتصفح."));var clean=arabicTextOptimize(text);if(!clean)return resolve();window.speechSynthesis.cancel();var u=new SpeechSynthesisUtterance(clean),voice=refreshSaudiVoice();if(voice)u.voice=voice;u.lang=voice?.lang||"ar-SA";u.rate=.85;u.pitch=1;voiceOutputActive=true;u.onend=function(){voiceOutputActive=false;resolve()};u.onerror=function(){voiceOutputActive=false;reject(new Error("تعذر تشغيل صوت المتصفح."))};window.speechSynthesis.speak(u)})}
+  function arabicTextOptimize(text){var t=String(text||"").replace(/<[^>]+>/g,"").replace(/[*#_>\[\]()]/g," ").trim();if(!t)return"";t=t.replace(/\.\.\./g,". ").replace(/!(\s*)/g,"! ").replace(/\?(\s*)/g,"? ").replace(/([،,;])\1+/g,"$1");t=t.replace(/([^.!?])\s*$/,"$1.");t=t.replace(/(\d)(?:\s*-\s*)(\d)/g,"$1 إلى $2");t=t.replace(/(\d+)\s*\/\s*(\d+)/g,"$1 من $2");t=t.replace(/ر\.س\b/g,"ريال");t=t.replace(/٪/g," في المئة");t=t.replace(/ـ/g,"");t=t.replace(/ ,/g,"،").replace(/,/g,"،");t=t.replace(/([.!?])\s*/g,"$1 ");t=t.replace(/\s{2,}/g," ");t=t.replace(/[٠-٩]/g,function(d){return"٠١٢٣٤٥٦٧٨٩".indexOf(d)});t=t.replace(/[۰-۹]/g,function(d){return"۰۱۲۳۴۵۶۷۸۹".indexOf(d)});t=t.replace(/(\d{1,3})(\d{3})(?:\s|$)/g,"$1 ألف $2");t=t.replace(/ريال/g," ريال ");t=t.replace(/\s{2,}/g," ");return t.trim()}
+  function speakWithDeviceVoice(text){return new Promise(function(resolve,reject){if(!("speechSynthesis" in window))return reject(new Error("لا يوجد محرك صوت في المتصفح."));var clean=arabicTextOptimize(text);if(!clean)return resolve();window.speechSynthesis.cancel();var chunks=clean.split(/(?<=[.!?])\s+/);if(chunks.length>3){var idx=0;voiceOutputActive=true;function speakNext(){if(idx>=chunks.length||!voiceOutputActive){voiceOutputActive=false;resolve();return}var u=new SpeechSynthesisUtterance(chunks[idx++]),voice=refreshSaudiVoice();if(voice)u.voice=voice;u.lang=voice?.lang||"ar-SA";u.rate=.85;u.pitch=1;u.onend=function(){setTimeout(speakNext,180)};u.onerror=function(){voiceOutputActive=false;reject(new Error("تعذر تشغيل صوت المتصفح."))};window.speechSynthesis.speak(u)}speakNext()}else{var u=new SpeechSynthesisUtterance(clean),voice=refreshSaudiVoice();if(voice)u.voice=voice;u.lang=voice?.lang||"ar-SA";u.rate=.85;u.pitch=1;voiceOutputActive=true;u.onend=function(){voiceOutputActive=false;resolve()};u.onerror=function(){voiceOutputActive=false;reject(new Error("تعذر تشغيل صوت المتصفح."))};window.speechSynthesis.speak(u)}})}
   async function speakArabic(text){if(!text)return;stopVoiceOutput();var clean=arabicTextOptimize(text);if(!clean)return;var r=await fetch("/api/voice/synthesize",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:clean,voiceProfile:"owner-local-samples",voiceMode:"saudi"})});if(!r.ok)return speakWithDeviceVoice(clean);var blob=await r.blob();var url=URL.createObjectURL(blob);var audio=new Audio(url);activeVoiceAudio=audio;voiceOutputActive=true;await new Promise(function(resolve,reject){audio.onended=function(){URL.revokeObjectURL(url);activeVoiceAudio=null;voiceOutputActive=false;resolve()};audio.onerror=function(){URL.revokeObjectURL(url);activeVoiceAudio=null;voiceOutputActive=false;reject(new Error("تعذر تشغيل ملف الصوت المولد."))};audio.play().catch(function(err){voiceOutputActive=false;reject(err)})})}
   function listenArabic(onText,onStatus){const SR=speechApi();if(!SR){const msg=voiceAiLabels.noSpeech;toast(msg);onStatus&&onStatus(msg);return null}const rec=new SR();rec.lang="ar-SA";rec.interimResults=false;rec.continuous=false;let done=false;let fullText="";rec.onstart=()=>onStatus&&onStatus(voiceAiLabels.listen);rec.onerror=e=>{done=true;const msgs={"not-allowed":"اسمح باستخدام الميكروفون من إعدادات المتصفح.","aborted":"","audio-capture":"لا يمكن الوصول للميكروفون","no-speech":"لم يتم اكتشاف كلام"};const m=msgs[e.error]||voiceAiLabels.error;m&&onStatus&&onStatus(m)};rec.onend=()=>{onStatus&&onStatus(voiceAiLabels.ready);if(fullText&&!done){done=true;onText(fullText.trim())}};rec.onresult=e=>{for(let i=0;i<e.results.length;i++){const r=e.results[i];if(r.isFinal){fullText+=(fullText?" ":"")+(r[0]?.transcript||"")}}};rec.start();return rec}
   async function polishVoiceForField(raw,target){const label=(target.closest("label")?.childNodes?.[0]?.textContent||target.name||target.placeholder||"").trim();const prompt="Convert this Arabic spoken text into a clean value suitable for this form field. Return only the final field value, no explanation. Field: "+(label||"general field")+". Spoken text: "+raw;try{return (await askGroqText(prompt)).trim()||raw}catch{return raw}}
@@ -387,7 +387,7 @@
             rec.onstart = function () { /* started */ };
             rec.onerror = function (ev) {
               if (!window.voiceChatActive) { window._vcListening = false; return; }
-              if (ev.error === "no-speech") { window._vcListening = false; _vcListenTimeout = setTimeout(function () { if (window.voiceChatActive) startListen(); }, 800); return; }
+              if (ev.error === "no-speech") { window._vcListening = false; _vcListenTimeout = setTimeout(function () { if (window.voiceChatActive) startListen(); }, 1200); return; }
               if (ev.error === "aborted") { window._vcListening = false; return; }
               stopWave();
               window._vcListening = false;
@@ -420,7 +420,7 @@
                 handleCommand(txt);
               } else {
                 setStatus("🎤 لم أسمعك، حاول مرة أخرى", false);
-                _vcListenTimeout = setTimeout(function () { if (window.voiceChatActive) startListen(); }, 1200);
+                _vcListenTimeout = setTimeout(function () { if (window.voiceChatActive) startListen(); }, 1800);
               }
             };
             rec.start();
@@ -469,7 +469,7 @@
             }
             setStatus("🔊 يتحدث النظام...", true);
             await speakArabic(reply);
-            await new Promise(function (r) { return setTimeout(r, 1200); });
+            await new Promise(function (r) { return setTimeout(r, 2000); });
             if (window.voiceChatActive) startListen();
             else setStatus("متوقف", false);
           })
