@@ -1887,116 +1887,223 @@ function elevatorKnowledgeBase() {
 
 function searchLocalData(query, store) {
   const q = String(query || "").toLowerCase();
+  const isCount = /^(?:كم|عدد|كم عدد|إجمالي|total|count)\b/i.test(q);
+  const isList = /^(?:أرني|أظهر|ورني|أطلع|شوف|show|list|عطيني)\b/i.test(q);
+  const isSpecific = /(?:من\s*(?:هو|هم|يكون)?|عن\s*.{2,}|بخصوص|تفاصيل|معلومات|details|info\s+about|specific|حالة)/i.test(q);
   const results = [];
   
   const contracts = parseStoredJson(store, "misadContracts");
   const quotes = parseStoredJson(store, "misadQuotes");
   const tickets = parseStoredJson(store, "misadTickets");
   const visits = parseStoredJson(store, "misadVisits");
-  const parts = parseStoredJson(store, "misadParts");
+  const parts = parseStoredJson(store, "misadParts").length ? parseStoredJson(store, "misadParts") : parseStoredJson(store, "misadPartsInventory");
   const staff = parseStoredJson(store, "misadCompanyStaff");
   const suppliers = parseStoredJson(store, "misadSuppliers");
   
-  if (/عق[وً]?د|عقود?|اتفاقات?|اتفاقية|contract/i.test(q)) {
-    const matched = contracts.filter(c => {
-      const name = String(c.clientName || c.clientCompanyName || c.title || "").toLowerCase();
-      const status = String(c.status || "").toLowerCase();
-      const details = String(c.details || "").toLowerCase();
-      return name.includes(q) || status.includes(q) || details.includes(q) || q.includes(name);
+  function matchEntity(list, q) {
+    const words = q.replace(/[،,?.!]/g,"").split(/\s+/).filter(w => w.length > 1);
+    return list.filter(item => {
+      const searchable = String(item.clientName || item.clientCompanyName || item.name || item.title || item.description || "").toLowerCase();
+      return words.some(w => searchable.includes(w));
     });
-    if (matched.length === 0 && contracts.length > 0) {
-      const pending = contracts.filter(c => /pending|waiting|review|approval|انتظار|بانتظار/i.test(String(c.status || "")));
-      results.push(`📋 إجمالي العقود: ${contracts.length}`);
+  }
+
+  if (/عق[وً]?د|عقود?|اتفاقات?|اتفاقية|contract/i.test(q)) {
+    const matched = isSpecific ? matchEntity(contracts, q) : contracts;
+    const total = contracts.length;
+    const pending = contracts.filter(c => /pending|waiting|review|approval|انتظار|بانتظار/i.test(String(c.status || "")));
+    const active = contracts.filter(c => /ساري|active|نشط|ongoing/i.test(String(c.status || "")));
+    
+    if (isCount) {
+      results.push(`📋 إجمالي العقود: ${total} عقود`);
+      if (active.length) results.push(`✅ السارية: ${active.length}`);
       if (pending.length) results.push(`⏳ قيد الانتظار: ${pending.length}`);
-      if (!/كل|جميع|total|count|عدد|إحصاء/i.test(q)) {
-        const recent = contracts.slice(-3).reverse();
-        results.push("آخر العقود:");
-        recent.forEach(c => {
-          results.push(`• ${c.clientName || c.clientCompanyName || "عميل"}: ${c.type === "installation" ? "تركيب" : "صيانة"}${c.value ? ` - ${Number(c.value).toLocaleString()} ريال` : ""}`);
-        });
-      }
-    } else if (matched.length > 0) {
-      matched.slice(0, 5).forEach(c => {
-        results.push(`• ${c.clientName || c.clientCompanyName || "عميل"}: ${c.type === "installation" ? "تركيب" : "صيانة"}${c.status ? ` (${c.status})` : ""}${c.value ? ` - ${Number(c.value).toLocaleString()} ريال` : ""}${c.startDate ? `\n  من ${c.startDate}` : ""}${c.endDate ? ` إلى ${c.endDate}` : ""}`);
+    } else if (isList || matched.length > 5) {
+      results.push(`📋 العقود (${total})`);
+      matched.slice(-10).reverse().forEach(c => {
+        results.push(`• ${c.clientName || c.clientCompanyName || "عميل"}: ${c.type === "installation" ? "تركيب" : "صيانة"}${c.status ? ` (${c.status})` : ""}${c.value ? ` - ${Number(c.value).toLocaleString()} ريال` : ""}`);
       });
+    } else if (matched.length === 1) {
+      const c = matched[0];
+      results.push(`📄 العقد:`);
+      results.push(`العميل: ${c.clientName || c.clientCompanyName || "غير محدد"}`);
+      results.push(`النوع: ${c.type === "installation" ? "تركيب" : "صيانة"}`);
+      results.push(`الحالة: ${c.status || "غير محدد"}`);
+      results.push(`القيمة: ${c.value ? `${Number(c.value).toLocaleString()} ريال` : "غير محددة"}`);
+      if (c.startDate) results.push(`تاريخ البداية: ${c.startDate}`);
+      if (c.endDate) results.push(`تاريخ النهاية: ${c.endDate}`);
+    } else if (matched.length > 0) {
+      results.push(`📋 العقود المطابقة (${matched.length}):`);
+      matched.slice(0, 5).forEach(c => {
+        results.push(`• ${c.clientName || c.clientCompanyName || "عميل"}: ${c.type === "installation" ? "تركيب" : "صيانة"}${c.value ? ` - ${Number(c.value).toLocaleString()} ريال` : ""}${c.status ? ` (${c.status})` : ""}`);
+      });
+    } else {
+      results.push(`📋 إجمالي العقود: ${total}`);
+      if (pending.length) results.push(`⏳ قيد الانتظار: ${pending.length}`);
+      if (active.length) results.push(`✅ السارية: ${active.length}`);
     }
   }
   
   if (/عرض.{1,4}سعر|quot|تسعير|قيمة/i.test(q)) {
-    const matched = quotes.filter(qt => {
-      const name = String(qt.clientName || qt.clientCompanyName || qt.title || "").toLowerCase();
-      const details = String(qt.details || "").toLowerCase();
-      return name.includes(q) || details.includes(q) || q.includes(name);
-    });
-    if (matched.length === 0 && quotes.length > 0) {
-      results.push(`💰 إجمالي عروض الأسعار: ${quotes.length}`);
-      const recent = quotes.slice(-3).reverse();
-      recent.forEach(qt => {
-        results.push(`• ${qt.clientName || qt.clientCompanyName || "عميل"}: ${qt.value ? `${Number(qt.value).toLocaleString()} ريال` : "بدون سعر"}${qt.status ? ` (${qt.status})` : ""}`);
-      });
-    } else if (matched.length > 0) {
-      matched.slice(0, 5).forEach(qt => {
-        results.push(`• ${qt.clientName || qt.clientCompanyName || "عميل"}: ${qt.value ? `${Number(qt.value).toLocaleString()} ريال` : "بدون سعر"}${qt.status ? ` (${qt.status})` : ""}`);
+    const matched = isSpecific ? matchEntity(quotes, q) : quotes;
+    const total = quotes.length;
+    
+    if (isCount) {
+      results.push(`💰 إجمالي عروض الأسعار: ${total}`);
+    } else if (matched.length === 1) {
+      const qq = matched[0];
+      results.push(`📄 عرض السعر:`);
+      results.push(`العميل: ${qq.clientName || qq.clientCompanyName || "غير محدد"}`);
+      results.push(`القيمة: ${qq.value ? `${Number(qq.value).toLocaleString()} ريال` : "غير محددة"}`);
+      results.push(`الحالة: ${qq.status || "غير محدد"}`);
+    } else {
+      results.push(`💰 عروض الأسعار (${total})`);
+      matched.slice(-5).reverse().forEach(qq => {
+        results.push(`• ${qq.clientName || qq.clientCompanyName || "عميل"}: ${qq.value ? `${Number(qq.value).toLocaleString()} ريال` : "بدون سعر"}${qq.status ? ` (${qq.status})` : ""}`);
       });
     }
   }
   
   if (/فني[ي]?[ن]?|technician|مهندس[ي]?[ن]?|موظف[ي]?[ن]?|staff/i.test(q)) {
-    results.push(`👥 الفريق: ${staff.length} أعضاء`);
-    staff.forEach(s => {
+    const matched = matchEntity(staff, q);
+    const total = staff.length;
+    
+    if (isCount) {
+      results.push(`👥 عدد أعضاء الفريق: ${total}`);
+      const techs = staff.filter(s => s.role === "technician");
+      const engs = staff.filter(s => s.role === "engineer");
+      if (techs.length) results.push(`🔧 فنيين: ${techs.length}`);
+      if (engs.length) results.push(`👷 مهندسين: ${engs.length}`);
+    } else if (matched.length === 1) {
+      const s = matched[0];
       const roleAr = s.role === "engineer" ? "مهندس" : s.role === "technician" ? "فني" : s.role || "موظف";
-      results.push(`• ${s.name || "غير محدد"} (${roleAr})${s.availability ? ` - ${s.availability === "working" ? "نشط" : s.availability === "idle" ? "متفرغ" : s.availability === "vacation" ? "إجازة" : s.availability}` : ""}`);
-    });
+      results.push(`👤 ${s.name}`);
+      results.push(`الدور: ${roleAr}`);
+      if (s.identity) results.push(`الهوية: ${s.identity}`);
+      results.push(`الحالة: ${s.availability === "working" ? "نشط" : s.availability === "idle" ? "متفرغ" : s.availability === "vacation" ? "إجازة" : s.availability || "غير محدد"}`);
+    } else if (isList || matched.length > 5) {
+      results.push(`👥 الفريق (${total}):`);
+      staff.forEach(s => {
+        const roleAr = s.role === "engineer" ? "مهندس" : s.role === "technician" ? "فني" : s.role || "موظف";
+        results.push(`• ${s.name || "غير محدد"} (${roleAr})${s.availability === "working" ? " ✅" : ""}`);
+      });
+    } else {
+      results.push(`👥 الفريق: ${total} أعضاء`);
+      staff.slice(0, 5).forEach(s => {
+        const roleAr = s.role === "engineer" ? "مهندس" : s.role === "technician" ? "فني" : s.role || "موظف";
+        results.push(`• ${s.name || "غير محدد"} (${roleAr})${s.availability ? ` - ${s.availability === "working" ? "نشط" : s.availability === "idle" ? "متفرغ" : s.availability === "vacation" ? "إجازة" : s.availability}` : ""}`);
+      });
+    }
   }
   
   if (/مخز[و]?ن|قطع|غيار|part|inventory/i.test(q)) {
+    const matched = matchEntity(parts, q);
     const low = parts.filter(p => Number(p.qty || 0) <= Number(p.minQty || 1));
-    results.push(`📦 المخزون: ${parts.length} صنف${low.length ? ` (${low.length} يحتاج إعادة طلب)` : ""}`);
-    low.slice(0, 5).forEach(p => {
-      results.push(`• ${p.name || p.title || "قطعة"}: ${p.qty || 0} متبقي (الحد: ${p.minQty || 1})`);
-    });
+    const outOfStock = parts.filter(p => Number(p.qty || 0) === 0);
+    
+    if (isCount) {
+      results.push(`📦 عدد أصناف المخزون: ${parts.length}`);
+      if (low.length) results.push(`⚠️ ${low.length} صنف يحتاج إعادة طلب`);
+      if (outOfStock.length) results.push(`❌ ${outOfStock.length} صنف نفد بالكامل`);
+    } else if (matched.length === 1) {
+      const p = matched[0];
+      results.push(`📦 ${p.name || p.title || "قطعة"}`);
+      if (p.sku) results.push(`الكود: ${p.sku}`);
+      results.push(`الكمية: ${p.qty || 0}`);
+      results.push(`الحد الأدنى: ${p.minQty || 1}`);
+      results.push(`التكلفة: ${p.unitCost ? `${Number(p.unitCost).toLocaleString()} ريال` : "غير محددة"}`);
+      if (Number(p.qty || 0) <= Number(p.minQty || 1)) results.push(`⚠️ يحتاج إعادة طلب`);
+    } else {
+      results.push(`📦 المخزون: ${parts.length} صنف${low.length ? ` (${low.length} يحتاج إعادة طلب)` : ""}`);
+      (matched.length > 0 ? matched : low).slice(0, 5).forEach(p => {
+        results.push(`• ${p.name || p.title || "قطعة"}: ${p.qty || 0} متبقي${Number(p.qty || 0) <= Number(p.minQty || 1) ? " ⚠️" : ""}`);
+      });
+    }
   }
   
   if (/مورد[ي]?[ن]?|supplier/i.test(q)) {
-    results.push(`🏢 الموردون: ${suppliers.length}`);
-    suppliers.slice(0, 5).forEach(s => {
-      results.push(`• ${s.name || "غير محدد"}${s.city ? ` - ${s.city}` : ""}${s.phone ? ` (${s.phone})` : ""}`);
-    });
+    const matched = matchEntity(suppliers, q);
+    const total = suppliers.length;
+    
+    if (isCount) {
+      results.push(`🏢 عدد الموردين: ${total}`);
+    } else if (matched.length === 1) {
+      const s = matched[0];
+      results.push(`🏢 ${s.name}`);
+      if (s.city) results.push(`المدينة: ${s.city}`);
+      if (s.phone) results.push(`الجوال: ${s.phone}`);
+      if (s.category) results.push(`التخصص: ${s.category}`);
+      if (s.rating) results.push(`التقييم: ${s.rating}`);
+    } else {
+      results.push(`🏢 الموردون (${total}):`);
+      (matched.length > 0 ? matched : suppliers).slice(0, 5).forEach(s => {
+        results.push(`• ${s.name || "غير محدد"}${s.city ? ` - ${s.city}` : ""}${s.phone ? ` (${s.phone})` : ""}`);
+      });
+    }
   }
   
   if (/زيار[ة]?[ت]?|visit/i.test(q)) {
     const now = Date.now();
     const upcoming = visits.filter(v => v.scheduledAt && new Date(v.scheduledAt).getTime() >= now);
     const late = visits.filter(v => v.scheduledAt && new Date(v.scheduledAt).getTime() < now);
-    results.push(`📅 الزيارات: ${visits.length} إجمالاً${upcoming.length ? ` (${upcoming.length} قادمة)` : ""}${late.length ? ` (${late.length} سابقة)` : ""}`);
-    upcoming.slice(0, 3).forEach(v => {
-      results.push(`• ${v.clientName || "عميل"}: ${v.scheduledAt ? new Date(v.scheduledAt).toLocaleDateString("ar-SA") : "غير محدد"}`);
-    });
+    const matched = isSpecific ? matchEntity(visits, q) : [];
+    const total = visits.length;
+    
+    if (isCount) {
+      results.push(`📅 عدد الزيارات: ${total}`);
+      results.push(`🔜 القادمة: ${upcoming.length}`);
+      results.push(`⚠️ المتأخرة: ${late.length}`);
+    } else if (matched.length === 1) {
+      const v = matched[0];
+      results.push(`📅 زيارة:`);
+      results.push(`العميل: ${v.clientName || "غير محدد"}`);
+      results.push(`الحالة: ${v.status || "غير محدد"}`);
+      if (v.scheduledAt) results.push(`الميعاد: ${new Date(v.scheduledAt).toLocaleDateString("ar-SA")}`);
+      if (v.assignedName) results.push(`الفني: ${v.assignedName}`);
+    } else {
+      results.push(`📅 الزيارات: ${total} إجمالاً (${upcoming.length} قادمة، ${late.length} متأخرة)`);
+      upcoming.slice(0, 3).forEach(v => {
+        results.push(`• ${v.clientName || "عميل"}: ${v.scheduledAt ? new Date(v.scheduledAt).toLocaleDateString("ar-SA") : "غير محدد"}${v.assignedName ? ` - ${v.assignedName}` : ""}`);
+      });
+    }
   }
   
   if (/بلاغ[ا]?[ت]?|ticket/i.test(q)) {
     const open = tickets.filter(t => t.status !== "مغلق" && t.status !== "closed");
-    results.push(`🎫 البلاغات: ${tickets.length} إجمالاً (${open.length} مفتوحة)`);
-    open.slice(0, 5).forEach(t => {
-      results.push(`• ${t.title || t.description || "بلاغ"}${t.priority === "urgent" ? " 🔴 طارئ" : ""}${t.clientName ? ` - ${t.clientName}` : ""}`);
-    });
+    const urgent = tickets.filter(t => t.priority === "urgent" && t.status !== "مغلق" && t.status !== "closed");
+    const matched = isSpecific ? matchEntity(tickets, q) : [];
+    const total = tickets.length;
+    
+    if (isCount) {
+      results.push(`🎫 عدد البلاغات: ${total}`);
+      results.push(`📂 المفتوحة: ${open.length}`);
+      if (urgent.length) results.push(`🔴 الطارئة: ${urgent.length}`);
+    } else if (matched.length === 1) {
+      const t = matched[0];
+      results.push(`🎫 بلاغ:`);
+      results.push(`العنوان: ${t.title || t.description || "بلاغ"}`);
+      results.push(`الحالة: ${t.status || "غير محدد"}`);
+      results.push(`الأولوية: ${t.priority === "urgent" ? "طارئ 🔴" : t.priority === "high" ? "عالية" : t.priority === "low" ? "منخفضة" : "متوسطة"}`);
+    } else {
+      results.push(`🎫 البلاغات: ${total} إجمالاً (${open.length} مفتوحة${urgent.length ? `، ${urgent.length} طارئة 🔴` : ""})`);
+      open.slice(0, 5).forEach(t => {
+        results.push(`• ${t.title || t.description || "بلاغ"}${t.priority === "urgent" ? " 🔴" : ""}${t.clientName ? ` - ${t.clientName}` : ""}`);
+      });
+    }
   }
   
-  // General system summary for vague queries like "وش وضع النظام", "اعطيني معلومات"
-  if (results.length === 0 && !/^(?:من أنت|ما اسمك|وش اسمك)/i.test(q)) {
-    const ctx = {contracts, quotes, tickets, visits, staff, suppliers, parts};
+  // General system summary for vague queries
+  if (results.length === 0 && !/^(?:من أنت|ما اسمك|وش اسمك|تحية|السلام)/i.test(q)) {
     const openTickets = tickets.filter(t => t.status !== "مغلق" && t.status !== "closed");
     const lateVisits = visits.filter(v => v.scheduledAt && new Date(v.scheduledAt).getTime() < Date.now());
     const lowParts = parts.filter(p => Number(p.qty || 0) <= Number(p.minQty || 1));
     results.push(`📊 ملخص النظام:`);
-    results.push(`• ${contracts.length} عقد${contracts.filter(c => /pending|waiting|review|approval|انتظار/i.test(String(c.status || ""))).length ? ` (${contracts.filter(c => /pending|waiting|review|approval|انتظار/i.test(String(c.status || ""))).length} قيد الانتظار)` : ""}`);
+    results.push(`• ${contracts.length} عقد`);
     results.push(`• ${visits.length} زيارة (${lateVisits.length} متأخرة)`);
     results.push(`• ${openTickets.length} بلاغ مفتوح`);
     results.push(`• ${staff.length} فني/مهندس`);
-    results.push(`• ${parts.length} صنف في المخزون${lowParts.length ? ` (${lowParts.length} يحتاج إعادة طلب)` : ""}`);
-    results.push(`• ${quotes.length} عرض سعر`);
-    results.push(`• ${suppliers.length} مورد`);
-    results.push(`\n💡 جرب تسأل عن: العقود، عروض الأسعار، الفنيين، المخزون، الزيارات، أو البلاغات`);
+    results.push(`• ${parts.length} صنف في المخزون${lowParts.length ? ` (${lowParts.length} بحاجة لإعادة طلب)` : ""}`);
+    if (results.length === 5) results.push(`\n💡 جرب تسأل عن العقود أو عروض الأسعار أو الفنيين أو المخزون`);
   }
   
   return results.length > 0 ? results.join("\n") : null;
@@ -3344,7 +3451,7 @@ http.createServer((req, res) => {
         const creationActions = ["create_contract", "create_quote", "create_ticket", "create_visit", "add_staff", "create_supplier"];
         const isCreation = creationActions.includes(action);
 
-        if (isCreation && formMap[plan.intent]) {
+        if (isCreation && (formMap[plan.intent] || input._pendingAction)) {
           const missing = getMissingFields(action, d);
           if (missing.length) {
             return sendJson(res, 200, {
