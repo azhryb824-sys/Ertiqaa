@@ -1926,20 +1926,21 @@ function elevatorKnowledgeBase() {
   };
 }
 
-function searchLocalData(query, store) {
+function searchLocalData(query, store, user = {}) {
   const q = String(query || "").toLowerCase();
   const isCount = /^(?:كم|عدد|كم عدد|إجمالي)(?:\s|$)|^(?:total|count)\b/i.test(q);
   const isList = /^(?:أرني|أظهر|ورني|أطلع|شوف|عطيني)(?:\s|$)|^(?:show|list)\b/i.test(q);
   const isSpecific = /(?:من\s*(?:هو|هم|يكون)?|عن\s*.{2,}|بخصوص|تفاصيل|معلومات|details|info\s+about|specific|حالة)/i.test(q);
   const results = [];
   
-  const contracts = parseStoredJson(store, "misadContracts");
-  const quotes = parseStoredJson(store, "misadQuotes");
-  const tickets = parseStoredJson(store, "misadTickets");
-  const visits = parseStoredJson(store, "misadVisits");
-  const parts = parseStoredJson(store, "misadParts").length ? parseStoredJson(store, "misadParts") : parseStoredJson(store, "misadPartsInventory");
-  const staff = parseStoredJson(store, "misadCompanyStaff");
-  const suppliers = parseStoredJson(store, "misadSuppliers");
+  const scoped = scopeAiData(store, user);
+  const contracts = scoped.contracts;
+  const quotes = scoped.quotes;
+  const tickets = scoped.tickets;
+  const visits = scoped.visits;
+  const parts = scoped.parts.length ? scoped.parts : scopeAiData(Object.assign({}, store, {misadPartsInventory: store.misadParts || "[]"}), user).parts;
+  const staff = scoped.staff;
+  const suppliers = scoped.suppliers;
   
   function matchEntity(list, q) {
     const words = q.replace(/[،,?.!]/g,"").split(/\s+/).filter(w => w.length > 1);
@@ -2405,24 +2406,53 @@ function parseStoredJson(store, key) {
   }
 }
 
+function aiOwnerId(user = {}) {
+  const role = String(user.role || "");
+  if (role === "company_admin") return user.companyOwnerId || user.id || user.userId || "";
+  if (role === "admin") return "platform";
+  return user.id || user.userId || "";
+}
+
+function aiRecOwner(record = {}) {
+  return record.companyOwnerId || record.createdBy || record.linkedBy || "platform";
+}
+
+function scopeAiData(store, user = {}) {
+  const owner = aiOwnerId(user);
+  const role = String(user.role || "");
+  const clean = v => String(v || "").replace(/\D/g, "");
+  const users = parseStoredJson(store, "misadUsers");
+  const clientCompanies = parseStoredJson(store, "misadClientCompanies");
+  const clientIds = [clean(user.id || user.userId)];
+  users.filter(u => u.role === "client" && u.name && u.name === user.name).forEach(u => clientIds.push(clean(u.id)));
+  const clientNums = clientCompanies.filter(c => clientIds.includes(clean(c.ownerId))).map(c => clean(c.unifiedNumber));
+  const matchClient = r => clientIds.includes(clean(r.clientId)) || clientNums.includes(clean(r.clientCompanyUnifiedNumber));
+  const sameCompany = r => aiRecOwner(r) === owner;
+  const scoped = list => role === "client" ? list.filter(matchClient) : list.filter(sameCompany);
+  return {
+    contracts: scoped(parseStoredJson(store, "misadContracts")),
+    visits: role === "technician" || role === "engineer" ? parseStoredJson(store, "misadVisits").filter(v => sameCompany(v) && clean(v.assignedTo) === clean(user.id || user.userId)) : scoped(parseStoredJson(store, "misadVisits")),
+    tickets: role === "technician" || role === "engineer" ? parseStoredJson(store, "misadTickets").filter(t => sameCompany(t) && clean(t.assignedTo) === clean(user.id || user.userId)) : scoped(parseStoredJson(store, "misadTickets")),
+    reports: scoped(parseStoredJson(store, "misadVisitReports")),
+    quotes: scoped(parseStoredJson(store, "misadQuotes")),
+    parts: scoped(parseStoredJson(store, "misadPartsInventory")),
+    suppliers: scoped(parseStoredJson(store, "misadSuppliers")),
+    claims: scoped(parseStoredJson(store, "misadClaims")),
+    staff: parseStoredJson(store, "misadCompanyStaff").filter(sameCompany),
+    locations: parseStoredJson(store, "misadStaffLocations").filter(l => parseStoredJson(store, "misadCompanyStaff").filter(sameCompany).some(s => clean(s.identity) === clean(l.identity))),
+    ownerCompanies: parseStoredJson(store, "misadOwnerCompanies").filter(c => c.ownerId === owner || c.id === owner),
+    clientCompanies: role === "client" ? clientCompanies.filter(c => clientNums.includes(clean(c.unifiedNumber))) : clientCompanies.filter(c => c.companyOwnerId === owner || c.linkedBy === owner || c.createdBy === owner || c.ownerId === owner),
+    docs: parseStoredJson(store, "misadCompanyDocs").filter(sameCompany)
+  };
+}
+
 function compactRows(rows, fields, limit = 20) {
   return rows.slice(0, limit).map(row => Object.fromEntries(fields.map(field => [field, row?.[field] ?? ""])));
 }
 
-function buildAiContext(store) {
-  const contracts = parseStoredJson(store, "misadContracts");
-  const visits = parseStoredJson(store, "misadVisits");
-  const tickets = parseStoredJson(store, "misadTickets");
-  const reports = parseStoredJson(store, "misadVisitReports");
-  const quotes = parseStoredJson(store, "misadQuotes");
-  const parts = parseStoredJson(store, "misadPartsInventory");
-  const suppliers = parseStoredJson(store, "misadSuppliers");
-  const claims = parseStoredJson(store, "misadClaims");
-  const staff = parseStoredJson(store, "misadCompanyStaff");
-  const locations = parseStoredJson(store, "misadStaffLocations");
-  const ownerCompanies = parseStoredJson(store, "misadOwnerCompanies");
-  const clientCompanies = parseStoredJson(store, "misadClientCompanies");
-  const docs = parseStoredJson(store, "misadCompanyDocs");
+function buildAiContext(store, user = {}) {
+  const scoped = scopeAiData(store, user);
+  const {contracts, visits, tickets, reports, quotes, parts, suppliers, claims, staff, locations, ownerCompanies, clientCompanies, docs} = scoped;
   const now = Date.now();
   const statusText = x => String(x?.status || "");
   const includesAny = (value, words) => words.some(word => value.toLowerCase().includes(word.toLowerCase()));
@@ -2593,7 +2623,9 @@ function getMissingFields(action, data) {
 function executeAiAction(actionData, store) {
   const result = {executed: false, action: actionData.action, message: ""};
   const ownerCompanies = parseStoredJson(store, "misadOwnerCompanies");
-  const owner = ownerCompanies[0] || {id: "", name: "شركة غير محددة"};
+  const actionOwnerId = aiOwnerId(actionData);
+  const owner = ownerCompanies.find(c => c.ownerId === actionOwnerId || c.id === actionOwnerId) || {id: "", name: "شركة غير محددة"};
+  const canAccessRecord = record => aiRecOwner(record) === actionOwnerId;
   try {
     switch (actionData.action) {
       case "create_contract": {
@@ -2607,7 +2639,7 @@ function executeAiAction(actionData, store) {
         const r = user ? {id: user.id, name: user.name} : {id: actionData.userId || "ai", name: "الذكاء الاصطناعي"};
         const contract = {
           id: nextContractId(contracts),
-          companyOwnerId: d.companyOwnerId || actionData.userId || "ai",
+          companyOwnerId: d.companyOwnerId || actionOwnerId || actionData.userId || "ai",
           companyId: d.companyId || owner.id || "",
           type: d.type || "صيانة",
           targetType: d.targetType || "client",
@@ -2655,7 +2687,7 @@ function executeAiAction(actionData, store) {
         const companyName = d.clientCompanyName || "";
         const quote = {
           id: `QTO-${Date.now()}`,
-          companyOwnerId: d.companyOwnerId || actionData.userId || "ai",
+          companyOwnerId: d.companyOwnerId || actionOwnerId || actionData.userId || "ai",
           clientId: d.clientId || "",
           clientName: clientName,
           clientCompanyUnifiedNumber: d.clientCompanyUnifiedNumber || "",
@@ -2690,6 +2722,7 @@ function executeAiAction(actionData, store) {
         const tickets = parseStoredJson(store, "misadTickets");
         const ticket = {
           id: `TCK-${Date.now()}`,
+          companyOwnerId: actionData.data.companyOwnerId || actionOwnerId || actionData.userId || "ai",
           title: actionData.data.title || "بلاغ",
           description: actionData.data.description || "",
           priority: actionData.data.priority || "medium",
@@ -2717,6 +2750,7 @@ function executeAiAction(actionData, store) {
         const visits = parseStoredJson(store, "misadVisits");
         const visit = {
           id: `VIS-${Date.now()}`,
+          companyOwnerId: actionData.data.companyOwnerId || actionOwnerId || actionData.userId || "ai",
           visitType: actionData.data.visitType || "صيانة دورية",
           status: "مجدولة",
           clientName: actionData.data.clientName || "",
@@ -2746,6 +2780,10 @@ function executeAiAction(actionData, store) {
           result.message = "الزيارة غير موجودة";
           break;
         }
+        if (!canAccessRecord(visits[visitIndex])) {
+          result.message = "لا تملك صلاحية تعديل هذه الزيارة";
+          break;
+        }
         visits[visitIndex].assignedTo = actionData.data.technicianId || "";
         visits[visitIndex].assignedName = actionData.data.technicianName || "";
         visits[visitIndex].assignedAt = new Date().toISOString();
@@ -2758,6 +2796,10 @@ function executeAiAction(actionData, store) {
       case "redistribute_visits": {
         const redistributeAll = actionData.data.redistributeAll === true;
         const analysis = redistributeVisits(store, {redistributeAll});
+        analysis.proposedAssignments = (analysis.proposedAssignments || []).filter(a => {
+          const v = parseStoredJson(store, "misadVisits").find(x => x.id === a.visitId);
+          return v && canAccessRecord(v);
+        });
         if (analysis.proposedAssignments.length > 0) {
           const visits = parseStoredJson(store, "misadVisits");
           analysis.proposedAssignments.forEach(assignment => {
@@ -2781,6 +2823,7 @@ function executeAiAction(actionData, store) {
         const suppliers = parseStoredJson(store, "misadSuppliers");
         const supplier = {
           id: `SUP-${Date.now()}`,
+          companyOwnerId: actionData.data.companyOwnerId || actionOwnerId || actionData.userId || "ai",
           name: actionData.data.name || "مورد جديد",
           phone: actionData.data.phone || "",
           email: actionData.data.email || "",
@@ -2803,6 +2846,7 @@ function executeAiAction(actionData, store) {
         const staff = parseStoredJson(store, "misadCompanyStaff");
         const member = {
           id: `STF-${Date.now()}`,
+          companyOwnerId: actionData.data.companyOwnerId || actionOwnerId || actionData.userId || "ai",
           identity: actionData.data.identity || "",
           name: actionData.data.name || "فني جديد",
           role: actionData.data.role || "technician",
@@ -3270,7 +3314,7 @@ http.createServer((req, res) => {
         }
         
         const store = readStore();
-        const context = buildAiContext(store);
+        const context = buildAiContext(store, {id: userId, role, name: userName, companyOwnerId: input.companyOwnerId});
         
         // Filter sensitive data from context based on user role
         const filteredContext = filterSensitiveData(context, {id: userId, role, permissions: input.permissions});
@@ -3306,6 +3350,8 @@ http.createServer((req, res) => {
               const jsonStr = cleanAnswer.slice(jsonStart, jsonEnd);
               const actionData = JSON.parse(jsonStr);
               actionData.userId = userId;
+              actionData.role = role;
+              actionData.companyOwnerId = input.companyOwnerId;
               const execResult = executeAiAction(actionData, store);
               executions.push(execResult);
               logAiOperation(store, actionData.action,
@@ -3341,6 +3387,8 @@ http.createServer((req, res) => {
           }
           if (autoExecute) {
             autoExecute.userId = userId;
+            autoExecute.role = role;
+            autoExecute.companyOwnerId = input.companyOwnerId;
             const execResult = executeAiAction(autoExecute, store);
             if (execResult.executed) {
               executions.push(execResult);
@@ -3434,7 +3482,7 @@ http.createServer((req, res) => {
             });
           }
 
-          const execResult = executeAiAction({action: pendingAction, data: pendingData, userId}, store);
+          const execResult = executeAiAction({action: pendingAction, data: pendingData, userId, role, companyOwnerId: input.companyOwnerId}, store);
           logAiOperation(store, pendingAction, {id: userId, name: userName, role}, {action: pendingAction, data: pendingData, result: execResult.message});
           return sendJson(res, 200, {
             executed: execResult.executed,
@@ -3445,7 +3493,7 @@ http.createServer((req, res) => {
           } // end else (pending follow-up processing)
         }
 
-        const context = buildAiContext(store);
+        const context = buildAiContext(store, {id: userId, role, name: userName, companyOwnerId: input.companyOwnerId});
         const plan = inferAiPlan(question, context, {id: userId, role, name: userName});
 
         if (!plan.allowed) return sendJson(res, 403, {executed: false, message: "لا تملك صلاحية التنفيذ"});
@@ -3551,7 +3599,7 @@ http.createServer((req, res) => {
               if (aiResult.plan?.intent !== "answer") {
                 const aiPlan = aiResult.plan || {};
                 if (aiPlan.action && aiPlan.data) {
-                  const execR = executeAiAction({action: aiPlan.action, data: Object.assign({}, aiPlan.data, {userId}), userId}, store);
+                  const execR = executeAiAction({action: aiPlan.action, data: Object.assign({}, aiPlan.data, {userId}), userId, role, companyOwnerId: input.companyOwnerId}, store);
                   logAiOperation(store, aiPlan.action, {id: userId, name: userName, role}, {action: aiPlan.action, data: aiPlan.data, result: execR.message});
                   return sendJson(res, 200, {executed: true, message: aiResult.answer + "\n\n✅ تم تنفيذ الأمر.", action: aiPlan.action, data: execR, model: aiResult.model, provider: aiResult.provider});
                 }
@@ -3559,7 +3607,7 @@ http.createServer((req, res) => {
               return sendJson(res, 200, {executed: true, message: aiResult.answer, action: "answer", model: aiResult.model, provider: aiResult.provider});
             }
           } catch {}
-          const local = searchLocalData(question, store);
+          const local = searchLocalData(question, store, {id: userId, role, name: userName, companyOwnerId: input.companyOwnerId});
           if (local) return sendJson(res, 200, {executed: true, message: local, action: "answer"});
           return sendJson(res, 200, {openForm: false, message: "لم يتم التعرف على الأمر. جرب: أنشئ عقد, عرض سعر, بلاغ, زيارة, فني, مورد"});
         }
@@ -3605,7 +3653,7 @@ http.createServer((req, res) => {
               action
             });
           }
-          const execResult = executeAiAction({action, data: d, userId}, store);
+          const execResult = executeAiAction({action, data: d, userId, role, companyOwnerId: input.companyOwnerId}, store);
           logAiOperation(store, action, {id: userId, name: userName, role}, {action, data: d, result: execResult.message});
           return sendJson(res, 200, {
             executed: execResult.executed,
@@ -3617,7 +3665,7 @@ http.createServer((req, res) => {
 
         // --- Execute-only actions (assign, redistribute, notify) ---
         if (action === "assign_visit" || action === "redistribute_visits" || action === "create_notification") {
-          const execResult = executeAiAction({action, data: d, userId}, store);
+          const execResult = executeAiAction({action, data: d, userId, role, companyOwnerId: input.companyOwnerId}, store);
           logAiOperation(store, action, {id: userId, name: userName, role}, {action, data: d, result: execResult.message});
           return sendJson(res, 200, {executed: execResult.executed, message: execResult.message, action, data: execResult});
         }
@@ -3694,7 +3742,7 @@ http.createServer((req, res) => {
             return sendJson(res, 200, {executed: true, message: aiResult.answer, action: "answer", model: aiResult.model, provider: aiResult.provider});
           }
         } catch {}
-        const local = searchLocalData(question, store);
+        const local = searchLocalData(question, store, {id: userId, role, name: userName, companyOwnerId: input.companyOwnerId});
         if (local) return sendJson(res, 200, {executed: true, message: local, action: "answer"});
         return sendJson(res, 200, {openForm: false, message: "لم يتم التعرف على الأمر. جرب: أنشئ عقد, عرض سعر, بلاغ, زيارة, فني, مورد"});
 
@@ -3706,13 +3754,16 @@ http.createServer((req, res) => {
   }
 
   if (req.url.startsWith("/api/ai/agent/status") && req.method === "GET") {
+    const url = new URL(req.url, "http://localhost");
+    const userId = url.searchParams.get("userId") || "";
+    const role = url.searchParams.get("role") || "";
     const store = readStore();
-    const memory = aiMemoryList(store);
+    const memory = aiMemoryList(store).filter(x => !userId || x.userId === userId);
     return sendJson(res, 200, {
       knowledge: elevatorKnowledgeBase(),
       memoryCount: memory.length,
       recentMemory: memory.slice(0, 12).map(x => ({id: x.id, role: x.role, intent: x.plan?.intent || "answer", allowed: x.plan?.allowed !== false, createdAt: x.createdAt, rating: x.rating || "unrated"})),
-      contextCounts: buildAiContext(store).counts
+      contextCounts: buildAiContext(store, {id: userId, role}).counts
     });
   }
 
