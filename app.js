@@ -494,7 +494,7 @@
               setTimeout(function () {
                 var f = document.getElementById("modalContent")?.querySelector("form");
                 if (!f) return;
-                var fl = { contract: ["clientName", "clientCompanyName", "clientId", "type", "value"], quote: ["clientName", "clientCompanyName", "value"], ticket: ["title", "description", "priority"], visit: ["clientName", "clientCompanyName", "scheduledAt"], staff: ["name", "identity", "role"], supplier: ["name", "phone", "city"] };
+                var fl = { contract: ["clientName", "clientCompanyName", "clientId", "type", "value", "contractYears", "contractStartDate", "details", "buildingName", "buildingDistrict"], quote: ["clientName", "clientCompanyName", "clientId", "title", "value", "details"], ticket: ["title", "description", "priority", "clientName", "clientCompanyName"], visit: ["clientName", "clientCompanyName", "clientId", "buildingName", "buildingDistrict", "scheduledAt", "notes"], staff: ["name", "identity", "role"], supplier: ["name", "phone", "email", "city", "category"] };
                 var fs = fl[d.formType] || [];
                 fs.forEach(function (k) { var v = dd[k]; if (!v) return; var el = f.querySelector('[name="' + k + '"]'); if (el) { el.value = v; el.dispatchEvent(new Event("input", { bubbles: true })); } });
                 if (dd.building && dd.building.name) { var b = f.querySelector('[name="buildingName"]'); if (b) { b.value = dd.building.name; b.dispatchEvent(new Event("input", { bubbles: true })); } }

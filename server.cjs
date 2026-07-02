@@ -2665,33 +2665,43 @@ function getMissingFields(action, data) {
     create_contract: [
       {field: "type", label: "نوع العقد (صيانة أو تركيب)", check: v => /صيانة|تركيب|maintenance|installation/i.test(String(v || ""))},
       {field: "clientName", label: "اسم العميل", check: v => v && String(v).trim().length > 1},
-      {field: "value", label: "قيمة العقد", check: v => Number(v) > 0},
+      {field: "clientCompanyName", label: "اسم الشركة أو المؤسسة", check: v => v && String(v).trim().length > 1},
+      {field: "value", label: "قيمة العدد", check: v => Number(v) > 0},
       {field: "contractYears", label: "مدة العقد بالسنوات", check: v => Number(v) > 0},
-      {field: "startDate", label: "تاريخ بداية العقد", check: v => v && String(v).trim().length > 0}
+      {field: "startDate", label: "تاريخ بداية العقد (صيغة YYYY-MM-DD)", check: v => v && String(v).trim().length > 0},
+      {field: "details", label: "تفاصيل العقد", check: v => v && String(v).trim().length > 1}
     ],
     create_quote: [
       {field: "clientName", label: "اسم العميل", check: v => v && String(v).trim().length > 1},
+      {field: "clientCompanyName", label: "اسم الشركة أو المؤسسة", check: v => v && String(v).trim().length > 1},
+      {field: "title", label: "عنوان عرض السعر", check: v => v && String(v).trim().length > 1},
       {field: "value", label: "قيمة عرض السعر", check: v => Number(v) > 0},
-      {field: "title", label: "عنوان عرض السعر", check: v => v && String(v).trim().length > 1}
+      {field: "details", label: "تفاصيل عرض السعر", check: v => v && String(v).trim().length > 1}
     ],
     create_ticket: [
       {field: "title", label: "عنوان البلاغ", check: v => v && String(v).trim().length > 1},
       {field: "description", label: "وصف البلاغ", check: v => v && String(v).trim().length > 1},
-      {field: "priority", label: "الأولوية (medium/low/high/urgent)", check: v => /medium|low|high|urgent|متوسطة|منخفضة|عالية|طارئ/i.test(String(v || ""))}
+      {field: "priority", label: "الأولوية (منخفضة/متوسطة/عالية/طارئ)", check: v => /medium|low|high|urgent|متوسطة|منخفضة|عالية|طارئ/i.test(String(v || ""))},
+      {field: "clientName", label: "اسم العميل", check: v => v && String(v).trim().length > 1},
+      {field: "clientCompanyName", label: "اسم الشركة أو المؤسسة", check: v => v && String(v).trim().length > 1}
     ],
     create_visit: [
       {field: "clientName", label: "اسم العميل", check: v => v && String(v).trim().length > 1},
-      {field: "scheduledAt", label: "تاريخ الزيارة", check: v => v && String(v).trim().length > 0},
-      {field: "buildingName", label: "اسم المبنى", check: v => v && String(v).trim().length > 1}
+      {field: "clientCompanyName", label: "اسم الشركة أو المؤسسة", check: v => v && String(v).trim().length > 1},
+      {field: "buildingName", label: "اسم المبنى", check: v => v && String(v).trim().length > 1},
+      {field: "buildingDistrict", label: "الحي", check: v => v && String(v).trim().length > 1},
+      {field: "scheduledAt", label: "تاريخ الزيارة (صيغة YYYY-MM-DD)", check: v => v && String(v).trim().length > 0},
+      {field: "notes", label: "ملاحظات عن الزيارة", check: v => v && String(v).trim().length > 1}
     ],
     add_staff: [
       {field: "name", label: "اسم الفني", check: v => v && String(v).trim().length > 1},
-      {field: "identity", label: "هوية الفني", check: v => v && String(v).trim().length > 5},
+      {field: "identity", label: "هوية الفني (رقم الإقامة)", check: v => v && String(v).trim().length > 5},
       {field: "role", label: "الدور (technician أو engineer)", check: v => /technician|engineer|فني|مهندس/i.test(String(v || ""))}
     ],
     create_supplier: [
       {field: "name", label: "اسم المورد", check: v => v && String(v).trim().length > 1},
       {field: "phone", label: "جوال المورد", check: v => v && String(v).trim().length > 5},
+      {field: "email", label: "البريد الإلكتروني للمورد", check: v => v && String(v).trim().length > 3},
       {field: "city", label: "مدينة المورد", check: v => v && String(v).trim().length > 1},
       {field: "category", label: "تخصص المورد", check: v => v && String(v).trim().length > 1}
     ]
