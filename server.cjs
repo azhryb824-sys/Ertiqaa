@@ -4678,6 +4678,11 @@ http.createServer((req, res) => {
   });
 }).listen(port, host, () => {
   console.log(`Server running at http://${host}:${port}/`);
+  if (!fs.existsSync(storagePath)) {
+    const defaultStore = {misadCreatedAt: new Date().toISOString()};
+    fs.writeFileSync(storagePath, JSON.stringify(defaultStore, null, 2), "utf8");
+    console.log("Created initial storage.json");
+  }
   const store = readStore();
   const invites = inviteList(store);
   const invite = createInvite({label: "رابط تسجيل جهاز المشرف", targetRole: "admin", createdBy: "system", createdByName: "system", minutes: 10, maxUses: 1});
