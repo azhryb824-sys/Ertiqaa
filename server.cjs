@@ -2632,7 +2632,7 @@ function defaultMaintenanceChecklist() {
 }
 
 const defaultElevatorSpecs = () => ({
-  elevatorType: "ركاب", usage: "سكني", entrances: "1", doorDirection: "أمامي", doorType: "أوتوماتيك",
+  elevatorType: "ركاب", usage: "سكني", entrances: "1", doorDirection: "سنتر", doorType: "أوتوماتيك",
   speedSystem: "VVVF", motorType: "Gearless", motorManufacturer: "Italy Gears", controller: "VEGA",
   doorManufacturer: "Sky", ropeManufacturer: "ATIKA", railManufacturer: "MF", originCountry: "إيطاليا",
   floorType: "رخام", wallType: "ستانلس ستيل", ceilingType: "ستانلس ستيل", lightingType: "LED",
@@ -2672,6 +2672,7 @@ function getMissingFields(action, data) {
       {field: "details", label: "تفاصيل العقد", check: v => v && String(v).trim().length > 1}
     ],
     create_quote: [
+      {field: "type", label: "نوع عرض السعر (تركيب أو صيانة)", check: v => /تركيب|صيانة|installation|maintenance/i.test(String(v || ""))},
       {field: "clientName", label: "اسم العميل", check: v => v && String(v).trim().length > 1},
       {field: "clientCompanyName", label: "اسم الشركة أو المؤسسة", check: v => v && String(v).trim().length > 1},
       {field: "title", label: "عنوان عرض السعر", check: v => v && String(v).trim().length > 1},
