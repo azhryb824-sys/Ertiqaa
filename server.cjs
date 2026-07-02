@@ -1855,6 +1855,47 @@ function analyzeDocumentForApproval(store, documentId, documentType) {
   return analysis;
 }
 
+// --- Can-do capability mapping ---
+const capabilityMap = [
+  {patterns: [/عقد.*صيانة|صيانة.*عقد/i], key: "create_contract", label: "عقد الصيانة", answer: "أيوه، أقدر أسوي عقود صيانة. قول: سوي عقد صيانة لـ (العميل) بقيمة (المبلغ)"},
+  {patterns: [/عقد.*تركيب|تركيب.*عقد/i], key: "create_contract", label: "عقد التركيب", answer: "أيوه، أقدر أسوي عقود تركيب. قول: سوي عقد تركيب لـ (العميل)"},
+  {patterns: [/^(?:أ)?سوي\s*عقد|^(?:أ)?عِمل\s*عقد|إنشاء\s*عقد|عقد/i], key: "create_contract", label: "العقد", answer: "أيوه، أقدر أسوي عقود صيانة وتركيب. قول: سوي عقد لـ (العميل) بقيمة (المبلغ)"},
+  {patterns: [/عرض.{0,4}سعر|^(?:أ)?عرض\s*سعر|تسعير/i], key: "create_quote", label: "عرض السعر", answer: "أيوه، أقدر أعمل عروض أسعار. قول: اعمل عرض سعر لـ (العميل) بقيمة (المبلغ)"},
+  {patterns: [/بلا[غgh]|^(?:أ)?سج[لّ]\s*بلا|تذكرة|شكوى/i], key: "create_ticket", label: "البلاغ", answer: "أيوه، أقدر أسجل بلاغات صيانة. قول: سوي بلاغ لـ (العميل) عنوانه (وصف)"},
+  {patterns: [/^(?:أ)?سوي\s*زيار|^(?:أ)?جدول\s*زيار|زيار[ةه]/i], key: "create_visit", label: "الزيارة", answer: "أيوه، أقدر أجدد زيارات كشفية. قول: سوي زيارة لـ (العميل) تاريخ (اليوم)"},
+  {patterns: [/^(?:أ)?ضيف\s*فني|^(?:أ)?ضيف\s*مهندس|إضافة\s*فني|إضافة\s*مهندس|فني|مهندس/i], key: "add_staff", label: "إضافة فني", answer: "أيوه، أقدر أضيف فنيين ومهندسين. قول: أضف فني اسمه (الاسم)"},
+  {patterns: [/^(?:أ)?ضيف\s*مورد|إضافة\s*مورد|مورد/i], key: "create_supplier", label: "المورد", answer: "أيوه، أقدر أضيف موردين. قول: أضف مورد اسمه (الاسم)"},
+  {patterns: [/^(?:أ)?ضيف\s*قطعة|إضافة\s*قطعة|قطعة.{0,3}غيار|جزء/i], key: "create_part", label: "قطعة الغيار", answer: "أيوه، أقدر أضيف قطع غيار للمخزون. قول: أضف قطعة (الاسم) الكمية (العدد)"},
+  {patterns: [/^(?:أ)?سند|^(?:أ)?نقل|^(?:أ)?وزع|إسناد|انق[للا]|توزيع|وزع/i], key: "assign_visit", label: "إسناد الزيارات", answer: "أيوه، أقدر أسند الزيارات للفنيين. قول: اسند الزيارة لـ (اسم الفني)"},
+  {patterns: [/حل[للا].*مخزون|تحليل.*مخزون/i], key: "analyze_inventory", label: "تحليل المخزون", answer: "أيوه، أقدر أحلل المخزون وأشوف القطع الناقصة. قول: حلل المخزون"},
+  {patterns: [/حل[للا]|تحليل|تقرير/i], key: "analyze_operations", label: "التحليل", answer: "أيوه، أقدر أحلل العمليات والمخزون والفريق. قول: حلل العمليات"},
+  {patterns: [/مخزون/i], key: "analyze_inventory", label: "المخزون", answer: "أيوه، أقدر أتابع المخزون وأشوف القطع الناقصة. قول: اعرض المخزون أو حلل المخزون"},
+  {patterns: [/^(?:أ)?رسل\s*إشعار|إشعار|تنبيه|notification/i], key: "create_notification", label: "الإشعار", answer: "أيوه، أقدر أرسل إشعارات. قول: أرسل إشعار (النص)"}
+];
+
+function getCapabilityResponse(actionText) {
+  if (!actionText) return "تقدر تسألني مثلاً: هل ممكن أسوي عقد؟ أو تقدر توزع الزيارات؟ وسأجاوبك وضح.";
+  for (const cap of capabilityMap) {
+    const anyMatch = cap.patterns.some(p => p.test(actionText));
+    if (anyMatch) {
+      return cap.answer;
+    }
+  }
+  // If specific action not found, provide generic response
+  const generalCaps = [
+    "إنشاء عقود صيانة وتركيب",
+    "عروض أسعار",
+    "تسجيل بلاغات",
+    "جدولة زيارات",
+    "إضافة فنيين ومهندسين",
+    "إدارة الموردين والمخزون",
+    "إسناد الزيارات للفنيين",
+    "تحليل العمليات والمخزون",
+    "تقارير وإشعارات"
+  ];
+  return "أيوة، فيه كثير أقدر أسويه 😊 منها:\n• " + generalCaps.join("\n• ") + "\n\nوش تبغى أسوي لك بالضبط؟";
+}
+
 function elevatorKnowledgeBase() {
   return {
     domain: "elevator-company-operations",
@@ -2124,6 +2165,11 @@ function inferAiPlan(question, context, user = {}) {
     plan.intent = "thanks";
   if (/^(?:آسف|أسف|sorry|معذرة|المعذرة|أعتذر|اعتذر|اعذرني|سمحلي|سامحني|عذراً|آسفة)/i.test(q))
     plan.intent = "apologize";
+  // Can-do questions ("هل يمكن", "ممكن", "تقدر") - check BEFORE interview
+  if (/^(?:هل\s*)?(?:ممكن|يمكن|تقدر|تقدرين|تستطيع|هل\s*أقدر|أقدر|هل\s*أستطيع|هل\s*يمكنني)\s+/i.test(q)) {
+    plan.intent = "can_do";
+    plan.data = {action: q.replace(/^(?:هل\s*)?(?:ممكن|يمكن|تقدر|تقدرين|تستطيع|هل\s*أقدر|أقدر|هل\s*أستطيع|هل\s*يمكنني)\s*/i, '').replace(/[؟?~!\s]+$/, '').trim()};
+  } else
   // Interview / system questions
   if (/^(?:من أنت|ما اسمك|وش اسمك|عرفني بنفسك|من وين أنت|وش أنت|introduce yourself|what is your name|what can you do|tell me about yourself)/i.test(q) || /^(?:مهامك|قدراتك|إمكانياتك|وش تقدر|ماذا تفعل|ماذا تستطيع|what are your capabilities)/i.test(q) || /^(?:كيف أستخدمك|كيف أتعامل|كيف اتعامل|كيف أستفيد|كيف ابدأ|how do I use you|how to use)/i.test(q) || /^(?:مميزات|features|capabilities)/i.test(q) || /^(?:لماذا|ليه|why).*(?:استخدم|استعمل|أستعمل|هذا البرنامج|هذا النظام|هذا التطبيق)/i.test(q) || /^(?:ما هي|وش هي|what are).*(?:خدمات|features|مميزات|وظائف)/i.test(q))
     plan.intent = "interview";
@@ -2197,6 +2243,12 @@ function inferAiPlan(question, context, user = {}) {
       plan.intent = "interview";
   }
 
+  // --- Can-do questions ("هل يمكن", "ممكن", "تقدر") ---
+  if (/^(?:هل\s*)?(?:ممكن|يمكن|تقدر|تقدرين|تستطيع|هل\s*أقدر|أقدر|هل\s*أستطيع|هل\s*يمكنني)\s+/i.test(q)) {
+    plan.intent = "can_do";
+    plan.data = {action: q.replace(/^(?:هل\s*)?(?:ممكن|يمكن|تقدر|تقدرين|تستطيع|هل\s*أقدر|أقدر|هل\s*أستطيع|هل\s*يمكنني)\s*/i, '').replace(/[؟?~!\s]+$/, '').trim()};
+  }
+
   // --- Data Extraction ---
   const extract = {};
 
@@ -2226,10 +2278,10 @@ function inferAiPlan(question, context, user = {}) {
   if (buildingMatch) extract.building = {name: buildingMatch[1].trim(), district: "", mapUrl: ""};
 
   // Staff name and identity
-  const staffNameMatch = q.match(/(?:اسمه|اسم)\s*[""]?([^"",\d]{3,25}?)[""]?\s*(?:,|\.|$|هوية|رقم|\d{6,})/i) || q.match(/(?:فني|مهندس)\s*[""]?([^"",\d]{3,25}?)[""]?\s*(?:,|\.|$|هوية|رقم|\d{6,})/i);
+  const staffNameMatch = q.match(/(?:اسمه|اسم)\s*[""]?([^"",\d٠-٩۰-۹]{3,25}?)[""]?\s*(?:,|\.|$|هوية|هويته|رقم|[\d٠-٩۰-۹]{6,})/i) || q.match(/(?:فني|مهندس)\s*[""]?([^"",\d٠-٩۰-۹]{3,25}?)[""]?\s*(?:,|\.|$|هوية|هويته|رقم|[\d٠-٩۰-۹]{6,})/i);
   if (staffNameMatch) extract.name = staffNameMatch[1].trim();
-  const identityMatch = q.match(/(?:هوية|رقم)\s*(\d{8,10})/i);
-  if (identityMatch) extract.identity = identityMatch[1];
+  const identityMatch = q.match(/(?:هوية|هويته|رقم)\s*([\d٠-٩۰-۹]{8,10})/i);
+  if (identityMatch) extract.identity = arNum(identityMatch[1]);
   const roleMatch = q.match(/مهندس|engineer/i);
   if (roleMatch) extract.role = "engineer";
   // also check if the word "فني" alone means technician
@@ -2242,18 +2294,19 @@ function inferAiPlan(question, context, user = {}) {
   }
 
   // Value/Amount
-  const valueMatch = q.match(/(?:بقيمة|قيمة|بمبلغ|مبلغ|سعر|تكلفة|بـ)\s*([\d,]+(?:\.[\d]+)?)/i);
-  if (valueMatch) extract.value = Number(valueMatch[1].replace(/,/g, ""));
-  const directValue = q.match(/([\d,]+(?:\.[\d]+)?)\s*(?:ريال|ر\.س|SAR)/i);
-  if (directValue && !extract.value) extract.value = Number(directValue[1].replace(/,/g, ""));
+  function arNum(s) { return String(s || '').replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)); }
+  const valueMatch = q.match(/(?:بقيمة|قيمة|بمبلغ|مبلغ|سعر|تكلفة|بـ)\s*([\d,٠-٩۰-۹]+(?:\.[\d٠-٩۰-۹]+)?)/i);
+  if (valueMatch) extract.value = Number(arNum(valueMatch[1]).replace(/,/g, ""));
+  const directValue = q.match(/([\d,٠-٩۰-۹]+(?:\.[\d٠-٩۰-۹]+)?)\s*(?:ريال|ر\.س|SAR)/i);
+  if (directValue && !extract.value) extract.value = Number(arNum(directValue[1]).replace(/,/g, ""));
 
   // Contract type
   if (/تركيب|توريد.{0,5}تركيب/i.test(q)) extract.type = "تركيب";
   else if (/صيانة|صيانة.{0,5}دورية/i.test(q)) extract.type = "صيانة";
 
   // Duration (سنوات)
-  const durationMatch = q.match(/(\d+)\s*(سنة|سنوات|سنين|عام|أعوام)/i);
-  if (durationMatch) extract.contractYears = Number(durationMatch[1]);
+  const durationMatch = q.match(/([\d٠-٩۰-۹]+)\s*(سنة|سنوات|سنين|عام|أعوام)/i);
+  if (durationMatch) extract.contractYears = Number(arNum(durationMatch[1]));
 
   // Priority
   if (/طارئ|طارئة|urgent|عاجل/i.test(q)) extract.priority = "urgent";
@@ -2289,7 +2342,12 @@ function inferAiPlan(question, context, user = {}) {
   else if (/زيت|مستهلكات/i.test(q)) extract.category = "زيوت ومستهلكات";
 
   // --- Validation ---
-  plan.data = extract;
+  if (plan.intent === "can_do") {
+    // preserve the action field set earlier
+    plan.data = Object.assign({action: plan.data?.action || ""}, extract);
+  } else {
+    plan.data = extract;
+  }
 
   if (plan.intent !== "answer") {
     plan.needsApproval = true;
@@ -2473,6 +2531,23 @@ function defaultMaintenanceChecklist() {
   })));
 }
 
+const defaultElevatorSpecs = () => ({
+  elevatorType: "ركاب", usage: "سكني", entrances: "1", doorDirection: "أمامي", doorType: "أوتوماتيك",
+  speedSystem: "VVVF", motorType: "Gearless", motorManufacturer: "Italy Gears", controller: "VEGA",
+  doorManufacturer: "Sky", ropeManufacturer: "ATIKA", railManufacturer: "MF", originCountry: "إيطاليا",
+  floorType: "رخام", wallType: "ستانلس ستيل", ceilingType: "ستانلس ستيل", lightingType: "LED",
+  displayType: "Digital", risotType: "أزرار ستانلس", bufferType: "Hydraulic", doorLockType: "Electromechanical",
+  rescueSystem: "نعم", coolingSystem: "مروحة", intercom: "نعم", camera: "لا", mirrors: "نعم", fan: "نعم",
+  voiceAnnouncement: "لا", braille: "لا", fireMode: "نعم", warranty: "5 سنوات",
+  capacity: "450 كجم", persons: "6", stops: "3", speed: "1 م/ث", travelHeight: "حسب الموقع",
+  shaftWidth: "160 سم", shaftLength: "160 سم", pitDepth: "140 سم", overhead: "360 سم",
+  doorWidth: "80 سم", doorHeight: "200 سم", motorPower: "5.5 kW", motorSpeed: "1500 rpm",
+  voltage: "380V", frequency: "60Hz", phases: "3", cabinSize: "110 × 140 سم", ropesCount: "4",
+  ropeDiameter: "10 مم", counterweight: "حسب التصميم", railSize: "T9", travelCableSize: "24 خط",
+  doorOpenTime: "3 ثوان", doorCloseTime: "3 ثوان", powerConsumption: "حسب التشغيل", notes: "",
+  count: "1", brand: "Italy Gears", age: "3"
+});
+
 function addYears(date, years) {
   const d = new Date(date);
   d.setFullYear(d.getFullYear() + Number(years || 1));
@@ -2541,7 +2616,7 @@ function executeAiAction(actionData, store) {
           clientCompanyUnifiedNumber: d.clientCompanyUnifiedNumber || "",
           clientCompanyName: d.clientCompanyName || "",
           value: Number(d.value || 0),
-          elevatorInfo: Object.assign({count: "", brand: "", age: "", capacity: "", doorType: "", usage: ""}, d.elevatorInfo || {}),
+          elevatorInfo: Object.assign(defaultElevatorSpecs(), d.elevatorInfo || {}),
           installationInfo: isInstall ? Object.assign({stops: "", entrances: "", battery: "", doorOpening: "", shaftSize: "", motor: "", controller: "", outerDoors: "", safetyDoor: "", cabin: "", power: "", speed: "", warranty: "", note: ""}, d.installationInfo || {}) : {},
           maintenanceChecklist: d.maintenanceChecklist && d.maintenanceChecklist.length ? d.maintenanceChecklist : defaultMaintenanceChecklist(),
           buildings: d.buildings && d.buildings.length ? d.buildings : [{name: "", district: "", mapUrl: "", guardMobile: ""}],
@@ -2594,7 +2669,7 @@ function executeAiAction(actionData, store) {
           totalWithTax: total,
           status: "بانتظار المراجعة والاعتماد",
           reportId: d.reportId || "",
-          elevatorInfo: Object.assign({count: "", brand: "", age: "", capacity: "", doorType: "", usage: ""}, d.elevatorInfo || {}),
+          elevatorInfo: Object.assign(defaultElevatorSpecs(), d.elevatorInfo || {}),
           maintenanceChecklist: d.maintenanceChecklist && d.maintenanceChecklist.length ? d.maintenanceChecklist : [],
           items: d.items || [],
           partsItems: d.partsItems || [],
@@ -2922,6 +2997,7 @@ If the user says "باسم X" or "للعميل X", the client name is X.
 The system will execute the action automatically. For supported actions, immediately execute instead of just explaining.
 Supported actions:
 - create_contract (لإنشاء عقود الصيانة والتركيب): type, clientName, clientId, clientCompanyName, clientCompanyUnifiedNumber, startDate, endDate, value, details, buildings, elevatorInfo
+Use the new expandable elevatorInfo specification schema only. Supported keys include: elevatorType, usage, entrances, doorDirection, doorType, speedSystem, motorType, motorManufacturer, controller, doorManufacturer, ropeManufacturer, railManufacturer, originCountry, floorType, wallType, ceilingType, lightingType, displayType, risotType, bufferType, doorLockType, rescueSystem, coolingSystem, intercom, camera, mirrors, fan, voiceAnnouncement, braille, fireMode, warranty, capacity, persons, stops, speed, travelHeight, shaftWidth, shaftLength, pitDepth, overhead, doorWidth, doorHeight, motorPower, motorSpeed, voltage, frequency, phases, cabinSize, ropesCount, ropeDiameter, counterweight, railSize, travelCableSize, doorOpenTime, doorCloseTime, powerConsumption, notes. If a field is missing, rely on system defaults. When users ask to change any specification, set that exact key inside elevatorInfo.
 - create_quote (لإنشاء عروض الأسعار): clientName, clientId, value, details, items
 - create_ticket: title, description, clientName, clientId, priority, contractId
 - create_visit: clientName, clientId, contractId, scheduledAt, building, assignedTo
@@ -3315,10 +3391,10 @@ http.createServer((req, res) => {
           const pendingData = JSON.parse(JSON.stringify(input._pendingData));
           const q = String(input.question || "");
 
-          const valMatch1 = q.match(/(?:بقيمة|قيمة|بمبلغ|مبلغ|سعر|تكلفة|بـ)\s*([\d,]+(?:\.[\d]+)?)/i);
-          if (valMatch1) pendingData.value = Number(valMatch1[1].replace(/,/g, ""));
-          const valMatch2 = q.match(/([\d,]+(?:\.[\d]+)?)\s*(?:ريال|ر\.س|SAR)/i);
-          if (valMatch2 && !pendingData.value) pendingData.value = Number(valMatch2[1].replace(/,/g, ""));
+          const valMatch0 = q.match(/(?:بقيمة|قيمة|بمبلغ|مبلغ|سعر|تكلفة|بـ)\s*([\d,٠-٩۰-۹]+(?:\.[\d٠-٩۰-۹]+)?)/i);
+          if (valMatch0) pendingData.value = Number(valMatch0[1].replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/,/g, ""));
+          const valMatch2 = q.match(/([\d,٠-٩۰-۹]+(?:\.[\d٠-٩۰-۹]+)?)\s*(?:ريال|ر\.س|SAR)/i);
+          if (valMatch2 && !pendingData.value) pendingData.value = Number(valMatch2[1].replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/,/g, ""));
 
           const clientPats = [
             /(?:لـ|لمؤسسة|لشركة|للشركة|للمؤسسة|لعميل)\s*[""]?([^"",\d]{2,40}?)[""]?\s*(?:,|\.|$|بقيمة|بمبلغ)/i,
@@ -3330,14 +3406,14 @@ http.createServer((req, res) => {
           const titlePat = q.match(/(?:عنوانه|عنوان|بلاغ)\s*[""]?([^"",\d]{3,60}?)[""]?\s*(?:,|\.|$|أولوية)/i);
           if (titlePat) pendingData.title = titlePat[1].trim();
 
-          const staffPat = q.match(/(?:اسمه|اسم)\s*[""]?([^"",\d]{3,25}?)[""]?\s*(?:,|\.|$|هوية|\d{6,})/i) || q.match(/(?:الفني)\s*[""]?([^"",\d]{3,25}?)[""]?\s*(?:,|\.|$|هوية|\d{6,})/i);
+          const staffPat = q.match(/(?:اسمه|اسم)\s*[""]?([^"",\d٠-٩۰-۹]{3,25}?)[""]?\s*(?:,|\.|$|هوية|هويته|رقم|[\d٠-٩۰-۹]{6,})/i) || q.match(/(?:الفني)\s*[""]?([^"",\d٠-٩۰-۹]{3,25}?)[""]?\s*(?:,|\.|$|هوية|هويته|رقم|[\d٠-٩۰-۹]{6,})/i);
           if (staffPat) pendingData.name = staffPat[1].trim();
 
           const suppPat = q.match(/مورد\s*[""]?([^"",\d]{3,30}?)[""]?\s*(?:,|\.|$)/i);
           if (suppPat && !pendingData.name) pendingData.name = suppPat[1].trim();
 
-          const idPat = q.match(/(?:هوية|هويته|رقم)\s*(\d{6,10})/i);
-          if (idPat) pendingData.identity = idPat[1];
+          const idPat = q.match(/(?:هوية|هويته|رقم)\s*([\d٠-٩۰-۹]{6,10})/i);
+          if (idPat) pendingData.identity = idPat[1].replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
 
           const datePat = q.match(/(\d{4}[-/]\d{1,2}[-/]\d{1,2})/);
           if (datePat) pendingData.scheduledAt = datePat[1];
@@ -3448,6 +3524,13 @@ http.createServer((req, res) => {
           // Interview / system questions
           if (plan.intent === "interview") {
             return sendJson(res, 200, {executed: true, message: "مرحباً بك في شموس 🌟 أنا وكيل الذكاء الاصطناعي لنظام إدارة شركات ومؤسسات صيانة وتركيب المصاعد.\n\n🎯 **من أنا؟**\nأنا مساعد رقمي متكامل، تم تطويره ليكون العقل المدبر لنظام شموس. أستطيع فهم الأوامر الصوتية والنصية بالعامية العربية وتحويلها إلى إجراءات عملية فوراً.\n\n⚡ **ماذا أستطيع أن أفعل؟**\n• إنشاء وإدارة عقود الصيانة والتركيب\n• إنشاء عروض أسعار احترافية\n• تسجيل وإسناد بلاغات الصيانة\n• جدولة الزيارات الكشفية\n• إضافة وإدارة الفنيين والمهندسين والموردين\n• تحليل المخزون وقطع الغيار\n• تحليل أداء الفريق والعمليات\n• إعادة توزيع الزيارات بذكاء\n• إنشاء إشعارات وتنبيهات\n• فتح النماذج وتعبئتها بالبيانات التي تقدمها\n\n🎤 **كيف تستخدمني؟**\nالأمر بسيط جداً: اضغط على زر المايك 🎤 وتحدث بصوتك الطبيعي بالعامية أو الفصحى. أنا أفهم كل الصيغ:\n• \"سوي عقد صيانة لمؤسسة الأفق\"\n• \"اعمل عرض سعر لشركة النخبة بقيمة 15000 ريال\"\n• \"أضف فني اسمه محمد\"\n• \"حلل المخزون وقل لي القطع الناقصة\"\n\n📊 **ما يميزني**\n• أفهم العامية السعودية والعربية الفصحى\n• أنفذ الأوامر مباشرة بدون وسيط\n• أفتح النماذج وأعبئ البيانات تلقائياً\n• أرد صوتياً بعد كل أمر\n• أتحادث معك بطلاقة وأسأل عن الناقص\n\nأنا هنا لخدمتك، فقط تكلم 🎤✨"});
+          }
+
+          // Can-do questions ("هل يمكن", "ممكن", "تقدر")
+          if (plan.intent === "can_do") {
+            const actionText = plan.data?.action || "";
+            const reply = getCapabilityResponse(actionText);
+            return sendJson(res, 200, {executed: true, message: reply, action: "can_do", data: plan.data});
           }
 
           const convKeys = Object.keys(convResponses);
