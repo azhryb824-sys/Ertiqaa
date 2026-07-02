@@ -2771,12 +2771,11 @@ function executeAiAction(actionData, store) {
         const itemsTotal = (d.items || []).reduce((s, i) => s + Number(i.price || 0), 0);
         const customTotal = (d.customItems || []).reduce((s, i) => s + Number(i.price || 0), 0);
         const partsTotal = (d.partsItems || []).reduce((s, i) => s + Number(i.price || 0), 0);
-        const subtotal = baseValue + itemsTotal + customTotal + partsTotal;
-        const taxRate = 0.15;
-        const taxAmount = subtotal * taxRate;
-        const total = subtotal + taxAmount;
+        const total = baseValue + itemsTotal + customTotal + partsTotal;
         const clientName = d.clientName || "";
         const companyName = d.clientCompanyName || "";
+        const quoteType = d.type && /صيانة|maintenance/i.test(String(d.type)) ? "صيانة" : "تركيب";
+        const isInstall = quoteType === "تركيب";
         const quote = {
           id: `QTO-${Date.now()}`,
           companyOwnerId: d.companyOwnerId || actionOwnerId || actionData.userId || "ai",
@@ -2786,15 +2785,13 @@ function executeAiAction(actionData, store) {
           clientCompanyName: companyName,
           client: d.client || companyName || clientName || "عميل",
           title: d.title || "عرض سعر",
+          type: quoteType,
           value: total,
-          subtotal: subtotal,
-          taxRate: taxRate,
-          taxAmount: taxAmount,
-          totalWithTax: total,
+          subtotal: total,
           status: "بانتظار المراجعة والاعتماد",
           reportId: d.reportId || "",
-          elevatorInfo: Object.assign({count: "", brand: "", age: "", capacity: "", doorType: "", usage: ""}, d.elevatorInfo || {}),
-          maintenanceChecklist: d.maintenanceChecklist && d.maintenanceChecklist.length ? d.maintenanceChecklist : [],
+          elevatorInfo: isInstall ? Object.assign({count: "", brand: "", age: "", capacity: "", doorType: "", usage: ""}, d.elevatorInfo || {}) : {},
+          maintenanceChecklist: !isInstall && d.maintenanceChecklist && d.maintenanceChecklist.length ? d.maintenanceChecklist : [],
           items: d.items || [],
           partsItems: d.partsItems || [],
           customItems: d.customItems || [],
