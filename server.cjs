@@ -2616,7 +2616,7 @@ function executeAiAction(actionData, store) {
           clientCompanyUnifiedNumber: d.clientCompanyUnifiedNumber || "",
           clientCompanyName: d.clientCompanyName || "",
           value: Number(d.value || 0),
-          elevatorInfo: Object.assign(defaultElevatorSpecs(), d.elevatorInfo || {}),
+          elevatorInfo: isInstall ? Object.assign(defaultElevatorSpecs(), d.elevatorInfo || {}) : Object.assign({count: "", brand: "", age: "", capacity: "", doorType: "", usage: ""}, d.elevatorInfo || {}),
           installationInfo: isInstall ? Object.assign({stops: "", entrances: "", battery: "", doorOpening: "", shaftSize: "", motor: "", controller: "", outerDoors: "", safetyDoor: "", cabin: "", power: "", speed: "", warranty: "", note: ""}, d.installationInfo || {}) : {},
           maintenanceChecklist: d.maintenanceChecklist && d.maintenanceChecklist.length ? d.maintenanceChecklist : defaultMaintenanceChecklist(),
           buildings: d.buildings && d.buildings.length ? d.buildings : [{name: "", district: "", mapUrl: "", guardMobile: ""}],
@@ -2669,7 +2669,7 @@ function executeAiAction(actionData, store) {
           totalWithTax: total,
           status: "بانتظار المراجعة والاعتماد",
           reportId: d.reportId || "",
-          elevatorInfo: Object.assign(defaultElevatorSpecs(), d.elevatorInfo || {}),
+          elevatorInfo: Object.assign({count: "", brand: "", age: "", capacity: "", doorType: "", usage: ""}, d.elevatorInfo || {}),
           maintenanceChecklist: d.maintenanceChecklist && d.maintenanceChecklist.length ? d.maintenanceChecklist : [],
           items: d.items || [],
           partsItems: d.partsItems || [],
@@ -2997,7 +2997,7 @@ If the user says "باسم X" or "للعميل X", the client name is X.
 The system will execute the action automatically. For supported actions, immediately execute instead of just explaining.
 Supported actions:
 - create_contract (لإنشاء عقود الصيانة والتركيب): type, clientName, clientId, clientCompanyName, clientCompanyUnifiedNumber, startDate, endDate, value, details, buildings, elevatorInfo
-Use the new expandable elevatorInfo specification schema only. Supported keys include: elevatorType, usage, entrances, doorDirection, doorType, speedSystem, motorType, motorManufacturer, controller, doorManufacturer, ropeManufacturer, railManufacturer, originCountry, floorType, wallType, ceilingType, lightingType, displayType, risotType, bufferType, doorLockType, rescueSystem, coolingSystem, intercom, camera, mirrors, fan, voiceAnnouncement, braille, fireMode, warranty, capacity, persons, stops, speed, travelHeight, shaftWidth, shaftLength, pitDepth, overhead, doorWidth, doorHeight, motorPower, motorSpeed, voltage, frequency, phases, cabinSize, ropesCount, ropeDiameter, counterweight, railSize, travelCableSize, doorOpenTime, doorCloseTime, powerConsumption, notes. If a field is missing, rely on system defaults. When users ask to change any specification, set that exact key inside elevatorInfo.
+Use the new expandable elevatorInfo specification schema for installation contracts only. Supported keys include: elevatorType, usage, entrances, doorDirection, doorType, speedSystem, motorType, motorManufacturer, controller, doorManufacturer, ropeManufacturer, railManufacturer, originCountry, floorType, wallType, ceilingType, lightingType, displayType, risotType, bufferType, doorLockType, rescueSystem, coolingSystem, intercom, camera, mirrors, fan, voiceAnnouncement, braille, fireMode, warranty, capacity, persons, stops, speed, travelHeight, shaftWidth, shaftLength, pitDepth, overhead, doorWidth, doorHeight, motorPower, motorSpeed, voltage, frequency, phases, cabinSize, ropesCount, ropeDiameter, counterweight, railSize, travelCableSize, doorOpenTime, doorCloseTime, powerConsumption, notes. If an installation field is missing, rely on system defaults. For maintenance contracts, keep elevatorInfo limited to the legacy summary keys: count, brand, age, capacity, doorType, usage.
 - create_quote (لإنشاء عروض الأسعار): clientName, clientId, value, details, items
 - create_ticket: title, description, clientName, clientId, priority, contractId
 - create_visit: clientName, clientId, contractId, scheduledAt, building, assignedTo
