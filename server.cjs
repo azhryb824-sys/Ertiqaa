@@ -3632,26 +3632,43 @@ http.createServer((req, res) => {
           // If the plan detects an action intent but the unified model did not execute, try direct execution
           let autoExecute = null;
           if (plan.intent === "create_maintenance_contract" || plan.intent === "create_installation_contract") {
-            autoExecute = {action: "create_contract", data: {type: plan.intent === "create_installation_contract" ? "تركيب" : "صيانة", details: question}};
+            autoExecute = {action: "create_contract", data: {...plan.data, type: plan.intent === "create_installation_contract" ? "تركيب" : "صيانة", details: question}};
           } else if (plan.intent === "create_quote") {
-            autoExecute = {action: "create_quote", data: {details: question}};
+            autoExecute = {action: "create_quote", data: {...plan.data, details: question}};
+          } else if (plan.intent === "create_ticket") {
+            autoExecute = {action: "create_ticket", data: {...plan.data, details: question}};
+          } else if (plan.intent === "create_visit") {
+            autoExecute = {action: "create_visit", data: {...plan.data, details: question}};
+          } else if (plan.intent === "add_staff") {
+            autoExecute = {action: "add_staff", data: {...plan.data, details: question}};
+          } else if (plan.intent === "create_supplier") {
+            autoExecute = {action: "create_supplier", data: {...plan.data, details: question}};
           } else if (plan.intent === "assign_visit" && /زيارة\s*(\S+)/i.test(question)) {
-            autoExecute = {action: "assign_visit", data: {visitId: RegExp.$1}};
+            autoExecute = {action: "assign_visit", data: {...plan.data, visitId: RegExp.$1}};
           } else if (plan.intent === "redistribute_visits") {
-            autoExecute = {action: "redistribute_visits", data: {redistributeAll: /الكل|جميع|all/i.test(question)}};
+            autoExecute = {action: "redistribute_visits", data: {...plan.data, redistributeAll: /الكل|جميع|all/i.test(question)}};
           }
           if (autoExecute) {
             autoExecute.userId = userId;
             autoExecute.role = role;
             autoExecute.companyOwnerId = input.companyOwnerId;
-            const execResult = executeAiAction(autoExecute, store);
-            if (execResult.executed) {
-              executions.push(execResult);
-              logAiOperation(store, autoExecute.action,
-                {id: userId, name: userName, role},
-                {action: autoExecute.action, data: autoExecute.data, result: execResult.message}
-              );
-              cleanAnswer += `\n\n✅ ${execResult.message}`;
+            const missing = getMissingFields(autoExecute.action, autoExecute.data);
+            if (missing.length) {
+              cleanAnswer = missing.length === 1
+                ? `ينقصني ${missing[0].label}. تفضل بذكره.`
+                : `ينقصني ${missing.map(m => m.label).join(" و ")}. اذكرهم لو تكرمت.`;
+            } else {
+              const execResult = executeAiAction(autoExecute, store);
+              if (execResult.executed) {
+                executions.push(execResult);
+                logAiOperation(store, autoExecute.action,
+                  {id: userId, name: userName, role},
+                  {action: autoExecute.action, data: autoExecute.data, result: execResult.message}
+                );
+                cleanAnswer = `✅ ${execResult.message}`;
+              } else {
+                cleanAnswer = execResult.message || "تعذر تنفيذ الأمر.";
+              }
             }
           }
         }
