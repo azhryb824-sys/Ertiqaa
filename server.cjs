@@ -16,6 +16,73 @@ const deviceCookie = "misad_device";
 const entryCookieValue = crypto.createHash("sha256").update(entrySecret).digest("hex");
 let storeCache = null;
 let storeMtime = 0;
+const _lastQs = new Map(); // {userId: {q, time, answer}}
+
+// --- دالة اقتراحات ذكية حسب السياق والصلاحية ---
+function smartSuggests(topic, role) {
+  const canManage = ["owner", "company_admin", "admin"].includes(role);
+  const canEdit = canManage;
+  const map = {
+    contract: [
+      "إذا احتجت أي مساعدة أخرى أو رغبت في تعديل العقد — إذا كانت لديك الصلاحية — فأخبرني وسأساعدك.",
+      "إذا أردت الاطلاع على أي جزء آخر من العقد أو إجراء أي تعديل متاح لك، فأنا جاهز للمساعدة.",
+      "إذا أردت مراجعة بند معين أو تعديل بيانات العقد وفق صلاحياتك، فقط أخبرني.",
+      "إذا كان لديك استفسار آخر عن العقد أو ترغب في تنفيذ عملية أخرى، فأنا في خدمتك."
+    ],
+    visit: [
+      "إذا احتجت إعادة جدولة الزيارة أو إسنادها لفني آخر، فقط أخبرني.",
+      "إذا أردت تفاصيل أكثر عن الزيارة أو تغيير موعدها، أنا موجود."
+    ],
+    ticket: [
+      "إذا احتجت تغيير أولوية البلاغ أو إسناده لفني، فقط أخبرني.",
+      "إذا أردت متابعة البلاغ أو تحديث حالته، أنا هنا."
+    ],
+    staff: [
+      "إذا احتجت إضافة فني آخر أو تعديل بياناته، فقط أخبرني.",
+      "إذا أردت معرفة حمل عمل الفريق أو توزيع المهام، أنا موجود."
+    ],
+    quote: [
+      "إذا احتجت تعديل عرض السعر أو إنشاء عرض جديد، فقط أخبرني.",
+      "إذا أردت الاطلاع على تفاصيل العرض أو طباعته، أنا هنا."
+    ],
+    inventory: [
+      "إذا احتجت إضافة قطعة جديدة أو تعديل الكميات، فقط أخبرني.",
+      "إذا أردت تقرير كامل عن المخزون، أنا جاهز."
+    ],
+    general: canManage ? [
+      "إذا احتجت شيئاً آخر — إنشاء عقد، بلاغ، زيارة، أو تقرير — أنا هنا.",
+      "تقدر تسألني عن أي شيء: العقود، الزيارات، الفنيين، المخزون. أنا موجود.",
+      "أنا في خدمتك. فقط تفضل بطلبك وسأنفذه فوراً — إذا كانت لديك الصلاحية."
+    ] : [
+      "إذا كان لديك استفسار آخر، فأنا هنا للمساعدة.",
+      "تقدر تسألني عن أي شيء يخص حسابك."
+    ]
+  };
+  const arr = map[topic] || map.general;
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+// --- دالة تكرار السؤال ---
+function repeatNote(userId, q, currentAnswer) {
+  const now = Date.now();
+  const prev = _lastQs.get(userId);
+  const hash = q.replace(/[؟?~!\s]/g, '').trim();
+  if (prev && prev.hash === hash && (now - prev.time) < 120000) {
+    const repeats = (prev.repeats || 1) + 1;
+    _lastQs.set(userId, {hash, time: now, repeats, answer: currentAnswer});
+    const notes = [
+      `لقد سألت عن هذا قبل قليل، والإجابة ما زالت كما هي:\n`,
+      `يبدو أنك كررت السؤال، ولا توجد تغييرات منذ آخر استعلام.\n`,
+      `الإجابة لم تتغير منذ آخر مرة سألت فيها.\n`,
+      `ألاحظ أن هذا السؤال تكرر أكثر من مرة خلال وقت قصير.\n`
+    ];
+    if (repeats > 3) return notes[3] + currentAnswer + "\n\nإذا كنت تقصد شيئاً آخر، فأخبرني.";
+    return notes[(repeats - 1) % notes.length] + currentAnswer;
+  }
+  _lastQs.set(userId, {hash, time: now, repeats: 1, answer: currentAnswer});
+  return currentAnswer;
+}
+
 const types = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
@@ -1857,28 +1924,30 @@ function analyzeDocumentForApproval(store, documentId, documentType) {
 
 // --- Can-do capability mapping ---
 const capabilityMap = [
-  {patterns: [/عقد.*صيانة|صيانة.*عقد/i], key: "create_contract", label: "عقد الصيانة", answer: "أيوه، أقدر أسوي عقود صيانة. قول: سوي عقد صيانة لـ (العميل) بقيمة (المبلغ)"},
-  {patterns: [/عقد.*تركيب|تركيب.*عقد/i], key: "create_contract", label: "عقد التركيب", answer: "أيوه، أقدر أسوي عقود تركيب. قول: سوي عقد تركيب لـ (العميل)"},
-  {patterns: [/^(?:أ)?سوي\s*عقد|^(?:أ)?عِمل\s*عقد|إنشاء\s*عقد|عقد/i], key: "create_contract", label: "العقد", answer: "أيوه، أقدر أسوي عقود صيانة وتركيب. قول: سوي عقد لـ (العميل) بقيمة (المبلغ)"},
-  {patterns: [/عرض.{0,4}سعر|^(?:أ)?عرض\s*سعر|تسعير/i], key: "create_quote", label: "عرض السعر", answer: "أيوه، أقدر أعمل عروض أسعار. قول: اعمل عرض سعر لـ (العميل) بقيمة (المبلغ)"},
-  {patterns: [/بلا[غgh]|^(?:أ)?سج[لّ]\s*بلا|تذكرة|شكوى/i], key: "create_ticket", label: "البلاغ", answer: "أيوه، أقدر أسجل بلاغات صيانة. قول: سوي بلاغ لـ (العميل) عنوانه (وصف)"},
-  {patterns: [/^(?:أ)?سوي\s*زيار|^(?:أ)?جدول\s*زيار|زيار[ةه]/i], key: "create_visit", label: "الزيارة", answer: "أيوه، أقدر أجدد زيارات كشفية. قول: سوي زيارة لـ (العميل) تاريخ (اليوم)"},
-  {patterns: [/^(?:أ)?ضيف\s*فني|^(?:أ)?ضيف\s*مهندس|إضافة\s*فني|إضافة\s*مهندس|فني|مهندس/i], key: "add_staff", label: "إضافة فني", answer: "أيوه، أقدر أضيف فنيين ومهندسين. قول: أضف فني اسمه (الاسم)"},
-  {patterns: [/^(?:أ)?ضيف\s*مورد|إضافة\s*مورد|مورد/i], key: "create_supplier", label: "المورد", answer: "أيوه، أقدر أضيف موردين. قول: أضف مورد اسمه (الاسم)"},
-  {patterns: [/^(?:أ)?ضيف\s*قطعة|إضافة\s*قطعة|قطعة.{0,3}غيار|جزء/i], key: "create_part", label: "قطعة الغيار", answer: "أيوه، أقدر أضيف قطع غيار للمخزون. قول: أضف قطعة (الاسم) الكمية (العدد)"},
-  {patterns: [/^(?:أ)?سند|^(?:أ)?نقل|^(?:أ)?وزع|إسناد|انق[للا]|توزيع|وزع/i], key: "assign_visit", label: "إسناد الزيارات", answer: "أيوه، أقدر أسند الزيارات للفنيين. قول: اسند الزيارة لـ (اسم الفني)"},
-  {patterns: [/حل[للا].*مخزون|تحليل.*مخزون/i], key: "analyze_inventory", label: "تحليل المخزون", answer: "أيوه، أقدر أحلل المخزون وأشوف القطع الناقصة. قول: حلل المخزون"},
-  {patterns: [/حل[للا]|تحليل|تقرير/i], key: "analyze_operations", label: "التحليل", answer: "أيوه، أقدر أحلل العمليات والمخزون والفريق. قول: حلل العمليات"},
-  {patterns: [/مخزون/i], key: "analyze_inventory", label: "المخزون", answer: "أيوه، أقدر أتابع المخزون وأشوف القطع الناقصة. قول: اعرض المخزون أو حلل المخزون"},
-  {patterns: [/^(?:أ)?رسل\s*إشعار|إشعار|تنبيه|notification/i], key: "create_notification", label: "الإشعار", answer: "أيوه، أقدر أرسل إشعارات. قول: أرسل إشعار (النص)"}
+  {patterns: [/عقد.*صيانة|صيانة.*عقد/i], key: "create_contract", label: "عقد الصيانة", answers: ["أيوه، أقدر أسوي عقود صيانة. قول: سوي عقد صيانة لـ (العميل) بقيمة (المبلغ)", "إيه، خدمة العقود متوفرة. تقدر تقول: اعمل عقد صيانة لـ (الاسم) بقيمة (المبلغ)", "نعم، عقد الصيانة من خدماتي. جرب: سوي عقد صيانة لشركة (الاسم)"]},
+  {patterns: [/^(?:أ)?سوي\s*عقد|^(?:أ)?عِمل\s*عقد|إنشاء\s*عقد|عقد/i], key: "create_contract", label: "العقد", answers: ["أيوه، أقدر أسوي عقود صيانة وتركيب. قول: سوي عقد لـ (العميل) بقيمة (المبلغ)", "إيه، تقدر تسوي عقود. مثال: اعمل عقد صيانة لـ (العميل) بقيمة (المبلغ)", "نعم الخدمة متوفرة. جرب: سوي عقد لشركة (الاسم) بقيمة (المبلغ)"]},
+  {patterns: [/عرض.{0,4}سعر|^(?:أ)?عرض\s*سعر/i], key: "create_quote", label: "عرض السعر", answers: ["أيوه، أقدر أعمل عروض أسعار. قول: اعمل عرض سعر لـ (العميل) بقيمة (المبلغ)", "إيه، عروض الأسعار متوفرة. مثال: سوي عرض سعر لـ (الاسم) بقيمة (المبلغ)", "نعم، أجهز عروض أسعار احترافية. قول: عرض سعر لشركة (الاسم)"]},
+  {patterns: [/بلا[غgh]|^(?:أ)?سج[لّ]\s*بلا/i], key: "create_ticket", label: "البلاغ", answers: ["أيوه، أقدر أسجل بلاغات صيانة. قول: سوي بلاغ لـ (العميل) عنوانه (وصف)", "إيه، تسجيل البلاغات متاح. جرب: بلاغ لـ (الاسم) عنوانه (وصف المشكلة)", "نعم، أقدر أفتح بلاغ صيانة. مثال: سوي بلاغ لمبنى (الاسم)"]},
+  {patterns: [/^(?:أ)?سوي\s*زيار|^(?:أ)?جدول\s*زيار|زيار[ةه]/i], key: "create_visit", label: "الزيارة", answers: ["أيوه، أقدر أجدد زيارات كشفية. قول: سوي زيارة لـ (العميل) تاريخ (اليوم)", "إيه، جدولة الزيارات متاحة. مثال: زيارة لـ (الاسم) يوم (التاريخ)", "نعم، الزيارات الكشفية من خدماتي. قول: جدول زيارة لـ (الشركة)"]},
+  {patterns: [/^(?:أ)?ضيف\s*فني|^(?:أ)?ضيف\s*مهندس|إضافة\s*فني|فني|مهندس/i], key: "add_staff", label: "إضافة فني", answers: ["أيوه، أقدر أضيف فنيين ومهندسين. قول: أضف فني اسمه (الاسم)", "إيه، إضافة أعضاء الفريق متاحة. جرب: أضف مهندس اسمه (الاسم)", "نعم، تقدر تضيف فنيين. مثال: أضف فني اسمه محمد"]},
+  {patterns: [/^(?:أ)?ضيف\s*مورد|إضافة\s*مورد|مورد/i], key: "create_supplier", label: "المورد", answers: ["أيوه، أقدر أضيف موردين. قول: أضف مورد اسمه (الاسم)", "إيه، إدارة الموردين متوفرة. مثال: أضف مورد اسمه (الاسم) جواله 05...", "نعم، تقدر تضيف مورد جديد. جرب: أضف مورد (الاسم)"]},
+  {patterns: [/^(?:أ)?ضيف\s*قطعة|قطعة.{0,3}غيار/i], key: "create_part", label: "قطعة الغيار", answers: ["أيوه، أقدر أضيف قطع غيار للمخزون. قول: أضف قطعة (الاسم) الكمية (العدد)", "إيه، إدارة المخزون متاحة. مثال: أضف قطعة (الاسم) الكمية (العدد)", "نعم، تقدر تضيف قطع غيار. جرب: أضف قطعة غيار (الاسم)"]},
+  {patterns: [/^(?:أ)?سند|^(?:أ)?نقل|^(?:أ)?وزع|إسناد|وزع/i], key: "assign_visit", label: "إسناد الزيارات", answers: ["أيوه، أقدر أسند الزيارات للفنيين. قول: اسند الزيارة لـ (اسم الفني)", "إيه، إسناد الزيارات متاح. مثال: اسند الزيارات لـ (الفني)", "نعم، أقدر وزع الزيارات على الفريق. قول: وزع الزيارات"]},
+  {patterns: [/حل[للا].*مخزون/i], key: "analyze_inventory", label: "تحليل المخزون", answers: ["أيوه، أقدر أحلل المخزون وأشوف القطع الناقصة. قول: حلل المخزون", "إيه، تحليل المخزون متاح. جرب: حلل المخزون وقل لي الناقص", "نعم، أتابع المخزون. قول: تقرير المخزون"]},
+  {patterns: [/حل[للا]|تحليل/i], key: "analyze_operations", label: "التحليل", answers: ["أيوه، أقدر أحلل العمليات والمخزون والفريق. قول: حلل العمليات", "إيه، التقارير التحليلية متوفرة. مثال: حلل أداء الفريق", "نعم، التحليل من خدماتي. جرب: حلل العمليات أو حلل المخزون"]},
+  {patterns: [/مخزون/i], key: "analyze_inventory", label: "المخزون", answers: ["أيوه، أقدر أتابع المخزون وأشوف القطع الناقصة. قول: اعرض المخزون", "إيه، خدمة المخزون متاحة. جرب: حلل المخزون أو اعرض القطع", "نعم، أقدر أعطيك تقرير كامل عن المخزون. قول: المخزون"]},
+  {patterns: [/^(?:أ)?رسل\s*إشعار|إشعار|notification/i], key: "create_notification", label: "الإشعار", answers: ["أيوه، أقدر أرسل إشعارات. قول: أرسل إشعار (النص)", "إيه، الإشعارات متوفرة. مثال: أرسل إشعار للجميع (النص)", "نعم، أرسل إشعارات للفريق. قول: إشعار (النص)"]},
+  {patterns: [/^(?:أ)?مسح|^(?:أ)?حذف|إلغاء/i], key: "deny", label: "محظور", answers: ["هذا الإجراء غير متوفر حالياً في النظام.", "للأسف، هذي الخدمة مو متوفرة في النظام.", "ما أقدر أسوي هذا الإجراء حالياً، لكن أقدر أساعدك بأمور أخرى."]}
 ];
 
-function getCapabilityResponse(actionText) {
+function getCapabilityResponse(actionText, role = "admin") {
   if (!actionText) return "تقدر تسألني مثلاً: هل ممكن أسوي عقد؟ أو تقدر توزع الزيارات؟ وسأجاوبك وضح.";
   for (const cap of capabilityMap) {
     const anyMatch = cap.patterns.some(p => p.test(actionText));
     if (anyMatch) {
-      return cap.answer;
+      if (cap.key === "deny") return cap.answers[Math.floor(Math.random() * cap.answers.length)];
+      const answer = cap.answers[Math.floor(Math.random() * cap.answers.length)];
+      return answer + "\n\n" + smartSuggests(cap.key === "analyze_inventory" ? "inventory" : (cap.key === "create_contract" ? "contract" : cap.key === "create_visit" ? "visit" : cap.key === "assign_visit" ? "visit" : cap.key === "create_ticket" ? "ticket" : cap.key === "add_staff" ? "staff" : cap.key === "create_quote" ? "quote" : "general"), role);
     }
   }
   // If specific action not found, provide generic response
@@ -1893,7 +1962,8 @@ function getCapabilityResponse(actionText) {
     "تحليل العمليات والمخزون",
     "تقارير وإشعارات"
   ];
-  return "أيوة، فيه كثير أقدر أسويه 😊 منها:\n• " + generalCaps.join("\n• ") + "\n\nوش تبغى أسوي لك بالضبط؟";
+  const generalSuggests = smartSuggests("general", role);
+  return "أيوة، فيه كثير أقدر أسويه 😊 منها:\n• " + generalCaps.join("\n• ") + "\n\n" + generalSuggests;
 }
 
 function elevatorKnowledgeBase() {
@@ -2352,8 +2422,8 @@ function inferAiPlan(question, context, user = {}) {
 
   if (plan.intent !== "answer") {
     plan.needsApproval = true;
-    plan.action = plan.intent; // will be mapped later
-    if (!canManage) {
+    plan.action = plan.intent;
+    if (!canManage && plan.intent !== "query" && plan.intent !== "can_do") {
       plan.allowed = false;
       plan.suggestions.push("المستخدم لا يملك صلاحية تنفيذ العمليات الإدارية.");
     }
@@ -3031,18 +3101,51 @@ async function askUnifiedAi(question, context, user = {}, conversationId = null)
     }
   }
   
-   const systemPrompt = `You are the Shumoos elevator management AI agent. You are not a generic chatbot; you are specialized in elevator company operations.
-Answer in Arabic with a clear Saudi white dialect when the request comes from voice chat, and keep a professional Saudi business tone in normal admin answers. Keep voice replies short, natural, and easy to speak aloud. Use the provided system summary, knowledge base, and local agent plan. You can answer questions about the system, summarize records, analyze technician workload, review visits, find delayed visits, suggest technician assignment priorities, support voice chat, and help convert spoken Arabic into clean form-field values across the system. When the user explicitly asks to convert spoken text for a form field, return only the final field value without explanation.
-IMPORTANT: You CAN now directly execute commands. To execute an action, include a JSON block in your response like these examples:
-For a maintenance or installation contract (عقد صيانة / عقد تركيب): [EXECUTE:{"action":"create_contract","data":{"type":"صيانة","clientName":"...","value":0}}]
-For a price quote (عرض سعر): [EXECUTE:{"action":"create_quote","data":{"clientName":"...","value":0,"details":"..."}}]
-Always distinguish between contracts (عقود) and quotes (عروض سعر). If the user says "سوي عرض سعر" or "عرض سعر", use create_quote. If the user says "عقد صيانة" or "عقد", use create_contract.
-If the user says "باسم X" or "للعميل X", the client name is X.
-The system will execute the action automatically. For supported actions, immediately execute instead of just explaining.
-Supported actions:
-- create_contract (لإنشاء عقود الصيانة والتركيب): type, clientName, clientId, clientCompanyName, clientCompanyUnifiedNumber, startDate, endDate, value, details, buildings, elevatorInfo
-Use the new expandable elevatorInfo specification schema for installation contracts only. Supported keys include: elevatorType, usage, entrances, doorDirection, doorType, speedSystem, motorType, motorManufacturer, controller, doorManufacturer, ropeManufacturer, railManufacturer, originCountry, floorType, wallType, ceilingType, lightingType, displayType, risotType, bufferType, doorLockType, rescueSystem, coolingSystem, intercom, camera, mirrors, fan, voiceAnnouncement, braille, fireMode, warranty, capacity, persons, stops, speed, travelHeight, shaftWidth, shaftLength, pitDepth, overhead, doorWidth, doorHeight, motorPower, motorSpeed, voltage, frequency, phases, cabinSize, ropesCount, ropeDiameter, counterweight, railSize, travelCableSize, doorOpenTime, doorCloseTime, powerConsumption, notes. If an installation field is missing, rely on system defaults. For maintenance contracts, keep elevatorInfo limited to the legacy summary keys: count, brand, age, capacity, doorType, usage.
-- create_quote (لإنشاء عروض الأسعار): clientName, clientId, value, details, items
+   const systemPrompt = `أنت وكيل شموس للذكاء الاصطناعي لإدارة عمليات المصاعد. لست روبوت محادثة عادياً، بل متخصص في إدارة شركات المصاعد.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+أسلوب الإجابة
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+- أجب بالعربية الفصحى أو العامية السعودية الواضحة.
+- كن طبيعياً ومتنوعاً في أسلوبك - لا تكرر نفس الصياغة في كل رد.
+- اجعل الإجابات ودية واحترافية ومريحة للقراءة.
+- أبقِ الردود الصوتية قصيرة وطبيعية وسهلة النطق.
+- استخدم المعلومات المتوفرة من ملخص النظام وقاعدة المعرفة والخطة المحلية.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+عند تكرار السؤال
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+إذا كرر المستخدم نفس السؤال خلال وقت قصير والإجابة لم تتغير، لاحظ ذلك وغيّر أسلوب الرد بدلاً من تكرار نفس الجملة.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+اقتراحات المساعدة
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+بعد كل إجابة، قدم اقتراحاً للمساعدة مناسباً للسؤال الحالي ولصلاحيات المستخدم.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+الصلاحيات
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+- لا تقترح تنفيذ عملية لا يملك المستخدم صلاحيتها.
+- إذا لم يملك المستخدم صلاحية التعديل، لا تعرض خيار تعديل.
+- إذا لم يملك المستخدم صلاحية الحذف، لا تعرض خيار الحذف.
+- إذا لم يملك المستخدم صلاحية عرض بيانات معينة، لا تذكرها ولا تقترحها.
+- اعتمد جميع الاقتراحات والإجابات على الصلاحيات الفعلية للمستخدم.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+التنفيذ المباشر
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+يمكنك تنفيذ الأوامر مباشرة. للتفيذ، أضف قالب JSON في ردك:
+عقد صيانة/تركيب: [EXECUTE:{"action":"create_contract","data":{"type":"صيانة","clientName":"...","value":0}}]
+عرض سعر: [EXECUTE:{"action":"create_quote","data":{"clientName":"...","value":0,"details":"..."}}]
+
+العمليات المدعومة:
+- create_contract: type, clientName, clientId, clientCompanyName, clientCompanyUnifiedNumber, startDate, endDate, value, details, buildings, elevatorInfo
+- create_quote: clientName, clientId, value, details, items
 - create_ticket: title, description, clientName, clientId, priority, contractId
 - create_visit: clientName, clientId, contractId, scheduledAt, building, assignedTo
 - assign_visit: visitId, technicianId, technicianName
@@ -3052,16 +3155,16 @@ Use the new expandable elevatorInfo specification schema for installation contra
 - create_notification: title, body, userId, roles
 - analyze_report: reportId, autoGenerateQuote
 - optimize_quote: quoteId, targetValue
-If data is missing, ask only for the minimum missing data.
-Do not ask for secrets or passwords. Do not claim that you performed the action unless you include the EXECUTE block.
-Focus on contracts, visits, tickets, suppliers, spare parts, quotes, inventory, and operational risks.
-Respect permissions. If the local plan says the action is not allowed, refuse execution and offer safe alternatives.
-Maintain conversation context. Remember previous questions and answers. Do not repeat information already provided. Ask only for missing essential information, prioritizing required data over optional data. Execute operations as soon as all required data is available.
 
-User: ${JSON.stringify(user)}
-Knowledge base: ${JSON.stringify(knowledge)}
-Local agent plan: ${JSON.stringify(plan)}
-System summary: ${JSON.stringify(context)}`;
+إذا نقصت بيانات، اسأل فقط عن أقل البيانات المطلوبة.
+لا تطلب أسراراً أو كلمات مرور. لا تدّع أنك نفذت الإجراء إلا إذا أضفت قالب EXECUTE.
+التزم بالصلاحيات. إذا قالت الخطة المحلية أن الإجراء غير مسموح، ارفض التنفيذ واعرض بدائل آمنة.
+حافظ على سياق المحادثة. تذكر الأسئلة والأجوبة السابقة. لا تكرر معلومات سبق تقديمها.
+
+المستخدم: ${JSON.stringify(user)}
+قاعدة المعرفة: ${JSON.stringify(knowledge)}
+الخطة المحلية: ${JSON.stringify(plan)}
+ملخص النظام: ${JSON.stringify(context)}`;
   
   const messages = [
     {role: "system", content: systemPrompt},
@@ -3103,11 +3206,163 @@ System summary: ${JSON.stringify(context)}`;
   if (primaryAnswer) return {answer: primaryAnswer, model: primaryModel, provider: "primary", providerLabel: primary.label, attempts, plan};
   const primaryMissing = attempts[0]?.error?.includes("not configured");
   const fallbackMissing = !fallback?.endpoint || attempts.some(a => a.provider === "fallback" && String(a.error || "").includes("not configured"));
+  if (primaryMissing && fallbackMissing) {
+    const localAnswer = generateLocalAiResponse(question, plan, context, user, knowledge, conversationHistory);
+    return {answer: localAnswer, model: "local-ai", provider: "local", providerLabel: "Local AI (offline mode)", attempts, plan};
+  }
   return {
-    error: primaryMissing && fallbackMissing ? "No AI model is configured. Set GROQ_API_KEY for the primary model or AI_FALLBACK_CHAT_ENDPOINT/CUSTOM_AI_ENDPOINT for your custom fallback model." : (attempts.at(-1)?.error || "No AI model was able to answer."),
+    error: (attempts.at(-1)?.error || "No AI model was able to answer."),
     attempts,
     plan
   };
+}
+
+function generateLocalAiResponse(question, plan, context, user = {}, knowledge = {}, conversationHistory = []) {
+  const q = String(question || "").trim();
+  const intent = plan?.intent || "answer";
+  const data = plan?.data || {};
+  const counts = context?.counts || {};
+  const name = user?.name || "";
+  const greeting = ["", "", ` ${name}`, ` يا ${name}`];
+  const g = greeting[Math.floor(Math.random() * greeting.length)];
+  const r = (arr) => arr[Math.floor(Math.random() * arr.length)];
+  
+  if (intent === "greet") {
+    const time = new Date().getHours();
+    const period = time < 12 ? "صباح" : time < 17 ? "مساء" : "مساء";
+    return r([
+      `وعليكم السلام ورحمة الله${g}. ${period} الخير. كيف أقدر أساعدك؟`,
+      `أهلاً وسهلاً${g}. ${period} النور. أنا شموس الذكي، تحت أمرك.`,
+      `مرحباً مليون${g}. ${period} الورد. وش تطلب؟`,
+      `مرحبتين${g}. ${period} السعد. أنا موجود، تفضل.`,
+      `الله يحييك${g}. ${period} الخيرات. وش عندك من استفسار؟`
+    ]);
+  }
+  if (intent === "farewell") {
+    return r([
+      `الله يسلمك${g}. في أمان الله.`,
+      `مع السلامة${g}. الله يوفقك.`,
+      `في أمان الله وحفظه${g}. دايم موجود.`,
+      `الله معاك${g}. تراني هنا لو احتجت شيء.`
+    ]);
+  }
+  if (intent === "thanks") {
+    return r([
+      `العفو${g}. هذا واجبنا.`,
+      `الله يسلمك${g}. دايماً تحت أمرك.`,
+      `أهلاً بك${g}. فخور بخدمتك.`,
+      `الشكر لله${g}. أنا موجود لأجلك.`
+    ]);
+  }
+  if (intent === "apologize") {
+    return r([
+      `معذور${g}. كيف أقدر أساعدك؟`,
+      `لا عذراً على واجب${g}. تفضل.`,
+      `ما عليك زود${g}. وش تطلب؟`
+    ]);
+  }
+  if (intent === "interview") {
+    return r([
+      `اسمي شموس${g}. أنا مساعدك الذكي لإدارة شركات المصاعد. أساعدك في إدارة العقود والزيارات والفنيين والمخزون والبلاغات وعروض الأسعار. تقدر تطلب مني إنشاء عقد صيانة أو زيارة أو عرض سعر، وأنا أنفذ لك مباشرة.`,
+      `أنا شموس، وكيلك الذكي${g}. مختص بإدارة عمليات المصاعد: عقود صيانة وتركيب، زيارات دورية، فنيين، مخزون قطع الغيار، بلاغات، وعروض أسعار. مجرد اطلب وأنا أنفذ.`,
+      `شموس هذا اسمي${g}. مساعد متكامل لشركات المصاعد. أقدر أسوي عقود، عروض سعر، بلاغات، زيارات، وأدير المخزون والفريق. بس قول "اعمل كذا" وأنا أتولى الباقي.`,
+      `أنا وكيل شموس للذكاء الاصطناعي${g}. تحت أمري إدارة العقود، عروض الأسعار، جدولة الزيارات، توزيع الفنيين، المخزون، وكل ما يخص تشغيل شركة المصاعد. أتكلم بالعربي الفصحى والعامية السعودية.`
+    ]);
+  }
+  if (intent === "can_do") {
+    const action = data?.action || "";
+    if (/عقد|صيانة|تركيب/.test(action)) return r([`أقدر أسوي عقود صيانة وتركيب${g}. بس محتاج اسم العميل والقيمة ونوع العقد.`, `إيوه أقدر${g}. أقدّر أنشئ عقود صيانة وتركيب. عطني تفاصيل العميل والقيمة.`]);
+    if (/عرض|سعر/.test(action)) return r([`أقدر أسوي عروض أسعار${g}. عطني اسم العميل وإذا في قيمة تقريبية أحسن.`, `أكيد${g}. أقدر أعد عرض سعر كامل. وش اسم العميل؟`]);
+    if (/زيارة|جدول/.test(action)) return r([`أقدر أسوي زيارات وأسندها للفنيين${g}.`, `أيوه، أقدّر أضيف زيارات وأسندها${g}.`]);
+    if (/فني|موظف/.test(action)) return r([`أقدر أضيف فنيين وموظفين${g}. محتاج الاسم والهوية والدور الوظيفي.`, `أيوه${g}. أقدر أضيف أعضاء الفريق.`]);
+    if (/مخزون|قطع/.test(action)) return r([`أقدر أدير المخزون${g}.`, `إيوه${g}. أقدر أضيف قطع غيار وأتابع المخزون.`]);
+    if (/مورد/.test(action)) return r([`أقدر أضيف موردين${g}. محتاج اسم المورد.`, `أكيد${g}. أقدر أسجل مورد جديد.`]);
+    if (/تقرير|تحليل/.test(action)) return r([`أقدر أحلل العمليات${g}.`, `أيوه${g}. أقدر أقدم تحليلات عن الفنيين والزيارات والمخزون.`]);
+    return r([`إيوه أقدر أساعدك${g}. وش بالضبط تبغاني أسوي؟`, `أكيد${g}. بس احتاج تفاصيل أكثر عشان أنفذ.`, `أقدر${g}. وصف لي الطلب وأنا أتولاه.`]);
+  }
+  if (intent === "query") {
+    const entity = data?.entity || "";
+    const query = data?.query || q;
+    const localData = searchLocalData(query, readStore(), user);
+    if (localData) {
+      const extras = [
+        `\n\n${smartSuggests(entity, user?.role || "")}`,
+        `\n\n${smartSuggests("general", user?.role || "")}`,
+        ``
+      ];
+      const countsDesc = [`عندنا ${counts.contracts || 0} عقد`, `فيه ${counts.contracts || 0} عقد في النظام`, `إجمالي العقود ${counts.contracts || 0}`];
+      return r([
+        localData + extras[Math.floor(Math.random() * extras.length)],
+        localData + extras[Math.floor(Math.random() * extras.length)]
+      ]);
+    }
+    return r([
+      `ما لقيت معلومات محددة عن هذا${g}. جرب تسأل عن العقود أو الزيارات أو المخزون.`,
+      `صعبة علي هذي${g}. تقدر تسألني عن شيء ثاني؟`,
+      `ما عندي تفاصيل كافية${g}. جرب تطلب شيء زي: كم عقد عندنا؟ أو أرني الزيارات.`
+    ]);
+  }
+  if (intent === "analyze_inventory" || intent === "analyze_staff" || intent === "analyze_operations") {
+    const localData = searchLocalData(q, readStore(), user);
+    if (localData) return localData;
+    return r([
+      `قاعدة البيانات ما فيها معلومات كافية للتحليل${g}.`,
+      `ما عندي بيانات كافية أحللها${g}.`
+    ]);
+  }
+  if (intent === "create_maintenance_contract" || intent === "create_installation_contract" || intent === "create_quote" || intent === "create_ticket" || intent === "create_visit" || intent === "add_staff" || intent === "create_supplier") {
+    const missing = plan?.missing || [];
+    if (missing.length > 0) {
+      return r([
+        `ناقصني ${missing.map(m => m.label).join(" و ")}${g}.`,
+        `أحتاج ${missing.map(m => m.label).join(" و ")} عشان أتمم الطلب${g}.`,
+        `ودي أساعدك${g}. لكن محتاج ${missing.map(m => m.label).join(" و ")}.`
+      ]);
+    }
+    return r([
+      `تمام${g}. عطني التفاصيل الكاملة وأنا أنفذ لك.`,
+      `حاضر${g}. هل تبي تضيف تفاصيل أكثر؟`,
+      `ممتاز${g}. وش باقي التفاصيل؟`
+    ]);
+  }
+  if (intent === "assign_visit" || intent === "redistribute_visits") {
+    return r([
+      `تمام${g}، بشوف توزيع الزيارات الحالي وأقترح عليك التوزيع الأمثل.`,
+      `حاضر${g}، بعمل تحليل للزيارات والفنيين وأرجع لك باقتراح.`,
+      `خلاص${g}، خلني أراجع أعباء العمل عند الفنيين وأقدم لك توصية.`
+    ]);
+  }
+  if (intent === "optimize_quote") {
+    return r([
+      `تمام${g}، أرسل لي رقم عرض السعر عشان أحسّن التسعير.`,
+      `حاضر${g}، وش رقم عرض السعر اللي تبغى تحسّنه؟`
+    ]);
+  }
+  if (intent === "analyze_report") {
+    return r([
+      `أي تقرير تبغى أحلله${g}؟`,
+      `تمام${g}. وش التقرير اللي تبغاني أقراه؟`
+    ]);
+  }
+  if (intent === "create_notification") {
+    return r([
+      `تمام${g}. وش تبغى نص الإشعار؟`,
+      `حاضر${g}. عطني نص الإشعار والموجهين له.`
+    ]);
+  }
+  // Fallback for any other or unknown intent
+  const localData = searchLocalData(q, readStore(), user);
+  if (localData) {
+    const fallbackPhrases = ["", "", `\n\nكمان تقدر تسأل عن العقود أو الزيارات أو المخزون.`, `\n\n${smartSuggests("general", user?.role || "")}`];
+    return localData + fallbackPhrases[Math.floor(Math.random() * fallbackPhrases.length)];
+  }
+  return r([
+    `وش تقصد بالضبط${g}؟ وضح لي أكثر عشان أساعدك.`,
+    `ما فهمت طلبك${g}. جرب توضح أو تسأل عن العقود، الزيارات، الفنيين، أو المخزون.`,
+    `كيف أقدر أساعدك${g}؟ تقدر تطلب إنشاء عقد أو عرض سعر، أو تسأل عن الزيارات والفنيين.`,
+    `أنا موجود${g}. وش تطلب؟ مثلاً: "اعمل عقد صيانة"، "كم زيارة عندنا؟"، "أضف فني جديد".`,
+    `تفضل${g}. وش تحتاج؟ تقدر تقول "اعمل عرض سعر"، أو "أرني البلاغات المفتوحة".`
+  ]);
 }
 
 http.createServer((req, res) => {
@@ -3529,12 +3784,19 @@ http.createServer((req, res) => {
 
         // --- Conversational intents (greetings, thanks, apologies, etc.) ---
         if (!action && plan.intent !== "answer") {
+          const canManage = ["owner", "company_admin", "admin"].includes(role);
           const ctx = context.counts || {};
           const greetWithContext = (greeting) => {
+            const greetOpenings = [
+              greeting,
+              greeting.replace("🌟", "🌸").replace("✨", "🌷"),
+              greeting
+            ];
             const parts = [];
-            parts.push(greeting);
+            parts.push(greetOpenings[Math.floor(Math.random() * greetOpenings.length)]);
             if (ctx.contracts > 0 || ctx.visits > 0) {
-              parts.push("📊 ملخص سريع للنظام:");
+              const summaryLabels = ["📊 نظرة سريعة:", "📋 ملخص النظام:", "📈 الوضع الحالي:"];
+              parts.push(summaryLabels[Math.floor(Math.random() * summaryLabels.length)]);
               const items = [];
               if (ctx.contracts) items.push(`${ctx.contracts} عقد`);
               if (ctx.openTickets) items.push(`${ctx.openTickets} بلاغ مفتوح`);
@@ -3543,7 +3805,8 @@ http.createServer((req, res) => {
               if (ctx.staff) items.push(`${ctx.staff} فني`);
               if (items.length) parts.push(items.join(" · "));
             }
-            parts.push("كيف أقدر أساعدك؟");
+            const followUps = canManage ? ["كيف أقدر أساعدك؟", "وش تحتاج مني؟", "أنا تحت أمرك، ماذا تطلب؟", "تفضل، وش تبغى تسوي؟"] : ["كيف أقدر أساعدك؟", "هل تحتاج شيئاً؟"];
+            parts.push(followUps[Math.floor(Math.random() * followUps.length)]);
             return parts.join("\n\n");
           };
           const convResponses = {
@@ -3577,7 +3840,7 @@ http.createServer((req, res) => {
           // Can-do questions ("هل يمكن", "ممكن", "تقدر")
           if (plan.intent === "can_do") {
             const actionText = plan.data?.action || "";
-            const reply = getCapabilityResponse(actionText);
+            const reply = getCapabilityResponse(actionText, role);
             return sendJson(res, 200, {executed: true, message: reply, action: "can_do", data: plan.data});
           }
 
@@ -3586,7 +3849,8 @@ http.createServer((req, res) => {
             const key = convKeys[ci];
             if (plan.intent === key) {
               const responses = convResponses[key];
-              const reply = responses[Math.floor(Math.random() * responses.length)];
+              let reply = responses[Math.floor(Math.random() * responses.length)];
+              if (key !== "greet") reply = repeatNote(userId, question, reply);
               return sendJson(res, 200, {executed: true, message: reply, action: "conversation", intent: key});
             }
           }
@@ -3608,8 +3872,11 @@ http.createServer((req, res) => {
             }
           } catch {}
           const local = searchLocalData(question, store, {id: userId, role, name: userName, companyOwnerId: input.companyOwnerId});
-          if (local) return sendJson(res, 200, {executed: true, message: local, action: "answer"});
-          return sendJson(res, 200, {openForm: false, message: "لم يتم التعرف على الأمر. جرب: أنشئ عقد, عرض سعر, بلاغ, زيارة, فني, مورد"});
+          if (local) {
+            const withSuggest = local + "\n\n" + smartSuggests("general", role);
+            return sendJson(res, 200, {executed: true, message: repeatNote(userId, question, withSuggest), action: "answer"});
+          }
+          return sendJson(res, 200, {openForm: false, message: repeatNote(userId, question, "لم يتم التعرف على الأمر. جرب: أنشئ عقد, عرض سعر, بلاغ, زيارة, فني, مورد")});
         }
 
         // Build data from plan extraction
@@ -3743,8 +4010,11 @@ http.createServer((req, res) => {
           }
         } catch {}
         const local = searchLocalData(question, store, {id: userId, role, name: userName, companyOwnerId: input.companyOwnerId});
-        if (local) return sendJson(res, 200, {executed: true, message: local, action: "answer"});
-        return sendJson(res, 200, {openForm: false, message: "لم يتم التعرف على الأمر. جرب: أنشئ عقد, عرض سعر, بلاغ, زيارة, فني, مورد"});
+        if (local) {
+          const withSuggest = local + "\n\n" + smartSuggests("general", role);
+          return sendJson(res, 200, {executed: true, message: repeatNote(userId, question, withSuggest), action: "answer"});
+        }
+        return sendJson(res, 200, {openForm: false, message: repeatNote(userId, question, "لم يتم التعرف على الأمر. جرب: أنشئ عقد, عرض سعر, بلاغ, زيارة, فني, مورد")});
 
       } catch (e) {
         sendJson(res, 500, {executed: false, message: "خطأ في التنفيذ: " + e.message});
