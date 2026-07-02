@@ -12,3 +12,7 @@ services:
         generateValue: true
       - key: ELEVENLABS_API_KEY
         sync: false
+      - key: AI_INTERNET_ENABLED
+        value: "0"
+      - key: AI_INTERNET_REFRESH_HOURS
+        value: "24"

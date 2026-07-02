@@ -41,6 +41,236 @@ function loadAiResponseBank() {
   }
 }
 
+function pickAiResponseVariants(intent = "general_answer", count = 10) {
+  const bank = loadAiResponseBank();
+  const records = Array.isArray(bank.samples) && bank.samples.length ? bank.samples : [];
+  let fullRecords = records;
+  try {
+    const parsed = JSON.parse(fs.readFileSync(aiResponseBankPath, "utf8"));
+    fullRecords = Array.isArray(parsed.records) ? parsed.records : records;
+  } catch {}
+  const wanted = String(intent || "general_answer");
+  const matching = fullRecords.filter(x => x.intent === wanted);
+  const fallback = fullRecords.filter(x => x.intent === "general_answer");
+  const pool = matching.length >= count ? matching : [...matching, ...fallback, ...fullRecords];
+  const seen = new Set();
+  const variants = [];
+  const offset = Math.floor(Math.random() * Math.max(pool.length, 1));
+  for (let i = 0; i < pool.length && variants.length < count; i++) {
+    const item = pool[(offset + i * 7) % pool.length];
+    const text = String(item?.text || "").trim();
+    if (text && !seen.has(text)) {
+      seen.add(text);
+      variants.push({tone: item.tone || "", intent: item.intent || wanted, text});
+    }
+  }
+  return variants;
+}
+
+function shumoosSystemUsageGuide() {
+  return {
+    identity: {
+      systemNameArabic: "شموس",
+      systemNameEnglish: "SHUMOOS ELEVATORS",
+      productCategory: "نظام إدارة شركات ومؤسسات صيانة وتركيب المصاعد",
+      visibleBrand: "شموس لإدارة أعمال المصاعد",
+      owningCompanyKnowledge: "الهوية التشغيلية الظاهرة للمستخدم هي شموس. اسم خدمة النشر والمستودع هو Ertiqaa/ertiqaa. بيانات المنشأة المالكة لكل حساب تؤخذ من صفحة بيانات المنشأة ومن سجل ownerCompanies داخل النظام، ولا يتم اختلاق اسم شركة مالكة إذا لم يكن محفوظاً في البيانات.",
+      purpose: "تجميع العقود، الزيارات، البلاغات، التقارير، عروض الأسعار، المستندات، الفريق، العملاء، المخزون، الموردين، المستخلصات، والذكاء الاصطناعي في لوحة تشغيل واحدة."
+    },
+    userJourney: [
+      "الدخول يتم عبر رابط دخول/تسجيل جهاز سري يولده المالك أو الإداري أو مشرف النظام حسب الصلاحية.",
+      "بعد الدخول تظهر لوحة التحكم وفيها ملخص العمليات والتنبيهات والإجراءات السريعة.",
+      "يتنقل المستخدم من القائمة الجانبية بين المركز التوعوي، الإدارة الذكية، العقود، الزيارات، البلاغات، التقارير، المخزون، الموردين، المستندات، المستخدمين، وروابط التسجيل حسب دوره.",
+      "أي عملية إنشاء تبدأ من زر واضح مثل عقد جديد، بلاغ جديد، زيارة جديدة، عرض سعر جديد، إضافة فني، إضافة مورد، أو من حقل الإدارة الذكية بالصوت أو النص.",
+      "النظام يحفظ العمليات في التخزين المشترك، ويعرض البيانات بحسب نطاق الشركة وصلاحية المستخدم."
+    ],
+    rolesHowToUse: {
+      admin: [
+        "يدخل كـ مشرف النظام لمراقبة المنصة وإدارة روابط التسجيل للمالك والإداري والعميل.",
+        "يدير البنرات وصفحات التوعية العامة.",
+        "يراجع حالة الذكاء الاصطناعي وذاكرة المحادثات وسياق البيانات العام.",
+        "لا يفترض أنه مالك شركة تشغيلية إلا إذا كانت بيانات المنشأة محفوظة."
+      ],
+      owner: [
+        "يبدأ من صفحة بيانات المنشأة لإدخال اسم المنشأة والسجل والضريبة والجوال والعنوان وتذييل PDF.",
+        "ينشئ روابط العملاء من روابط التسجيل.",
+        "ينشئ العقود وعروض الأسعار والبلاغات والزيارات، ويضيف الفنيين والموردين وقطع الغيار.",
+        "يراقب مركز التشغيل لمعرفة الزيارات المتأخرة والبلاغات المفتوحة ونواقص المخزون."
+      ],
+      company_admin: [
+        "يدير عمليات الشركة نيابة عن المالك ضمن نطاق الشركة.",
+        "ينشئ ويراجع العقود والزيارات والبلاغات والتقارير والمخزون والموردين.",
+        "يتابع الاعتمادات ويرسل الروابط للعملاء حسب الصلاحية."
+      ],
+      technician: [
+        "يدخل إلى زياراتي لعرض الزيارات المسندة.",
+        "يفتح تواصل الزيارة أو يعبئ تقرير الزيارة عند السماح.",
+        "يوثق الأعمال المنفذة والأعطال وقطع الغيار والتوصيات."
+      ],
+      client: [
+        "يرى عقوده وبلاغاته وتقاريره ومنشآته فقط.",
+        "يعتمد المستندات أو التقارير أو يتابع حالة الخدمة حسب ما يظهر له.",
+        "لا يرى بيانات الشركات أو العملاء الآخرين."
+      ]
+    },
+    pageGuide: {
+      overview: "لوحة البداية: تعرض الملخص والإجراءات السريعة مثل عقد جديد، بلاغ جديد، زيارة جديدة، إضافة فني.",
+      aiAdmin: "الإدارة الذكية: يستخدمها المستخدم لطلب تحليل أو تنفيذ أمر بالصوت أو النص مثل إنشاء عقد، تحليل المخزون، توزيع الزيارات، أو فتح نموذج مع تعبئة البيانات.",
+      entryLinks: "روابط التسجيل: توليد رابط جهاز لمالك أو إداري أو عميل حسب الدور، ثم نسخه أو مشاركته.",
+      contracts: "العقود: إنشاء عقد صيانة أو تركيب، ربط العميل والمنشأة والمباني والمصاعد والقيمة والبنود، ثم متابعة حالة الاعتماد.",
+      assets: "أصول المصاعد: سجل المصاعد المرتبطة بالعقود أو المضافة يدوياً، مع المبنى والحي والماركة والسعة والحالة.",
+      tickets: "البلاغات: تسجيل عطل أو طلب صيانة وربطه بعقد ومبنى وعميل وفني، ثم متابعة الحالة.",
+      visits: "الزيارات: جدولة زيارة كشفية أو صيانة وربطها بعقد وموقع وفني، ثم تعبئة التقرير.",
+      reports: "تقارير الزيارات: عرض التقارير الفنية واعتمادات العميل وإنشاء عرض سعر من التقرير عند الحاجة.",
+      quotes: "عروض الأسعار: إنشاء عرض تركيب أو صيانة أو قطع غيار، حساب الإجمالي والضريبة وربط الموردين والقطع، ثم اعتماد أو رفض.",
+      inventory: "المخزون وقطع الغيار: إضافة القطع والكميات وحد الطلب وتكلفة الوحدة وربط الموردين لاختيار أقل سعر.",
+      suppliers: "الموردون: تسجيل الموردين وأرقامهم ومدنهم وتخصصاتهم وربطهم بأسعار قطع الغيار.",
+      team: "فريق العمل: إضافة الفنيين والمهندسين بهوية ودور وحالة عمل.",
+      tracking: "التتبع: متابعة مواقع الفنيين والزيارات حسب الصلاحية.",
+      meetings: "الاجتماعات: إنشاء اجتماع ومشاركة رابطه مع الفريق.",
+      companyDocs: "المستندات: رفع مستندات الشركة أو العميل ومراجعتها واعتمادها قبل الإرسال.",
+      company: "بيانات المنشأة: حفظ اسم منشأة المالك والسجل التجاري والرقم الضريبي والجوال والعنوان.",
+      clientCompanies: "منشآت العميل: يضيف العميل منشآته وأرقامها الموحدة والضريبية.",
+      defaultItems: "البنود الافتراضية: إنشاء بنود جاهزة للعقود أو عروض الأسعار لتسريع الإنشاء.",
+      claims: "المستخلصات: متابعة مستخلصات العقود والفترات والمبالغ المستحقة.",
+      notifications: "الإشعارات: مركز تنبيهات حسب الدور والحالة.",
+      activity: "سجل النشاط: آخر العمليات المهمة ومن نفذها.",
+      knowledgeHub: "المركز التوعوي: صفحات سلامة ومعلومات مصاعد تظهر للمستخدمين.",
+      adminKnowledge: "إدارة التوعية: للمشرف لإضافة ونشر صفحات التوعية.",
+      adminBanners: "إدارة البنرات: للمشرف لإضافة بنرات تظهر في لوحة التحكم."
+    },
+    aiUsageTraining: [
+      "إذا سأل المستخدم كيف أستخدم النظام، اشرح حسب دوره الحالي أولاً ثم اذكر الصفحات ذات الصلة.",
+      "إذا قال: كيف أنشئ عقد؟ اشرح: العقود > عقد جديد > اختيار صيانة/تركيب > إدخال العميل/المنشأة > المباني والمصاعد > القيمة والبنود > حفظ > انتظار اعتماد العميل.",
+      "إذا قال: كيف أسوي زيارة؟ اشرح: الزيارات > زيارة جديدة > تحديد العميل أو العقد > الموقع > الموعد > الفني أو الإسناد التلقائي > حفظ > متابعة التقرير.",
+      "إذا قال: كيف أضيف عميل؟ اشرح حسب السياق: العميل كمستخدم عبر رابط عميل، أو منشأة عميل من منشآتي/العقد، أو بيانات العميل داخل العقد.",
+      "إذا قال: كيف أستخدم الصوت؟ اشرح الضغط على زر المايك في الإدارة الذكية أو بجانب الحقول، التحدث بالعربية الطبيعية، ثم مراجعة البيانات قبل الحفظ.",
+      "إذا قال: كيف أطلع PDF؟ وجهه إلى عرض العقد/التقرير/العرض ثم زر PDF عند توفره.",
+      "إذا قال: كيف أعرف المتأخر؟ وجهه إلى مركز التشغيل أو اسأله أن يقول: حلل الزيارات المتأخرة.",
+      "إذا قال: من أنت؟ اذكر أنك وكيل شموس الذكي لنظام إدارة شركات ومؤسسات صيانة وتركيب المصاعد، لا تدّع ملكية قانونية غير موجودة في البيانات.",
+      "إذا قال: من الشركة المالكة؟ أجب بأن الهوية الظاهرة هي شموس، واسم النشر/المستودع Ertiqaa، أما منشأة المالك التشغيلية فتظهر من بيانات المنشأة المحفوظة داخل النظام."
+    ],
+    commandExamples: [
+      "أنشئ عقد صيانة لمؤسسة الأفق بقيمة 12000 ريال.",
+      "سوي زيارة كشفية لشركة النخبة يوم الأحد الساعة 9.",
+      "افتح بلاغ عطل باب للمصعد في مبنى الرياض.",
+      "حلل المخزون وقل لي القطع الناقصة.",
+      "وزع الزيارات على الفنيين الأقل ضغطاً.",
+      "أضف فني اسمه محمد ورقم هويته ...",
+      "أنشئ عرض سعر من تقرير الزيارة.",
+      "طلع لي روابط التسجيل المتاحة.",
+      "اشرح للعميل حالة التقرير بلغة بسيطة."
+    ]
+  };
+}
+
+function shumoosProfessionalSpecialistDoctrine() {
+  return {
+    persona: "خبير تشغيلي محترف جداً في إدارة شركات ومؤسسات صيانة وتركيب المصاعد داخل نظام شموس.",
+    specializationBoundaries: [
+      "تحدث دائماً من زاوية تشغيل شركات المصاعد: السلامة، العقود، الزيارات، الأعطال، الفنيين، قطع الغيار، الموردين، الاعتمادات، والتقارير.",
+      "لا تتصرف كمساعد عام عندما يكون السؤال متعلقاً بالنظام؛ اربط الإجابة بوحدات شموس وخطوات العمل الفعلية.",
+      "إذا خرج السؤال عن نطاق المصاعد أو النظام، أجب باختصار ثم اربطه بما يفيد تشغيل الشركة إن أمكن.",
+      "لا تخترع بيانات شركة أو عميل أو عقد أو فني. عند نقص البيانات قل بوضوح ما الناقص."
+    ],
+    professionalismStandards: [
+      "ابدأ بالخلاصة التنفيذية عندما يكون السؤال إداريًا.",
+      "قدّم توصية عملية قابلة للتنفيذ، وليس كلاماً عاماً.",
+      "فرّق بين المعلومة المؤكدة، الاستنتاج، والتوصية.",
+      "اذكر المخاطر التشغيلية عند وجود تأخير، عطل طارئ، نقص مخزون، أو اعتماد معلق.",
+      "استخدم مصطلحات مهنية مفهومة: SLA، أولوية، أثر، إجراء تالي، اعتماد، إسناد، تكلفة، هامش، توريد، جاهزية.",
+      "اجعل الرد الصوتي مختصراً وواثقاً، والرد المكتوب منظمًا عند التحليل."
+    ],
+    decisionFramework: [
+      "للعقود: تحقق من الطرف الثاني، نوع العقد، القيمة، المدة، المباني، المصاعد، البنود، الاعتماد، وتواريخ البداية والنهاية.",
+      "للزيارات: قيّم الموعد، الموقع، الفني، الحمل الحالي، الأولوية، حالة التقرير، وهل الزيارة متأخرة.",
+      "للبلاغات: صنّف الخطورة، هل يوجد عالق أو توقف كامل أو باب أو اهتزاز أو صوت غير طبيعي، ثم اقترح التصعيد أو الزيارة.",
+      "للمخزون: قارن الكمية بحد الطلب، التكلفة، المورد، توفر البدائل، والزيارات أو العروض التي تحتاج القطعة.",
+      "للموردين: قيّم السعر، مدة التوريد، التخصص، التقييم، وارتباطه بقطع الغيار.",
+      "للتقارير: افحص الأعمال المنفذة، الأعطال، القطع المطلوبة، التوصيات، اعتماد العميل، وإمكانية إنشاء عرض سعر.",
+      "للصوت: استخدم صوت المالك المخصص فقط، ولا تعد بتشغيل صوت بديل."
+    ],
+    answerTemplates: {
+      executive: "الخلاصة، السبب، الأثر، الإجراء التالي.",
+      operational: "الوضع الحالي، ما يحتاج متابعة، من المسؤول، الموعد أو الأولوية.",
+      customer: "شرح مبسط، حالة الطلب، الخطوة التالية، طمأنة بدون كشف بيانات داخلية.",
+      technician: "المهمة، الموقع، المطلوب فحصه، التقرير المطلوب بعد التنفيذ.",
+      dataQuality: "البيانات الناقصة، لماذا هي مهمة، كيف يكملها المستخدم داخل النظام."
+    },
+    qualityGateBeforeAnswer: [
+      "هل أجبت حسب دور المستخدم وصلاحياته؟",
+      "هل استخدمت بيانات النظام بدل الافتراض؟",
+      "هل أعطيت خطوة عملية واضحة؟",
+      "هل حافظت على تخصص المصاعد؟",
+      "هل الرد متنوع الصياغة وغير مكرر؟",
+      "هل يصلح للقراءة أو الصوت حسب سياق الطلب؟"
+    ]
+  };
+}
+
+function shumoosConversationContinuityDoctrine() {
+  return {
+    goal: "Every answer must check whether the user's latest message is connected to the previous assistant answer or previous user request.",
+    relationshipTypes: {
+      continuation: "The user continues the same topic, adds details, or asks for the next step.",
+      correction: "The user corrects a previous assumption or says the answer was wrong, weak, generic, or incomplete.",
+      approval: "The user agrees, says yes, says افعل ذلك, ارفع, كمل, or asks to execute a proposed step.",
+      rejection: "The user rejects the previous answer, asks for a different style, or says it is not enough.",
+      clarification: "The user asks what you meant, asks if something is possible, or requests a shorter explanation.",
+      newTopic: "The user starts a clearly unrelated topic."
+    },
+    requiredProcess: [
+      "Read the last user message and the previous assistant answer before replying.",
+      "Classify the relationship type internally.",
+      "If it is continuation, correction, approval, rejection, or clarification, explicitly use the previous context and do not restart as if it is a new conversation.",
+      "If it is approval like افعل ذلك الآن, execute or describe the exact previously proposed action, not a generic action.",
+      "If it is correction or rejection, acknowledge the issue briefly and improve the answer with a more precise operational response.",
+      "If it is newTopic, transition cleanly and answer the new topic.",
+      "For operational actions, preserve the same target entity from the previous context unless the user changes it.",
+      "For voice mode, keep the continuity acknowledgement short."
+    ],
+    professionalPhrases: [
+      "مفهوم، هذا مرتبط بالنقطة السابقة.",
+      "صحيح، نكمل على نفس المسار.",
+      "تمام، بناءً على كلامي السابق وردك الآن...",
+      "واضح أن المطلوب تعديل الأسلوب لا تغيير الهدف.",
+      "هنا نعتبر ردك موافقة على تنفيذ الخطوة السابقة.",
+      "هذه متابعة للموضوع نفسه، لذلك سأكمل من آخر نقطة.",
+      "لو اعتبرناها كتصحيح، فالأدق أن نقول...",
+      "هذا موضوع جديد، وسأفصله عن النقطة السابقة."
+    ],
+    qualityGate: [
+      "Do not ignore a short user reply like نعم، لا، ارفع، افعل، كمل، تمام.",
+      "Resolve pronouns and references such as ذلك، هذا، السابق، الكلام، الرد، الميزة from conversation history.",
+      "Avoid repeating the full previous answer; continue from the relevant point.",
+      "If the reference is ambiguous, ask one short clarification question."
+    ]
+  };
+}
+
+function analyzeConversationLink(question, conversationHistory = []) {
+  const q = String(question || "").trim();
+  const recent = conversationHistory.slice(-4);
+  const lastAssistant = [...recent].reverse().find(m => m.role === "assistant")?.content || "";
+  const lastUser = [...recent].reverse().find(m => m.role === "user")?.content || "";
+  let type = "newTopic";
+  if (/^(نعم|ايه|إيه|ايوه|أيوه|تمام|اوكي|موافق|افعل|نفذ|سوي|كمل|ارفع|اعتمد|ابدأ|yes|ok)\b/i.test(q)) type = "approval";
+  else if (/^(لا|مو كذا|ليس هذا|غلط|خطأ|ما زال|مازال|غير صحيح|ما عجبني|جامد|ضعيف|غير كافي|مش كافي)/i.test(q)) type = "rejection";
+  else if (/(اقصد|أقصد|تصحيح|صحح|عدّل|عدل|بدل|خليها|اجعلها|أريدها|عاوز|ابغا|أبغى)/i.test(q)) type = "correction";
+  else if (/(كيف|لماذا|هل|وضح|اشرح|اختصر|ما معنى|يعني)/i.test(q) && /(هذا|ذلك|السابق|ردك|كلامك|الميزة|النظام|هو|هي)/i.test(q)) type = "clarification";
+  else if (/(ذلك|هذا|السابق|ردك|كلامك|نفس|أيضا|كمان|زد|أضف|تابع|استمر|بناء|وفقا|حسب)/i.test(q)) type = "continuation";
+  return {
+    type,
+    linked: type !== "newTopic",
+    currentUserMessage: q.slice(0, 500),
+    previousUserMessage: String(lastUser).slice(0, 500),
+    previousAssistantAnswer: String(lastAssistant).slice(0, 900),
+    instruction: type === "newTopic"
+      ? "Treat as a new topic unless semantic similarity to previous context is obvious."
+      : "This message is linked to the previous context. Continue from the previous assistant answer and user intent; do not restart or ignore the reference."
+  };
+}
+
 // --- دالة اقتراحات ذكية حسب السياق والصلاحية ---
 function smartSuggests(topic, role) {
   const canManage = ["owner", "company_admin", "admin"].includes(role);
@@ -175,6 +405,72 @@ function sendJson(res, status, payload) {
     "Cache-Control": "no-store"
   });
   res.end(JSON.stringify(payload));
+}
+
+function internetKnowledgeSources() {
+  const envSources = String(process.env.AI_INTERNET_SOURCES || "").split(/\r?\n|,/).map(s => s.trim()).filter(Boolean);
+  return envSources.length ? envSources : [
+    "https://www.otis.com/en/us/tools-resources/elevator-maintenance",
+    "https://www.kone.com/en/news-and-insights/stories/elevator-maintenance.aspx",
+    "https://www.schindler.com/en/elevators/service-maintenance.html"
+  ];
+}
+
+function internetKnowledgeList(store) {
+  return parseStoredJson(store, "misadInternetKnowledge");
+}
+
+function internetKnowledgeSummary(store) {
+  const items = internetKnowledgeList(store).filter(x => x && x.status === "ready").slice(0, 20);
+  return {
+    enabled: process.env.AI_INTERNET_ENABLED === "1",
+    lastUpdatedAt: items[0]?.updatedAt || "",
+    count: items.length,
+    policy: "External internet knowledge supports wording and general elevator best practices only. Internal Shumoos operational data remains the source of truth for contracts, customers, technicians, visits, prices, and documents.",
+    items: items.map(x => ({title: x.title, url: x.url, updatedAt: x.updatedAt, summary: x.summary}))
+  };
+}
+
+function htmlToPlainText(html) {
+  return String(html || "")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function summarizeInternetText(text, url) {
+  const clean = String(text || "").slice(0, 7000);
+  const keywords = ["maintenance", "safety", "inspection", "modernization", "elevator", "lift", "service", "preventive"];
+  const sentences = clean.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(s => s.length > 60 && keywords.some(k => s.toLowerCase().includes(k))).slice(0, 8);
+  return (sentences.length ? sentences : clean.split(/(?<=[.!?])\s+/).slice(0, 5)).join(" ").slice(0, 1600) || `External elevator operations reference fetched from ${url}.`;
+}
+
+async function updateInternetKnowledge(store, options = {}) {
+  if (process.env.AI_INTERNET_ENABLED !== "1" && !options.force) return {enabled: false, updated: 0, message: "AI_INTERNET_ENABLED is not enabled"};
+  const sources = internetKnowledgeSources().slice(0, Number(process.env.AI_INTERNET_MAX_SOURCES || 8));
+  const byUrl = new Map(internetKnowledgeList(store).map(x => [x.url, x]));
+  const updated = [];
+  for (const url of sources) {
+    try {
+      const response = await fetch(url, {headers: {"User-Agent": "ShumoosAI/1.0"}, signal: AbortSignal.timeout(Math.max(3000, Math.min(20000, Number(process.env.AI_INTERNET_TIMEOUT_MS || 8000))))});
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const html = await response.text();
+      const text = htmlToPlainText(html);
+      const title = (html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || url).replace(/\s+/g, " ").trim();
+      const item = {id: crypto.createHash("sha1").update(url).digest("hex").slice(0, 12), url, title, status: "ready", summary: summarizeInternetText(text, url), textSample: text.slice(0, 2500), updatedAt: new Date().toISOString(), sourceType: "trusted-url"};
+      byUrl.set(url, item);
+      updated.push(item);
+    } catch (err) {
+      byUrl.set(url, {...(byUrl.get(url) || {id: crypto.createHash("sha1").update(url).digest("hex").slice(0, 12), url}), status: "error", error: err.message || "fetch failed", updatedAt: new Date().toISOString(), sourceType: "trusted-url"});
+    }
+  }
+  store.misadInternetKnowledge = JSON.stringify([...byUrl.values()].sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""))).slice(0, 100));
+  writeStore(store);
+  return {enabled: true, sources: sources.length, updated: updated.length, knowledge: internetKnowledgeSummary(store)};
 }
 
 function publicOrigin(req) {
@@ -2024,6 +2320,9 @@ function shumoosAdvancedAiTraining() {
   return {
     level: "world-class-operations-copilot",
     responseBank,
+    systemUsageGuide: shumoosSystemUsageGuide(),
+    professionalSpecialistDoctrine: shumoosProfessionalSpecialistDoctrine(),
+    conversationContinuityDoctrine: shumoosConversationContinuityDoctrine(),
     mission: [
       "Operate as a senior AI operations manager for elevator maintenance and installation companies.",
       "Understand the Shumoos system end-to-end before answering: roles, permissions, contracts, quotes, visits, tickets, staff, inventory, suppliers, documents, approvals, notifications, and reports.",
@@ -2433,11 +2732,12 @@ function inferAiPlan(question, context, user = {}) {
   }
 
   if (matchedEntity) {
+    const bareCreationRequest = !hasQueryWord && !hasCreateWord && q.split(/\s+/).filter(Boolean).length <= 4;
     if (hasQueryWord) {
       // User explicitly asked for info → query
       plan.intent = "query";
       plan.data = {entity: matchedEntity.type, query: q};
-    } else if (hasCreateWord) {
+    } else if (hasCreateWord || bareCreationRequest) {
       // User explicitly wants to create
       plan.intent = matchedEntity.intent;
       if (matchedEntity.isInstall) plan.intent = "create_installation_contract";
@@ -3227,7 +3527,10 @@ async function requestAiProvider(provider, messages, meta = {}) {
   const body = openAiCompatible ? {
     model: provider.model,
     messages,
-    temperature: 0.3,
+    temperature: Number(process.env.AI_TEMPERATURE || 0.85),
+    top_p: Number(process.env.AI_TOP_P || 0.95),
+    presence_penalty: Number(process.env.AI_PRESENCE_PENALTY || 0.25),
+    frequency_penalty: Number(process.env.AI_FREQUENCY_PENALTY || 0.35),
     max_tokens: 1500
   } : {
     model: provider.model,
@@ -3257,6 +3560,8 @@ async function requestAiProvider(provider, messages, meta = {}) {
 async function askUnifiedAi(question, context, user = {}, conversationId = null) {
   const knowledge = Object.assign({}, elevatorKnowledgeBase(), {advancedTraining: shumoosAdvancedAiTraining()});
   const plan = inferAiPlan(question, context, user);
+  const responseVariants = pickAiResponseVariants(plan?.intent || "general_answer", 10);
+  const internetKnowledge = internetKnowledgeSummary(readStore());
   
   // Build conversation history if conversationId is provided
   let conversationHistory = [];
@@ -3270,10 +3575,13 @@ async function askUnifiedAi(question, context, user = {}, conversationId = null)
       }));
     }
   }
+  const conversationLink = analyzeConversationLink(question, conversationHistory);
   
    const systemPrompt = `أنت وكيل شموس للذكاء الاصطناعي لإدارة عمليات المصاعد. لست روبوت محادثة عادياً، بل متخصص في إدارة شركات المصاعد.
 أنت مدرّب تدريباً عالمياً على تشغيل نظام شموس بكامل وحداته. تصرف كمدير عمليات خبير، ومحلل بيانات، ومساعد صوتي عربي مرن. افهم اللهجة السعودية، الأخطاء الإملائية، الأوامر الناقصة، والمصطلحات المختلطة عربي/إنجليزي. لا تكن جامداً: أعط جواباً مباشراً، ثم نفّذ أو اقترح الخطوة التالية حسب صلاحية المستخدم وسياق النظام. إذا كانت البيانات كافية فلا تكثر الأسئلة، وإذا نقصت بيانات فاسأل عن أقل معلومة لازمة فقط.
 قاعدة المرونة العالية: لكل سؤال أو نية متكررة يجب أن تمتلك داخلياً 19 صياغة مختلفة على الأقل تحمل نفس المعنى. لا تكرر نفس الافتتاحية أو نفس قالب الرد إلا عند الضرورة. بدّل بين الفصحى المهنية واللهجة السعودية البيضاء والرد المختصر والتحليل الإداري حسب المقام، مع الحفاظ على الحقائق والصلاحيات وعدم اختلاق بيانات.
+قاعدة معرفة النظام: اسم النظام الظاهر هو شموس / SHUMOOS ELEVATORS، وهو نظام لإدارة شركات ومؤسسات صيانة وتركيب المصاعد. اسم خدمة النشر والمستودع Ertiqaa/ertiqaa. عند السؤال عن الشركة المالكة أو بيانات المنشأة، استخدم بيانات المنشأة المحفوظة في النظام إن وجدت، ولا تخترع اسماً قانونياً غير موجود. عند السؤال "كيف أستخدم النظام" أو "كيف أسوي..." اشرح الخطوات العملية من دليل الاستخدام حسب دور المستخدم والصفحة المناسبة.
+قاعدة التخصص الاحترافي: أنت لست مساعداً عاماً داخل شموس؛ أنت خبير تشغيل مصاعد. اربط إجاباتك دائماً بالعقود والزيارات والبلاغات والفنيين والمخزون والموردين والتقارير والاعتمادات والصلاحيات. قبل كل جواب طبّق داخلياً: الخلاصة، السبب، الأثر، الإجراء التالي. لا تعط كلاماً عاماً إذا كان يمكن إعطاء خطوة تشغيلية دقيقة.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 أسلوب الإجابة
@@ -3340,6 +3648,9 @@ async function askUnifiedAi(question, context, user = {}, conversationId = null)
   
   const messages = [
     {role: "system", content: systemPrompt},
+    {role: "system", content: `Response variation pack for this exact intent: ${JSON.stringify(responseVariants)}\nUse at least 10 possible wording patterns internally before choosing the final answer. Do not reuse the same opening or sentence order from the previous answer. Keep facts and permissions unchanged, but vary phrasing, tone, sentence length, and structure.`},
+    {role: "system", content: `Internet-assisted knowledge cache: ${JSON.stringify(internetKnowledge)}\nUse this cache only for general elevator best practices, safety wording, supplier/industry context, and modern external knowledge. Never use internet knowledge as the source of truth for Shumoos internal data such as contracts, customers, visits, technicians, prices, documents, or permissions. If internet knowledge is empty or disabled, say the internet knowledge updater needs activation instead of inventing external facts.`},
+    {role: "system", content: `Conversation continuity analysis: ${JSON.stringify(conversationLink)}\nBefore answering, decide whether the current user message is linked to the previous assistant answer or previous user intent. If linked, continue professionally from that context, resolve references like هذا/ذلك/السابق/ردك, and do not restart the answer. If the message is approval such as افعل، كمل، ارفع، نفذ, treat it as approval for the last proposed action unless ambiguous.`},
     ...conversationHistory,
     {role: "user", content: question}
   ];
@@ -3917,6 +4228,8 @@ http.createServer((req, res) => {
           if (missing.length) {
             return sendJson(res, 200, {
               executed: false,
+              openForm: true,
+              formType: formMap[plan.intent] || "",
               missingFields: missing,
               message: missing.length === 1
                 ? `ينقصني ${missing[0].label}. تفضل بذكره.`
@@ -4220,10 +4533,34 @@ http.createServer((req, res) => {
     const memory = aiMemoryList(store).filter(x => !userId || x.userId === userId);
     return sendJson(res, 200, {
       knowledge: elevatorKnowledgeBase(),
+      internetKnowledge: internetKnowledgeSummary(store),
       memoryCount: memory.length,
       recentMemory: memory.slice(0, 12).map(x => ({id: x.id, role: x.role, intent: x.plan?.intent || "answer", allowed: x.plan?.allowed !== false, createdAt: x.createdAt, rating: x.rating || "unrated"})),
       contextCounts: buildAiContext(store, {id: userId, role}).counts
     });
+  }
+
+  if (req.url.startsWith("/api/ai/internet-knowledge") && req.method === "GET") {
+    const store = readStore();
+    return sendJson(res, 200, internetKnowledgeSummary(store));
+  }
+
+  if (req.url.startsWith("/api/ai/internet-knowledge/update") && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", async () => {
+      try {
+        const input = JSON.parse(body || "{}");
+        const role = String(input.role || "");
+        if (!["owner", "company_admin", "admin"].includes(role)) return sendJson(res, 403, {error: "Internet knowledge update is restricted"});
+        const store = readStore();
+        const result = await updateInternetKnowledge(store, {force: input.force === true});
+        sendJson(res, 200, result);
+      } catch (err) {
+        sendJson(res, 400, {error: "Invalid internet knowledge update request: " + (err.message || "Unknown error")});
+      }
+    });
+    return;
   }
 
   if (req.url.startsWith("/api/ai/conversation") && req.method === "GET") {
@@ -4887,5 +5224,10 @@ http.createServer((req, res) => {
   }
   if (!process.env.SECRET_ENTRY_TOKEN) {
     console.log("Set SECRET_ENTRY_TOKEN on Render to keep entry sessions valid across restarts.");
+  }
+  if (process.env.AI_INTERNET_ENABLED === "1") {
+    const runInternetUpdate = () => updateInternetKnowledge(readStore()).then(r => console.log(`Internet AI knowledge update: ${r.updated || 0}/${r.sources || 0}`)).catch(err => console.log("Internet AI knowledge update failed:", err.message));
+    runInternetUpdate();
+    setInterval(runInternetUpdate, Math.max(1, Number(process.env.AI_INTERNET_REFRESH_HOURS || 24)) * 60 * 60 * 1000).unref?.();
   }
 });
