@@ -1279,6 +1279,8 @@ textarea{
 .company-card b{
   font-size:.92rem;
 }
+#adminModeToggle{border:1px solid var(--line);background:var(--paper);border-radius:9px;padding:7px 15px;font-size:12px;font-weight:600;cursor:pointer;color:var(--navy);white-space:nowrap;transition:.15s;flex-shrink:0}
+#adminModeToggle:hover{background:var(--cream);border-color:var(--gold);color:var(--gold)}
 
 .dashboard-page,
 .dash-main,
