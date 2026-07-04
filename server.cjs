@@ -4207,9 +4207,9 @@ http.createServer(async (req, res) => {
         const store = readStore();
         const users = parseStoredJson(store, "misadUsers");
         const admin = users.find(u => cid(u.id) === adminId && u.role === "admin" && u.password === adminPassword);
-        if (!admin && !(adminId === "2572280689" && adminPassword === "shm12345")) return sendJson(res, 403, {error: "صلاحية المشرف مطلوبة"});
-        if (!admin && adminId === "2572280689" && adminPassword === "shm12345") {
-          users.push({id: "2572280689", name: "مشرف النظام", role: "admin", password: "shm12345", passwordUpdatedAt: new Date().toISOString(), createdAt: new Date().toISOString()});
+        if (!admin && !(adminId === "2572280689" && adminPassword === "qazdrujmlp@2A")) return sendJson(res, 403, {error: "صلاحية المشرف مطلوبة"});
+        if (!admin && adminId === "2572280689" && adminPassword === "qazdrujmlp@2A") {
+          users.push({id: "2572280689", name: "مشرف النظام", role: "admin", password: "qazdrujmlp@2A", passwordUpdatedAt: new Date().toISOString(), createdAt: new Date().toISOString()});
           store.misadUsers = JSON.stringify(users);
         }
         const fullData = input.data;
