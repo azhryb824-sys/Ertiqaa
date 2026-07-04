@@ -460,6 +460,7 @@ function listBackups() {
   } catch { return [] }
 }
 
+function escHtml(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
 function sendJson(res, status, payload) {
   res.writeHead(status, {
     "Content-Type": "application/json; charset=utf-8",
@@ -5956,11 +5957,34 @@ ${JSON.stringify(rows, null, 2)}
     return res.end(data);
   }
 
+  if (pathname === "/api/auth/storage-token" && req.method === "GET") {
+    const role = new URL(req.url, "http://localhost").searchParams.get("role");
+    const userId = new URL(req.url, "http://localhost").searchParams.get("userId");
+    if (role !== "admin" || !userId) return sendJson(res, 403, {error: "Admin access required"});
+    const payload = `admin:full-storage:${Math.floor(Date.now() / 60000)}`;
+    const token = crypto.createHmac("sha256", entrySecret).update(payload).digest("hex");
+    return sendJson(res, 200, {token});
+  }
+
   if (req.url.startsWith("/api/storage")) {
     if (req.method === "GET") {
       const key = new URL(req.url, "http://localhost").searchParams.get("key");
       const store = readStore();
       if (key) return sendJson(res, 200, Object.prototype.hasOwnProperty.call(store, key) ? {key, value: store[key]} : {});
+      const adminToken = new URL(req.url, "http://localhost").searchParams.get("admin");
+      const nowMin = Math.floor(Date.now() / 60000);
+      const valid = [0, -1].some(off => {
+        const expected = crypto.createHmac("sha256", entrySecret).update(`admin:full-storage:${nowMin + off}`).digest("hex");
+        return adminToken === expected;
+      });
+      if (!valid) return sendJson(res, 403, {error: "Unauthorized. Admin access required."});
+      const accept = req.headers.accept || "";
+      const json = JSON.stringify(store, null, 2);
+      if (accept.includes("text/html")) {
+        const safe = escHtml(json);
+        res.writeHead(200, {"Content-Type": "text/html; charset=utf-8"});
+        return res.end(`<!DOCTYPE html><html dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>بيانات التخزين — شموس</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:system-ui,'Segoe UI',sans-serif;background:#f0f4f8;padding:16px;color:#1a2a3a}.wrap{max-width:1200px;margin:0 auto}.head{background:linear-gradient(135deg,#1a3a3a,#2d5a5a);color:#fff;padding:20px 24px;border-radius:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px}.head h1{font-size:18px;font-weight:600}.head small{font-size:13px;opacity:.8;display:block;margin-top:2px}.btn-copy{background:#c9964b;border:0;color:#fff;padding:10px 24px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;transition:.2s;display:inline-flex;align-items:center;gap:6px}.btn-copy:hover{background:#b8843a}.btn-copy.copied{background:#2e7d32}.pre-wrap{background:#1e2a3a;color:#e8e8e8;padding:20px 24px;border-radius:12px;overflow:auto;max-height:80vh;font-family:'Cascadia Code','Fira Code','Consolas',monospace;font-size:13px;line-height:1.6;white-space:pre;direction:ltr;text-align:left;box-shadow:0 2px 12px #0001}.pre-wrap .key{color:#7ec8e3}.pre-wrap .str{color:#a5d6a7}.pre-wrap .num{color:#ffab91}.pre-wrap .bool{color:#ce93d8}.pre-wrap .null{color:#90a4ae}.footer{text-align:center;margin-top:16px;color:#6b7b8b;font-size:12px}.status{display:inline-flex;align-items:center;gap:6px;background:#1b5e2030;color:#1b5e20;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:500}</style></head><body><div class="wrap"><div class="head"><div><h1>📦 بيانات التخزين</h1><small>شمس — منصة إدارة المصاعد</small></div><div style="display:flex;align-items:center;gap:12px"><span class="status">● متصل</span><button class="btn-copy" id="copyBtn" onclick="copyContent()">📋 نسخ المحتوى</button></div></div><div class="pre-wrap" id="jsonContent">${safe}</div><div class="footer">تم التحميل في ${new Date().toLocaleString("ar-SA")}</div></div><script>function copyContent(){const t=document.getElementById("jsonContent");const ta=document.createElement("textarea");ta.value=t.textContent;document.body.appendChild(ta);ta.select();document.execCommand("copy");document.body.removeChild(ta);const b=document.getElementById("copyBtn");b.textContent="✅ تم النسخ";b.classList.add("copied");setTimeout(()=>{b.textContent="📋 نسخ المحتوى";b.classList.remove("copied")},2000)}</script></body></html>`);
+      }
       return sendJson(res, 200, store);
     }
     if (req.method === "POST") {
