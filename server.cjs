@@ -405,6 +405,19 @@ function readStore() {
 function writeStore(store) {
   const data = JSON.stringify(store, null, 2);
   try { if (!fs.existsSync(path.dirname(storagePath))) fs.mkdirSync(path.dirname(storagePath), {recursive: true}); } catch {}
+  const currentStat = fs.existsSync(storagePath) ? fs.statSync(storagePath) : null;
+  if (currentStat && storeMtime && currentStat.mtimeMs !== storeMtime && process.env.ALLOW_STALE_STORAGE_WRITE !== "1") {
+    storeCache = null;
+    storeMtime = 0;
+    throw new Error("Storage changed on disk before this write. Reload storage first to avoid overwriting newer data.");
+  }
+  try {
+    if (currentStat) {
+      if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, {recursive: true});
+      const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+      fs.copyFileSync(storagePath, path.join(backupDir, `prewrite-${ts}.json`));
+    }
+  } catch {}
   fs.writeFileSync(storagePath, data, "utf8");
   try { fs.writeFileSync(storageFailover, data, "utf8"); } catch {}
   storeCache = store;
@@ -422,7 +435,7 @@ function backupStorage(store) {
     const backupPath = path.join(backupDir, `storage-${ts}.json`);
     fs.writeFileSync(backupPath, JSON.stringify(store, null, 2), "utf8");
     // Cleanup old backups
-    const files = fs.readdirSync(backupDir).filter(f => f.startsWith("storage-") && f.endsWith(".json")).sort();
+    const files = fs.readdirSync(backupDir).filter(f => /^(storage|prewrite)-.+\.json$/.test(f)).sort();
     const cutoff = Date.now() - backupMaxAgeDays * 86400000;
     for (const f of files) {
       const fp = path.join(backupDir, f);
