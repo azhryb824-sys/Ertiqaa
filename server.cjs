@@ -4173,6 +4173,38 @@ http.createServer(async (req, res) => {
     return;
   }
 
+  if (pathname === "/api/auth/reset-password" && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => {
+      try {
+        const input = JSON.parse(body || "{}");
+        const cid = v => String(v || "").replace(/\D/g, "");
+        const userId = cid(input.userId);
+        const newPassword = String(input.newPassword || "");
+        if (!userId) return sendJson(res, 400, {error: "رقم الهوية مطلوب"});
+        if (!newPassword || newPassword.length < 6) return sendJson(res, 400, {error: "كلمة المرور يجب أن تكون 6 أحرف على الأقل"});
+        if (userId === "2572280689") return sendJson(res, 400, {error: "لا يمكن استعادة كلمة مرور مشرف النظام من هنا. استخدم حساب المشرف."});
+        const store = readStore();
+        const users = parseStoredJson(store, "misadUsers");
+        const idx = users.findIndex(u => cid(u.id) === userId);
+        if (idx === -1) return sendJson(res, 404, {error: "رقم الهوية غير مسجل في النظام"});
+        users[idx].password = newPassword;
+        users[idx].passwordUpdatedAt = new Date().toISOString();
+        store.misadUsers = JSON.stringify(users);
+        writeStore(store);
+        const log = parseStoredJson(store, "misadActivityLog");
+        log.unshift({id: `ACT-${Date.now()}`, companyOwnerId: "platform", type: "استعادة كلمة مرور", title: `تم استعادة كلمة مرور المستخدم ${users[idx].name} (${userId})`, ref: userId, user: userId, userId, createdAt: new Date().toLocaleString("ar-SA"), createdAtMs: Date.now()});
+        store.misadActivityLog = JSON.stringify(log.slice(0, 300));
+        writeStore(store);
+        sendJson(res, 200, {ok: true, name: users[idx].name});
+      } catch (e) {
+        sendJson(res, 400, {error: "Invalid request: " + e.message});
+      }
+    });
+    return;
+  }
+
   if (!hasEntryAccess(req) && !hasDeviceAccess(req)) return sendLocked(res);
 
   if (pathname === "/api/owner/register" && req.method === "POST") {
