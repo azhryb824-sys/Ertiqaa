@@ -3004,7 +3004,7 @@ function scopeAiData(store, user = {}) {
     claims: scoped(parseStoredJson(store, "misadClaims")),
     staff: parseStoredJson(store, "misadCompanyStaff").filter(sameCompany),
     locations: parseStoredJson(store, "misadStaffLocations").filter(l => parseStoredJson(store, "misadCompanyStaff").filter(sameCompany).some(s => clean(s.identity) === clean(l.identity))),
-    ownerCompanies: parseStoredJson(store, "misadOwnerCompanies").filter(c => c.ownerId === owner || c.id === owner),
+    ownerCompanies: parseStoredJson(store, "misadOwnerCompanies").filter(c => c.ownerId === owner || c.id === owner || c.ownerIds?.includes(owner)),
     clientCompanies: role === "client" ? clientCompanies.filter(c => clientNums.includes(clean(c.unifiedNumber))) : clientCompanies.filter(c => c.companyOwnerId === owner || c.linkedBy === owner || c.createdBy === owner || c.ownerId === owner),
     docs: parseStoredJson(store, "misadCompanyDocs").filter(sameCompany)
   };
@@ -3448,7 +3448,7 @@ function executeAiAction(actionData, store) {
   const result = {executed: false, action: actionData.action, message: ""};
   const ownerCompanies = parseStoredJson(store, "misadOwnerCompanies");
   const actionOwnerId = aiOwnerId(actionData);
-  const owner = ownerCompanies.find(c => c.ownerId === actionOwnerId || c.id === actionOwnerId) || {id: "", name: "شركة غير محددة"};
+  const owner = ownerCompanies.find(c => c.ownerId === actionOwnerId || c.id === actionOwnerId || c.ownerIds?.includes(actionOwnerId)) || {id: "", name: "شركة غير محددة"};
   const canAccessRecord = record => aiRecOwner(record) === actionOwnerId;
   try {
     switch (actionData.action) {
@@ -4172,6 +4172,50 @@ http.createServer(async (req, res) => {
 
   if (!hasEntryAccess(req) && !hasDeviceAccess(req)) return sendLocked(res);
 
+  if (pathname === "/api/owner/register" && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => {
+      try {
+        const cid = v => String(v || "").replace(/\D/g, "");
+        const input = JSON.parse(body || "{}");
+        const id = cid(input.id);
+        const role = String(input.role || "");
+        if (role !== "owner") return sendJson(res, 400, {error: "هذا المسار فقط لتسجيل المالك"});
+        if (!id) return sendJson(res, 400, {error: "رقم الهوية مطلوب"});
+        const store = readStore();
+        const ownerCompanies = parseStoredJson(store, "misadOwnerCompanies");
+        const unifiedNumber = cid(input.unifiedNumber);
+        const autoLink = ownerCompanies.find(c => (c.pendingOwnerIds || []).includes(id));
+        if (!autoLink && !unifiedNumber) return sendJson(res, 400, {error: "الرقم الموحد مطلوب لإنشاء شركة جديدة"});
+        if (unifiedNumber && ownerCompanies.some(c => cid(c.unifiedNumber) === unifiedNumber && (!autoLink || c.id !== autoLink.id))) {
+          return sendJson(res, 409, {error: "الرقم الموحد موجود مسبقًا. كل شركة تملك رقمًا موحدًا واحدًا فقط."});
+        }
+        let companyOwnerId = "";
+        if (autoLink) {
+          autoLink.pendingOwnerIds = (autoLink.pendingOwnerIds || []).filter(x => x !== id);
+          if (!autoLink.ownerIds) autoLink.ownerIds = [autoLink.ownerId || autoLink.ownerIds?.[0] || id];
+          if (!autoLink.ownerIds.includes(id)) autoLink.ownerIds.push(id);
+          companyOwnerId = autoLink.ownerIds[0];
+          writeStore(store);
+        }
+        sendJson(res, 200, {ok: true, autoLinked: !!autoLink, companyOwnerId});
+      } catch (e) {
+        sendJson(res, 400, {error: "Invalid request: " + e.message});
+      }
+    });
+    return;
+  }
+
+  if (pathname === "/api/owner/check-unified" && req.method === "GET") {
+    const cid = v => String(v || "").replace(/\D/g, "");
+    const num = cid(String(url.searchParams.get("num") || ""));
+    const store = readStore();
+    const ownerCompanies = parseStoredJson(store, "misadOwnerCompanies");
+    const exists = ownerCompanies.some(c => cid(c.unifiedNumber) === num);
+    return sendJson(res, 200, {exists});
+  }
+
   if (pathname === "/api/contracts/ai-import-excel" && req.method === "POST") {
     try {
       const role = String(url.searchParams.get("role") || "");
@@ -4296,7 +4340,7 @@ ${JSON.stringify(rows, null, 2)}
       const contracts = parseStoredJson(store, "misadContracts");
       const ownerCompanies = parseStoredJson(store, "misadOwnerCompanies");
       const actionOwnerId = role === "company_admin" ? (companyOwnerId || userId) : role === "admin" ? "platform" : userId;
-      const owner = ownerCompanies.find(c => c.ownerId === actionOwnerId || c.id === actionOwnerId) || {id: "", name: "شركة غير محددة"};
+      const owner = ownerCompanies.find(c => c.ownerId === actionOwnerId || c.id === actionOwnerId || c.ownerIds?.includes(actionOwnerId)) || {id: "", name: "شركة غير محددة"};
       const rows = parseExcelContracts(upload.data);
       const existingKeys = new Set(contracts.map(c => [
         cleanNationalId(c.clientId || c.clientCompanyUnifiedNumber),

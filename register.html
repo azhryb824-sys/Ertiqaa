@@ -11,6 +11,16 @@
           <label>الاسم الكامل<input name="name" placeholder="الاسم كما يظهر في الهوية" required></label>
           <label>رقم الهوية / الإقامة<input name="id" inputmode="numeric" pattern="[0-9]{10}" maxlength="10" placeholder="10 أرقام" required></label>
           <label>الدور<select name="role" required><option value="">اختر دور المستخدم</option><option value="owner">مالك شركة / مؤسسة</option><option value="company_admin">إداري الشركة</option><option value="technician">فني / مهندس</option><option value="client">عميل</option></select></label>
+          <div id="ownerFields" style="display:none">
+            <label>رقم الجوال<input name="mobile" inputmode="tel" placeholder="05xxxxxxxx"></label>
+            <label>البريد الإلكتروني<input name="email" type="email" placeholder="example@domain.com"></label>
+            <label>اسم الشركة / المؤسسة<input name="companyName" placeholder="الاسم كما في السجل التجاري"></label>
+            <label>الرقم الموحد للشركة<input name="unifiedNumber" inputmode="numeric" placeholder="الرقم الصادر من وزارة التجارة"></label>
+            <label>الملاك الآخرون (اختياري)
+              <div id="otherOwners"><div class="owner-row"><input name="otherOwnerId" inputmode="numeric" placeholder="رقم الهوية"><button type="button" class="btn-remove-owner" onclick="this.parentElement.remove()">×</button></div></div>
+              <button type="button" id="addOwnerBtn" class="btn-ghost" style="margin-top:4px;font-size:13px">+ إضافة مالك آخر</button>
+            </label>
+          </div>
           <div class="two-fields"><label>كلمة المرور<input name="password" type="password" minlength="8" placeholder="8 أحرف على الأقل" required></label><label>تأكيد كلمة المرور<input name="confirm" type="password" placeholder="أعد كتابة كلمة المرور" required></label></div>
           <label class="check"><input name="terms" type="checkbox" required> أوافق على <a href="#">الشروط والأحكام</a> و<a href="#">سياسة الخصوصية</a></label>
           <button class="btn primary full" type="submit">إنشاء الحساب ←</button>
@@ -19,6 +29,8 @@
       </div>
     </section>
   </main>
+  <style>#ownerFields{border:1px solid #ddd;border-radius:8px;padding:12px;margin:10px 0;background:#fafafa}#ownerFields label{font-size:13px}#ownerFields .owner-row{display:flex;gap:4px;margin:4px 0}.btn-remove-owner{background:none;border:1px solid #ddd;border-radius:4px;cursor:pointer;padding:2px 8px;font-size:15px;color:#c00}.btn-ghost{background:none;border:1px solid #2a7f6e;border-radius:4px;cursor:pointer;color:#2a7f6e;padding:4px 12px}</style>
+  <script>document.querySelector("[name=role]")?.addEventListener("change",function(){document.getElementById("ownerFields").style.display=this.value==="owner"?"block":"none"});document.getElementById("addOwnerBtn")?.addEventListener("click",function(){var d=document.getElementById("otherOwners"),r=document.createElement("div");r.className="owner-row";r.innerHTML='<input name="otherOwnerId" inputmode="numeric" placeholder="رقم الهوية"><button type="button" class="btn-remove-owner" onclick="this.parentElement.remove()">×</button>';d.appendChild(r)});</script>
   <script src="app.js"></script>
 </body>
 </html>
