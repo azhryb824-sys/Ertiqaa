@@ -9,7 +9,8 @@ require("dotenv").config();
 const root = __dirname;
 const port = Number(process.env.PORT || 4173);
 const host = process.env.HOST || "0.0.0.0";
-const storagePath = path.join(root, "storage.json");
+const storagePath = process.env.STORAGE_PATH || path.join(root, "storage.json");
+const storageFailover = path.join(require("os").homedir(), ".elevator-storage.json");
 const aiResponseBankPath = path.join(root, "ai-response-bank.json");
 const voiceCacheDir = path.join(root, ".voice-cache");
 const entrySecret = process.env.SECRET_ENTRY_TOKEN || crypto.randomBytes(32).toString("hex");
@@ -396,7 +397,9 @@ function readStore() {
 }
 
 function writeStore(store) {
-  fs.writeFileSync(storagePath, JSON.stringify(store, null, 2), "utf8");
+  const data = JSON.stringify(store, null, 2);
+  fs.writeFileSync(storagePath, data, "utf8");
+  try { fs.writeFileSync(storageFailover, data, "utf8"); } catch {}
   storeCache = store;
   storeMtime = fs.statSync(storagePath).mtimeMs;
 }
@@ -5957,20 +5960,31 @@ ${JSON.stringify(rows, null, 2)}
 }).listen(port, host, () => {
   console.log(`Server running at http://${host}:${port}/`);
   if (!fs.existsSync(storagePath)) {
-    // محاولة استعادة من آخر نسخة احتياطية
+    // محاولة استعادة من نسخة احتياطية خارج المشروع أولاً
     let restored = false;
-    try {
-      if (fs.existsSync(backupDir)) {
-        const backups = fs.readdirSync(backupDir).filter(f => f.startsWith("storage-") && f.endsWith(".json")).sort().reverse();
-        if (backups.length) {
-          const latest = path.join(backupDir, backups[0]);
-          fs.copyFileSync(latest, storagePath);
-          console.log(`Restored storage.json from backup: ${backups[0]}`);
-          restored = true;
-        }
+    if (fs.existsSync(storageFailover)) {
+      try {
+        fs.copyFileSync(storageFailover, storagePath);
+        console.log("Restored storage.json from external failover: " + storageFailover);
+        restored = true;
+      } catch (e) {
+        console.log("Failover restore failed:", e.message);
       }
-    } catch (e) {
-      console.log("Backup restore failed:", e.message);
+    }
+    if (!restored) {
+      try {
+        if (fs.existsSync(backupDir)) {
+          const backups = fs.readdirSync(backupDir).filter(f => f.startsWith("storage-") && f.endsWith(".json")).sort().reverse();
+          if (backups.length) {
+            const latest = path.join(backupDir, backups[0]);
+            fs.copyFileSync(latest, storagePath);
+            console.log(`Restored storage.json from backup: ${backups[0]}`);
+            restored = true;
+          }
+        }
+      } catch (e) {
+        console.log("Backup restore failed:", e.message);
+      }
     }
     if (!restored) {
       const templatePath = path.join(root, "storage.template.json");
@@ -5985,6 +5999,11 @@ ${JSON.stringify(rows, null, 2)}
         console.log("Created initial storage.json (no template found)");
       }
     }
+  } else {
+    // storage.json موجود — تأكد من وجود نسخة خارجية احتياطية
+    try {
+      if (!fs.existsSync(storageFailover)) fs.copyFileSync(storagePath, storageFailover);
+    } catch {}
   }
   const store = readStore();
   const invites = inviteList(store);
