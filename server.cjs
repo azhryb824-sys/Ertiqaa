@@ -693,7 +693,8 @@ function createInvite(input = {}) {
     maxUses,
     used: 0,
     kind: String(input.kind || "device"),
-    revoked: false
+    revoked: false,
+    companyOwnerId: String(input.companyOwnerId || "")
   };
 }
 
@@ -5556,7 +5557,7 @@ ${JSON.stringify(rows, null, 2)}
           const now = Date.now();
           const creatorRole = String(input.createdByRole || "");
           const targetRole = String(input.targetRole || "client");
-          const allowed = creatorRole === "admin" ? ["owner", "company_admin", "client"] : ["owner", "company_admin"].includes(creatorRole) ? ["client"] : [];
+          const allowed = creatorRole === "admin" ? ["owner", "company_admin", "client"] : creatorRole === "owner" ? ["company_admin", "client"] : creatorRole === "company_admin" ? ["client"] : [];
           if (!allowed.includes(targetRole)) return sendJson(res, 403, {error: "Role is not allowed to create this invite"});
           const invite = createInvite(input);
           const store = readStore();
