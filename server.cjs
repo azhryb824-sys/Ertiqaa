@@ -9,11 +9,12 @@ require("dotenv").config();
 const root = __dirname;
 const port = Number(process.env.PORT || 4173);
 const host = process.env.HOST || "0.0.0.0";
-const storagePath = process.env.STORAGE_PATH || path.join(root, "storage.json");
+const dataDir = process.env.DATA_DIR || path.join(require("os").homedir(), ".elevator-data");
+const storagePath = process.env.STORAGE_PATH || path.join(dataDir, "storage.json");
 const storageFailover = path.join(require("os").homedir(), ".elevator-storage.json");
 const storageGitPath = path.join(root, ".storage.git.json");
 const aiResponseBankPath = path.join(root, "ai-response-bank.json");
-const voiceCacheDir = path.join(root, ".voice-cache");
+const voiceCacheDir = path.join(dataDir, ".voice-cache");
 const entrySecret = process.env.SECRET_ENTRY_TOKEN || crypto.randomBytes(32).toString("hex");
 const entryCookie = "misad_entry";
 const inviteCookie = "misad_invite";
@@ -406,7 +407,7 @@ function writeStore(store) {
   storeMtime = fs.statSync(storagePath).mtimeMs;
 }
 
-const backupDir = path.join(root, "backups");
+const backupDir = path.join(dataDir, "backups");
 const backupMaxAgeDays = Math.max(1, Number(process.env.AI_BACKUP_RETENTION_DAYS || 30));
 const backupIntervalMs = Math.max(60000, Number(process.env.AI_BACKUP_INTERVAL_MINUTES || 360) * 60000);
 
@@ -5993,6 +5994,7 @@ ${JSON.stringify(rows, null, 2)}
   });
 }).listen(port, host, () => {
   console.log(`Server running at http://${host}:${port}/`);
+  try { if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, {recursive: true}); } catch {}
   if (!fs.existsSync(storagePath)) {
     // محاولة استعادة من نسخة احتياطية خارج المشروع أولاً
     let restored = false;
