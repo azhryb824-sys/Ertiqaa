@@ -29,5 +29,6 @@
   "misadMeetings": "[]",
   "misadVisitMessages": "[]",
   "misadElevatorAssets": "[]",
-  "misadPartsInventory": "[]"
+  "misadPartsInventory": "[]",
+  "misadAdminInvites": "[]"
 }
