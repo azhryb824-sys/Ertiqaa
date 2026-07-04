@@ -6118,13 +6118,20 @@ ${JSON.stringify(rows, null, 2)}
       }
     }
   } else {
-    // storage.json موجود — تأكد من وجود نسخ احتياطية وملء المفاتيح المفقودة من القالب
+    // storage.json موجود
     try {
       if (!fs.existsSync(storageFailover)) fs.copyFileSync(storagePath, storageFailover);
     } catch {}
-    try {
-      const templatePath = path.join(root, "storage.template.json");
-      if (fs.existsSync(templatePath)) {
+    const templatePath = path.join(root, "storage.template.json");
+    if (process.env.FORCE_SEED_STORAGE === "1" && fs.existsSync(templatePath)) {
+      // فرض استعادة البيانات من القالب (مع أخذ نسخة احتياطية أولاً)
+      try {
+        fs.copyFileSync(storagePath, storagePath + ".pre-seed." + Date.now() + ".bak");
+      } catch {}
+      fs.copyFileSync(templatePath, storagePath);
+      console.log("FORCE_SEED_STORAGE=1: تم استبدال storage.json بالكامل من القالب");
+    } else if (fs.existsSync(templatePath)) {
+      try {
         const template = JSON.parse(fs.readFileSync(templatePath, "utf8"));
         const current = JSON.parse(fs.readFileSync(storagePath, "utf8"));
         let changed = false;
@@ -6138,9 +6145,9 @@ ${JSON.stringify(rows, null, 2)}
           fs.writeFileSync(storagePath, JSON.stringify(current, null, 2), "utf8");
           console.log("Merged missing keys from storage.template.json into existing storage.json");
         }
+      } catch (e) {
+        console.log("Template merge skipped:", e.message);
       }
-    } catch (e) {
-      console.log("Template merge skipped:", e.message);
     }
   }
   const store = readStore();
