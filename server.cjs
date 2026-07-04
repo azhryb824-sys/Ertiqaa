@@ -4216,6 +4216,96 @@ http.createServer(async (req, res) => {
     return sendJson(res, 200, {exists});
   }
 
+  if (pathname === "/api/users/lookup" && req.method === "GET") {
+    const cid = v => String(v || "").replace(/\D/g, "");
+    const id = cid(String(url.searchParams.get("id") || ""));
+    if (!id) return sendJson(res, 400, {error: "رقم الهوية مطلوب"});
+    const store = readStore();
+    const users = parseStoredJson(store, "misadUsers");
+    const user = users.find(u => cid(u.id) === id);
+    if (!user) return sendJson(res, 200, {found: false});
+    const ownerCompanies = parseStoredJson(store, "misadOwnerCompanies");
+    const linkedCo = user.companyOwnerId ? ownerCompanies.find(c => c.id === user.companyOwnerId || c.ownerId === user.companyOwnerId || (c.ownerIds || []).includes(user.companyOwnerId)) : null;
+    return sendJson(res, 200, {
+      found: true,
+      user: {
+        id: user.id,
+        name: user.name,
+        role: user.role,
+        companyOwnerId: user.companyOwnerId || "",
+        linkedCompanyName: linkedCo ? linkedCo.name : ""
+      }
+    });
+  }
+
+  if (pathname === "/api/users/link" && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => {
+      try {
+        const input = JSON.parse(body || "{}");
+        const cid = v => String(v || "").replace(/\D/g, "");
+        const userId = cid(input.userId);
+        const companyOwnerId = cid(input.companyOwnerId);
+        if (!userId) return sendJson(res, 400, {error: "رقم المستخدم مطلوب"});
+        if (!companyOwnerId) return sendJson(res, 400, {error: "معرف المنشأة مطلوب"});
+        const store = readStore();
+        const users = parseStoredJson(store, "misadUsers");
+        const idx = users.findIndex(u => cid(u.id) === userId);
+        if (idx === -1) return sendJson(res, 404, {error: "المستخدم غير موجود"});
+        if (users[idx].companyOwnerId && cid(users[idx].companyOwnerId) !== companyOwnerId) {
+          const ownerCompanies = parseStoredJson(store, "misadOwnerCompanies");
+          const linked = ownerCompanies.find(c => c.id === users[idx].companyOwnerId || c.ownerId === users[idx].companyOwnerId || (c.ownerIds || []).includes(users[idx].companyOwnerId));
+          return sendJson(res, 409, {error: `هذا المستخدم مرتبط مسبقًا بـ "${linked?.name || "شركة أخرى"}". لا يمكن ربطه بمنشأتين.`});
+        }
+        users[idx].companyOwnerId = companyOwnerId;
+        users[idx].linkedBy = String(input.linkedBy || "");
+        users[idx].linkedAt = new Date().toISOString();
+        store.misadUsers = JSON.stringify(users);
+        writeStore(store);
+        const log = parseStoredJson(store, "misadActivityLog");
+        log.unshift({id: `ACT-${Date.now()}`, companyOwnerId, type: "ربط", title: `تم ربط المستخدم ${users[idx].name} (${userId}) بالمنشأة`, ref: userId, user: input.linkedBy || "النظام", userId: input.linkedBy || "", createdAt: new Date().toLocaleString("ar-SA"), createdAtMs: Date.now()});
+        store.misadActivityLog = JSON.stringify(log.slice(0, 300));
+        writeStore(store);
+        sendJson(res, 200, {ok: true, name: users[idx].name, role: users[idx].role});
+      } catch (e) {
+        sendJson(res, 400, {error: "Invalid request: " + e.message});
+      }
+    });
+    return;
+  }
+
+  if (pathname === "/api/users/unlink" && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => {
+      try {
+        const input = JSON.parse(body || "{}");
+        const cid = v => String(v || "").replace(/\D/g, "");
+        const userId = cid(input.userId);
+        if (!userId) return sendJson(res, 400, {error: "رقم المستخدم مطلوب"});
+        const store = readStore();
+        const users = parseStoredJson(store, "misadUsers");
+        const idx = users.findIndex(u => cid(u.id) === userId);
+        if (idx === -1) return sendJson(res, 404, {error: "المستخدم غير موجود"});
+        const oldOwnerId = users[idx].companyOwnerId || "";
+        users[idx].companyOwnerId = "";
+        users[idx].unlinkedBy = String(input.unlinkedBy || "");
+        users[idx].unlinkedAt = new Date().toISOString();
+        store.misadUsers = JSON.stringify(users);
+        writeStore(store);
+        const log = parseStoredJson(store, "misadActivityLog");
+        log.unshift({id: `ACT-${Date.now()}`, companyOwnerId: oldOwnerId, type: "فك ربط", title: `تم فك ربط المستخدم ${users[idx].name} (${userId}) عن المنشأة`, ref: userId, user: input.unlinkedBy || "النظام", userId: input.unlinkedBy || "", createdAt: new Date().toLocaleString("ar-SA"), createdAtMs: Date.now()});
+        store.misadActivityLog = JSON.stringify(log.slice(0, 300));
+        writeStore(store);
+        sendJson(res, 200, {ok: true});
+      } catch (e) {
+        sendJson(res, 400, {error: "Invalid request: " + e.message});
+      }
+    });
+    return;
+  }
+
   if (pathname === "/api/contracts/ai-import-excel" && req.method === "POST") {
     try {
       const role = String(url.searchParams.get("role") || "");
