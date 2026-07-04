@@ -8,7 +8,11 @@
     "cap:add:ios": "npx cap add ios",
     "cap:sync": "npx cap sync",
     "cap:open:android": "npx cap open android",
-    "cap:open:ios": "npx cap open ios"
+    "cap:open:ios": "npx cap open ios",
+    "cap:build:ios": "npx cap sync ios && npx cap open ios",
+    "cap:release:ios": "npx cap sync ios && cd ios && fastlane beta",
+    "cap:doctor:ios": "npx cap doctor ios",
+    "cap:copy:ios": "npx cap copy ios"
   },
   "dependencies": {
     "@capacitor/android": "^7.4.0",

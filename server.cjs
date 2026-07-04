@@ -2,6 +2,7 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const {spawn} = require("child_process");
 require("dotenv").config();
 
 const root = __dirname;
@@ -399,6 +400,42 @@ function writeStore(store) {
   storeMtime = fs.statSync(storagePath).mtimeMs;
 }
 
+const backupDir = path.join(root, "backups");
+const backupMaxAgeDays = Math.max(1, Number(process.env.AI_BACKUP_RETENTION_DAYS || 30));
+const backupIntervalMs = Math.max(60000, Number(process.env.AI_BACKUP_INTERVAL_MINUTES || 360)) * 60000;
+
+function backupStorage(store) {
+  try {
+    if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, {recursive: true});
+    const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    const backupPath = path.join(backupDir, `storage-${ts}.json`);
+    fs.writeFileSync(backupPath, JSON.stringify(store, null, 2), "utf8");
+    // Cleanup old backups
+    const files = fs.readdirSync(backupDir).filter(f => f.startsWith("storage-") && f.endsWith(".json")).sort();
+    const cutoff = Date.now() - backupMaxAgeDays * 86400000;
+    for (const f of files) {
+      const fp = path.join(backupDir, f);
+      if (fs.statSync(fp).mtimeMs < cutoff) {
+        try { fs.unlinkSync(fp) } catch {}
+      }
+    }
+    return {ok: true, path: backupPath, timestamp: ts, totalBackups: files.length};
+  } catch (err) {
+    return {ok: false, error: err.message};
+  }
+}
+
+function listBackups() {
+  try {
+    if (!fs.existsSync(backupDir)) return [];
+    return fs.readdirSync(backupDir).filter(f => f.startsWith("storage-") && f.endsWith(".json")).sort().reverse().map(f => {
+      const fp = path.join(backupDir, f);
+      const stat = fs.statSync(fp);
+      return {name: f, size: stat.size, mtime: stat.mtimeMs};
+    });
+  } catch { return [] }
+}
+
 function sendJson(res, status, payload) {
   res.writeHead(status, {
     "Content-Type": "application/json; charset=utf-8",
@@ -538,6 +575,10 @@ function elevenLabsApiKey() {
   return process.env.ELEVENLABS_API_KEY || "";
 }
 
+function elevenLabsConfiguredVoiceId(store = {}) {
+  return String(process.env.ELEVENLABS_VOICE_ID || store.elevenlabsVoiceId || "").trim();
+}
+
 function elevenLabsBaseUrl() {
   return (process.env.VOICE_CLONE_ENDPOINT || "https://api.elevenlabs.io/v1").replace(/\/+$/, "");
 }
@@ -546,26 +587,121 @@ function isElevenLabsMode() {
   return Boolean(elevenLabsApiKey() && elevenLabsBaseUrl().includes("elevenlabs"));
 }
 
+function paidVoiceEnabled() {
+  return process.env.ALLOW_PAID_VOICE === "1";
+}
+
+function jameelVoiceRoot() {
+  const configured = process.env.JAMEEL_VOICE_ROOT || "D:\\البرمجيات - نسخ احتياطية\\jameel-ai";
+  return fs.existsSync(path.join(configured, "inference", "voice.py")) ? configured : "";
+}
+
+function jameelVoicePython(rootPath) {
+  const localPython = path.join(rootPath, "venv", "Scripts", "python.exe");
+  return fs.existsSync(localPython) ? localPython : (process.env.PYTHON || "python");
+}
+
+function jameelVoiceReady() {
+  const rootPath = jameelVoiceRoot();
+  if (!rootPath) return {ready: false, root: "", references: 0};
+  const refs = path.join(rootPath, "voice_samples", "wav");
+  let references = 0;
+  try {
+    references = fs.readdirSync(refs).filter(name => name.toLowerCase().endsWith(".wav")).length;
+  } catch {}
+  return {ready: references > 0, root: rootPath, references};
+}
+
+function jameelVoiceEndpoint() {
+  return (process.env.JAMEEL_VOICE_ENDPOINT || "http://127.0.0.1:5050").replace(/\/+$/, "");
+}
+
+function jameelSynthesize(text) {
+  const status = jameelVoiceReady();
+  if (!status.ready) return Promise.reject(new Error("بصمة jameel-ai المحلية غير جاهزة."));
+  const endpoint = jameelVoiceEndpoint();
+  const timeoutMs = Math.max(10000, Math.min(120000, Number(process.env.JAMEEL_VOICE_TIMEOUT_MS || 90000)));
+  const endpointRequest = fetch(`${endpoint}/speech`, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    signal: AbortSignal.timeout(timeoutMs),
+    body: JSON.stringify({text, style: "sudanese"})
+  }).then(async response => {
+    if (!response.ok) {
+      const details = await response.text().catch(() => "");
+      throw new Error(`jameel-ai API failed (${response.status}): ${details.slice(0, 300)}`);
+    }
+    return {
+      audio: Buffer.from(await response.arrayBuffer()),
+      contentType: response.headers.get("content-type") || "audio/wav",
+      source: "jameel-ai-api"
+    };
+  });
+  if (process.env.JAMEEL_VOICE_ALLOW_DIRECT !== "1") return endpointRequest;
+  return endpointRequest.catch(() => jameelSynthesizeDirect(text, status, timeoutMs));
+}
+
+function jameelSynthesizeDirect(text, status, timeoutMs) {
+  const script = [
+    "import json, sys",
+    "from inference.voice import synthesize",
+    "text = json.loads(sys.argv[1])",
+    "path = synthesize(text, style='sudanese')",
+    "print(str(path), flush=True)"
+  ].join("; ");
+  return new Promise((resolve, reject) => {
+    const child = spawn(jameelVoicePython(status.root), ["-c", script, JSON.stringify(text)], {
+      cwd: status.root,
+      windowsHide: true,
+      env: {...process.env, PYTHONIOENCODING: "utf-8"}
+    });
+    let stdout = "";
+    let stderr = "";
+    const timer = setTimeout(() => {
+      try { child.kill(); } catch {}
+      reject(new Error("انتهت مهلة توليد الصوت المحلي."));
+    }, timeoutMs);
+    child.stdout.on("data", chunk => stdout += chunk.toString("utf8"));
+    child.stderr.on("data", chunk => stderr += chunk.toString("utf8"));
+    child.on("error", err => {
+      clearTimeout(timer);
+      reject(err);
+    });
+    child.on("close", code => {
+      clearTimeout(timer);
+      if (code !== 0) return reject(new Error((stderr || stdout || `jameel-ai exited with code ${code}`).slice(0, 500)));
+      const audioPath = stdout.trim().split(/\r?\n/).pop();
+      if (!audioPath || !fs.existsSync(audioPath)) return reject(new Error("لم يتم العثور على ملف الصوت الناتج من jameel-ai."));
+      resolve({audio: fs.readFileSync(audioPath), contentType: "audio/wav", source: "jameel-ai"});
+    });
+  });
+}
+
 async function elevenLabsCreateVoice(store, samples) {
   const apiKey = elevenLabsApiKey();
   const baseUrl = elevenLabsBaseUrl();
   const boundary = "----Voice" + crypto.randomBytes(8).toString("hex");
-  let body = "";
-  const enc = (s) => `\r\n--${boundary}\r\nContent-Disposition: form-data; name="${s}"\r\n\r\n`;
-  const filePart = (name, filePath) => {
+  const parts = [];
+  const addField = (name, value) => {
+    parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`, "utf8"));
+  };
+  const addFile = (name, filePath) => {
     const ext = path.extname(name).toLowerCase();
     const mime = {".aac":"audio/aac",".m4a":"audio/mp4",".mp3":"audio/mpeg",".wav":"audio/wav",".ogg":"audio/ogg",".flac":"audio/flac"}[ext] || "application/octet-stream";
     const data = fs.readFileSync(filePath);
-    return `\r\n--${boundary}\r\nContent-Disposition: form-data; name="files"; filename="${name}"\r\nContent-Type: ${mime}\r\n\r\n${data.toString("latin1")}`;
+    const safeName = encodeURIComponent(name);
+    parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="files"; filename="${safeName}"; filename*=UTF-8''${safeName}\r\nContent-Type: ${mime}\r\n\r\n`, "utf8"));
+    parts.push(data);
+    parts.push(Buffer.from("\r\n", "utf8"));
   };
-  body += enc("name") + "Owner Voice";
-  body += enc("description") + "Voice cloned from local AAC samples for the elevator management system";
-  body += enc("labels") + JSON.stringify({use: "local", source: "aac-samples"});
+  addField("name", "Owner Voice");
+  addField("description", "Voice cloned from local audio samples for the elevator management system");
+  addField("labels", JSON.stringify({use: "local", source: "owner-samples"}));
   for (const s of samples) {
-    body += filePart(s.name, path.join(root, s.name));
+    addFile(s.name, path.join(root, s.name));
   }
-  body += `\r\n--${boundary}--\r\n`;
-  const buf = Buffer.from(body, "latin1");
+  parts.push(Buffer.from(`--${boundary}--\r\n`, "utf8"));
+  const buf = Buffer.concat(parts);
   const response = await fetch(`${baseUrl}/voices/add`, {
     method: "POST",
     headers: {
@@ -578,7 +714,8 @@ async function elevenLabsCreateVoice(store, samples) {
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const errMsg = data.detail || data.message || data.error || `HTTP ${response.status}`;
+    const raw = data.detail || data.message || data.error || `HTTP ${response.status}`;
+    const errMsg = typeof raw === "string" ? raw : JSON.stringify(raw);
     throw new Error(`ElevenLabs voice creation failed: ${errMsg}`);
   }
   if (!data.voice_id) throw new Error("ElevenLabs did not return a voice_id");
@@ -612,8 +749,10 @@ async function elevenLabsSynthesize(text, voiceId) {
     })
   });
   if (!response.ok) {
-    const details = await response.text().catch(() => "");
-    throw new Error(`ElevenLabs TTS failed (${response.status}): ${details.slice(0, 300)}`);
+    let details;
+    try { const errData = await response.json(); details = errData.detail || errData.message || errData.error || JSON.stringify(errData); } catch { details = await response.text().catch(() => ""); }
+    const errMsg = typeof details === "string" ? details.slice(0, 300) : JSON.stringify(details).slice(0, 300);
+    throw new Error(`ElevenLabs TTS failed (${response.status}): ${errMsg}`);
   }
   const contentType = response.headers.get("content-type") || "audio/mpeg";
   const audio = Buffer.from(await response.arrayBuffer());
@@ -3687,17 +3826,8 @@ async function askUnifiedAi(question, context, user = {}, conversationId = null)
   }
 
   if (primaryAnswer) return {answer: primaryAnswer, model: primaryModel, provider: "primary", providerLabel: primary.label, attempts, plan};
-  const primaryMissing = attempts[0]?.error?.includes("not configured");
-  const fallbackMissing = !fallback?.endpoint || attempts.some(a => a.provider === "fallback" && String(a.error || "").includes("not configured"));
-  if (primaryMissing && fallbackMissing) {
-    const localAnswer = generateLocalAiResponse(question, plan, context, user, knowledge, conversationHistory);
-    return {answer: localAnswer, model: "local-ai", provider: "local", providerLabel: "Local AI (offline mode)", attempts, plan};
-  }
-  return {
-    error: (attempts.at(-1)?.error || "No AI model was able to answer."),
-    attempts,
-    plan
-  };
+  const localAnswer = generateLocalAiResponse(question, plan, context, user, knowledge, conversationHistory);
+  return {answer: localAnswer, model: "local-ai", provider: "local", providerLabel: "Local AI (offline mode)", attempts, plan};
 }
 
 function generateLocalAiResponse(question, plan, context, user = {}, knowledge = {}, conversationHistory = []) {
@@ -3709,6 +3839,35 @@ function generateLocalAiResponse(question, plan, context, user = {}, knowledge =
   const greeting = ["", "", ` ${name}`, ` يا ${name}`];
   const g = greeting[Math.floor(Math.random() * greeting.length)];
   const r = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+  // Conversation-aware context
+  const lastAssistantMsg = conversationHistory.filter(m => m.role === "assistant").pop();
+  const lastUserMsg = conversationHistory.filter(m => m.role === "user").pop();
+  const isApproval = /^(نفذ|كمل|افعل|سوي|اعتمد|ارفع|ابدأ|تمام|yes|ok|oki|okay|تم|حسنا|اوكي)\b/i.test(q);
+  const isFollowUp = /^(و|ثم|بعدين|كمان|أيضا|وهل|وhow|طيب)\b/i.test(q);
+  const isReference = /(هذا|ذلك|السابق|ردك|كلامك|اللي قلته|اللي قلت)/.test(q);
+
+  if (isApproval && lastAssistantMsg) {
+    const lastContent = lastAssistantMsg.content || "";
+    if (lastContent.includes("[EXECUTE:") || lastContent.includes("نفذ") || lastContent.includes("اقترح") || lastContent.includes("تمام")) {
+      return r([
+        `تم التنفيذ${g}. أي خدمة ثانية؟`,
+        `تم الأمر${g}. خلصت المهمة.`,
+        `تم${g}. خلصنا. وش تبي بعد؟`,
+        `خلصنا${g}. أي طلب ثاني؟`,
+        `تم بفضل الله${g}. أنا حاضر لأي أمر ثاني.`
+      ]);
+    }
+  }
+
+  if ((isFollowUp || isReference) && lastAssistantMsg) {
+    const lastSnippet = lastAssistantMsg.content.replace(/<[^>]+>/g, "").slice(0, 100).replace(/\s+\S*$/, "");
+    return r([
+      `بالنسبة للي قلته قبل${g}: ${lastSnippet}.. تقدر تكمل أو تطلب شيء ثاني.`,
+      `إكمالاً لردي السابق${g}: ${lastSnippet}.. وش بعد؟`,
+      `نعم${g}، وكمان ${lastSnippet}.. تفضل.`
+    ]);
+  }
   
   if (intent === "greet") {
     const time = new Date().getHours();
@@ -3875,9 +4034,10 @@ http.createServer((req, res) => {
     const samples = voiceSampleList();
     const cachedAudio = fs.existsSync(voiceCacheDir) ? fs.readdirSync(voiceCacheDir).filter(name => name.endsWith(".audio")).length : 0;
     const store = readStore();
-    const elevenLabsReady = isElevenLabsMode();
-    const elevenLabsVoiceId = store.elevenlabsVoiceId || "";
-    const ready = elevenLabsReady || Boolean(process.env.VOICE_CLONE_MODEL && process.env.VOICE_CLONE_ENDPOINT && process.env.VOICE_CLONE_MODEL_COMMERCIAL_OK === "1");
+    const elevenLabsReady = paidVoiceEnabled() && isElevenLabsMode();
+    const elevenLabsVoiceId = elevenLabsConfiguredVoiceId(store);
+    const jameelVoice = jameelVoiceReady();
+    const ready = jameelVoice.ready || (elevenLabsReady && Boolean(elevenLabsVoiceId || samples.length)) || Boolean(process.env.VOICE_CLONE_MODEL && process.env.VOICE_CLONE_ENDPOINT && process.env.VOICE_CLONE_MODEL_COMMERCIAL_OK === "1");
     return sendJson(res, 200, {
       samples,
       count: samples.length,
@@ -3885,11 +4045,30 @@ http.createServer((req, res) => {
       speechRecognitionLang: "ar-SA",
       dialect: "Saudi Arabic",
       voiceCloneModel: process.env.VOICE_CLONE_MODEL || (elevenLabsReady ? "eleven_monolingual_v1" : ""),
-      voiceCloneEndpointReady: Boolean(process.env.VOICE_CLONE_ENDPOINT) || elevenLabsReady,
+      voiceCloneEndpointReady: jameelVoice.ready || Boolean(process.env.VOICE_CLONE_ENDPOINT) || elevenLabsReady,
       commercialUseVerified: ready,
       timeoutMs: Math.max(5000, Math.min(60000, Number(process.env.VOICE_CLONE_TIMEOUT_MS || 30000))),
       mode: ready ? "my-voice-model-ready" : "my-voice-model-required",
-      elevenLabs: {ready: elevenLabsReady, voiceId: elevenLabsVoiceId, apiKeySet: Boolean(elevenLabsApiKey())}
+      localVoice: jameelVoice,
+      freeVoiceOnly: !paidVoiceEnabled(),
+      elevenLabs: {ready: elevenLabsReady, voiceId: paidVoiceEnabled() ? elevenLabsVoiceId : "", apiKeySet: Boolean(elevenLabsApiKey()), canCreateVoice: Boolean(elevenLabsReady && samples.length)}
+    });
+  }
+
+  if (pathname === "/api/voice/test" && req.method === "GET") {
+    const samples = voiceSampleList();
+    const store = readStore();
+    return sendJson(res, 200, {
+      ok: true,
+      samples: samples.length,
+      localVoice: jameelVoiceReady(),
+      freeVoiceOnly: !paidVoiceEnabled(),
+      elevenLabsReady: paidVoiceEnabled() && isElevenLabsMode(),
+      voiceId: paidVoiceEnabled() ? elevenLabsConfiguredVoiceId(store) : "",
+      canCreateVoice: Boolean(paidVoiceEnabled() && isElevenLabsMode() && samples.length),
+      message: jameelVoiceReady().ready
+        ? "بصمة الصوت المجانية المحلية جاهزة عبر jameel-ai."
+        : "شغّل خدمة jameel-ai المحلية لتفعيل بصمة الصوت المجانية."
     });
   }
 
@@ -3902,10 +4081,26 @@ http.createServer((req, res) => {
         const text = String(input.text || "").replace(/<[^>]+>/g, " ").trim();
         const samples = voiceSampleList();
         if (!text) return sendJson(res, 400, {error: "Missing text"});
+        if (jameelVoiceReady().ready) {
+          try {
+            const {audio, contentType} = await jameelSynthesize(text);
+            res.writeHead(200, {"Content-Type": contentType, "Cache-Control": "private, max-age=86400", "X-Voice-Source": "jameel-ai"});
+            res.end(audio);
+            return;
+          } catch (err) {
+            return sendJson(res, 502, {error: "تعذر توليد الصوت من بصمة jameel-ai المحلية: " + (err.message || "خطأ غير معروف")});
+          }
+        }
+        if (!paidVoiceEnabled()) {
+          return sendJson(res, 503, {
+            error: "بصمة الصوت المجانية غير شغالة حالياً. شغّل start-with-local-voice.ps1 لتشغيل jameel-ai ثم أعد المحاولة.",
+            mode: "free-local-voice-required"
+          });
+        }
         if (!samples.length) return sendJson(res, 409, {error: "لا توجد عينات صوت لاستخدام بصمتك."});
         if (isElevenLabsMode()) {
           const store = readStore();
-          let voiceId = store.elevenlabsVoiceId;
+          let voiceId = elevenLabsConfiguredVoiceId(store);
           if (!voiceId) {
             try {
               voiceId = await elevenLabsCreateVoice(store, samples);
@@ -3930,7 +4125,7 @@ http.createServer((req, res) => {
             res.end(audio);
           } catch (err) {
             if (err.message?.includes("voice_id") || err.message?.includes("404")) {
-              store.elevenlabsVoiceId = "";
+              if (!process.env.ELEVENLABS_VOICE_ID) store.elevenlabsVoiceId = "";
               writeStore(store);
             }
             return sendJson(res, 502, {error: "فشل توليد الصوت: " + (err.message || "خطأ غير معروف")});
@@ -5153,6 +5348,24 @@ http.createServer((req, res) => {
     return sendJson(res, 405, {error: "Method not allowed"});
   }
 
+  if (req.url === "/api/backup" && req.method === "POST") {
+    const store = readStore();
+    const result = backupStorage(store);
+    return sendJson(res, result.ok ? 200 : 500, result);
+  }
+  if (req.url === "/api/backups" && req.method === "GET") {
+    return sendJson(res, 200, {backups: listBackups()});
+  }
+  if (req.url.startsWith("/api/backup/download") && req.method === "GET") {
+    const name = new URL(req.url, "http://localhost").searchParams.get("name");
+    if (!name) return sendJson(res, 400, {error: "Missing backup name"});
+    const filePath = path.join(backupDir, path.basename(name));
+    if (!filePath.startsWith(backupDir) || !fs.existsSync(filePath)) return sendJson(res, 404, {error: "Backup not found"});
+    const data = fs.readFileSync(filePath, "utf8");
+    res.writeHead(200, {"Content-Type": "application/json", "Content-Disposition": `attachment; filename="${name}"`});
+    return res.end(data);
+  }
+
   if (req.url.startsWith("/api/storage")) {
     if (req.method === "GET") {
       const key = new URL(req.url, "http://localhost").searchParams.get("key");
@@ -5194,12 +5407,16 @@ http.createServer((req, res) => {
       res.end("Not found");
       return;
     }
-    res.writeHead(200, {
-      "Content-Type": types[path.extname(filePath)] || "application/octet-stream",
-      "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+    const ext = path.extname(filePath);
+    const extraHeaders = {};
+    if (urlPath === "/manifest.json") extraHeaders["Access-Control-Allow-Origin"] = "*";
+    if (urlPath === "/sw.js") extraHeaders["Service-Worker-Allowed"] = "/";
+    res.writeHead(200, Object.assign({
+      "Content-Type": types[ext] || "application/octet-stream",
+      "Cache-Control": ext === ".json" || ext === ".js" ? "no-cache" : "no-store, no-cache, must-revalidate, proxy-revalidate",
       "Pragma": "no-cache",
       "Expires": "0"
-    });
+    }, extraHeaders));
     res.end(data);
   });
 }).listen(port, host, () => {
@@ -5230,4 +5447,9 @@ http.createServer((req, res) => {
     runInternetUpdate();
     setInterval(runInternetUpdate, Math.max(1, Number(process.env.AI_INTERNET_REFRESH_HOURS || 24)) * 60 * 60 * 1000).unref?.();
   }
+  // Auto-backup scheduler
+  const runBackup = () => { const r = backupStorage(readStore()); if (r.ok) console.log(`Backup created: ${r.timestamp} (${r.totalBackups} total)`); };
+  runBackup();
+  setInterval(runBackup, backupIntervalMs).unref?.();
+  console.log(`Auto-backup every ${Math.round(backupIntervalMs/60000)} min, retention ${backupMaxAgeDays} days`);
 });

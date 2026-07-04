@@ -2,17 +2,37 @@
   "appId": "com.ertiqaa.app",
   "appName": "شموس",
   "webDir": "mobile",
+  "bundledWebRuntime": false,
   "server": {
-    "url": "https://ertiqaa.onrender.com",
-    "cleartext": false
+    "cleartext": false,
+    "allowNavigation": [
+      "ertiqaa.onrender.com",
+      "*.onrender.com",
+      "quickchart.io",
+      "api.elevenlabs.io"
+    ]
+  },
+  "ios": {
+    "scheme": "Shumoos",
+    "contentInset": "always",
+    "minVersion": "15.0",
+    "preferredContentMode": "mobile",
+    "limitsNavigationsToAppBoundDomains": false,
+    "includesPlistInAssetsFolder": true
   },
   "plugins": {
     "PushNotifications": {
-      "presentationOptions": [
-        "badge",
-        "sound",
-        "alert"
-      ]
+      "presentationOptions": ["badge", "sound", "alert"]
+    },
+    "SplashScreen": {
+      "launchShowDuration": 1200,
+      "backgroundColor": "#102d2c",
+      "androidScaleType": "CENTER_CROP",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "style": "dark",
+      "backgroundColor": "#102d2c"
     }
   }
 }

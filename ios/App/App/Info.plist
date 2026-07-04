@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>ارتقاء</string>
+	<string>شموس</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -33,6 +33,10 @@
 	<string>نحتاج لتحديد موقعك لتوجيه فنيي الصيانة لأقرب مكان</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>نحتاج لحفظ صور تقارير الصيانة في المعرض</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>نحتاج للميكروفون لأوامر الصوت والذكاء الاصطناعي</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>نحتاج لسماع صوتك للتعرف على الأوامر الصوتية</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>نحتاج للوصول لمعرض الصور لرفع تقارير الصيانة</string>
 	<key>UILaunchStoryboardName</key>

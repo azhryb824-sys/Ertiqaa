@@ -889,6 +889,30 @@ body{
   background:rgba(255,255,255,.96);
 }
 
+.panel h4{
+  margin:0 0 10px;color:var(--navy);font-size:13px;font-weight:900
+}
+
+.chart-bar{
+  display:flex;align-items:center;gap:8px;margin:6px 0;font-size:12px
+}
+
+.chart-bar span{
+  min-width:55px;color:var(--navy);font-weight:600
+}
+
+.bar-track{
+  flex:1;height:20px;background:#eef4f1;border-radius:999px;overflow:hidden
+}
+
+.bar-fill{
+  height:100%;background:linear-gradient(90deg,#1a4a44,#2d6b62);border-radius:999px;transition:width .5s
+}
+
+.panel .note{
+  margin:6px 0 0;font-size:11px;color:#8b601f;font-weight:600
+}
+
 .quick-card{
   background:linear-gradient(180deg,#fff,#fbfcfb);
 }

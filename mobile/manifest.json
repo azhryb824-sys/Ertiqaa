@@ -1,0 +1,14 @@
+{
+  "name": "شموس - إدارة أعمال المصاعد",
+  "short_name": "شموس",
+  "description": "واجهة آيفون لتشغيل نظام شموس من رابط محفوظ داخل التطبيق",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#102d2c",
+  "theme_color": "#102d2c",
+  "dir": "rtl",
+  "lang": "ar-SA",
+  "categories": ["business", "productivity", "utilities"],
+  "icons": []
+}

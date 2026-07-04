@@ -1,34 +1,33 @@
-# تطبيق ارتقاء للجوال
+# تطبيق شموس iOS
 
-هذا المجلد يجهز تطبيق Android و iOS باستخدام Capacitor.
+## بناء التطبيق (على macOS فقط)
 
-## إنشاء التطبيقات
+### المتطلبات
+- macOS 13+ مع Xcode 15+
+- CocoaPods (brew install cocoapods)
+- Node.js 18+
 
-1. ثبت الحزم:
-   `npm install`
-2. أضف Android:
-   `npm run cap:add:android`
-3. أضف iOS على جهاز macOS:
-   `npm run cap:add:ios`
-4. مزامنة الإعدادات:
-   `npm run cap:sync`
+### الخطوات
 
-## فتح روابط الدعوة داخل التطبيق
+```bash
+# 1. تثبيت الاعتماديات
+cd "نظام إدارة شركات ومؤسسات صيانة وتركيب المصاعد الالكترونية"
+npm install
 
-على Render اضبط:
+# 2. مزامنة ملفات Capacitor (ينسخ ملفات mobile/ إلى ios/)
+npx cap sync ios
 
-- `ANDROID_PACKAGE_NAME=com.ertiqaa.app`
-- `ANDROID_SHA256_CERT_FINGERPRINTS=SHA256_FINGERPRINT`
-- `IOS_TEAM_ID=TEAMID`
-- `IOS_BUNDLE_ID=com.ertiqaa.app`
+# 3. فتح المشروع في Xcode
+npx cap open ios
 
-الخادم يوفّر:
+# 4. في Xcode:
+#    - اختر Team للتوقيع (Apple Developer account)
+#    - غير Bundle Identifier إذا لزم الأمر
+#    - اختر iOS 15.0 كحد أدنى
+#    - Build (Cmd+B) ثم Run (Cmd+R)
+```
 
-- `/.well-known/assetlinks.json`
-- `/.well-known/apple-app-site-association`
-
-بعد ضبط شهادات Android و Apple Universal Links، سيظهر للمستخدم خيار فتح رابط الدعوة داخل التطبيق.
-
-## الإشعارات
-
-التطبيق يسجل Push Token محليًا. لتفعيل إرسال الإشعارات حتى والتطبيق مغلق يجب ربط Firebase Cloud Messaging على Android و APNs على iOS ثم إرسال الإشعارات من خادم موثوق باستخدام التوكنات المخزنة في `/api/push/register`.
+### ملاحظات مهمة
+- التطبيق يستخدم **Live Reload** من الخادم البعيد (https://ertiqaa.onrender.com)
+- لا يحتاج بناء Web Assets محلياً - كل التحديثات من الخادم
+- للإصدار النهائي: غيّر `server.url` في `capacitor.config.json` إلى `""` وانسخ ملفات الويب محلياً
