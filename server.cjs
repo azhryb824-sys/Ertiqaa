@@ -4318,16 +4318,16 @@ http.createServer(async (req, res) => {
         const requesterId = cid(input.requesterId || "");
         if (requesterRole !== "admin") return sendJson(res, 403, {error: "غير مصرح. المشرف فقط."});
         if (!targetUserId) return sendJson(res, 400, {error: "رقم المستخدم مطلوب"});
-        if (targetUserId === "2572280689") return sendJson(res, 400, {error: "لا يمكن حذف حساب مشرف النظام"});
+        if (targetUserId === "2572280689") return sendJson(res, 400, {error: "لا يمكن تعطيل حساب مشرف النظام"});
         const store = readStore();
-        // Remove from misadUsers
         let users = parseStoredJson(store, "misadUsers");
         const userIdx = users.findIndex(u => cid(u.id) === targetUserId);
         if (userIdx === -1) return sendJson(res, 404, {error: "المستخدم غير موجود"});
-        const deletedUser = users[userIdx];
-        users.splice(userIdx, 1);
-        store.misadUsers = JSON.stringify(users);
-        // Remove from ownerIds/pendingOwnerIds in all companies
+        if (users[userIdx].deletedAt) return sendJson(res, 400, {error: "المستخدم معطل مسبقاً"});
+        users[userIdx].status = "ملغي";
+        users[userIdx].deletedAt = new Date().toISOString();
+        users[userIdx].deletedBy = requesterId;
+        // Clear from ownerIds/pendingOwnerIds in all companies
         const ownerCompanies = parseStoredJson(store, "misadOwnerCompanies");
         for (const co of ownerCompanies) {
           let changed = false;
@@ -4347,12 +4347,45 @@ http.createServer(async (req, res) => {
         }
         store.misadUsers = JSON.stringify(users);
         writeStore(store);
-        // Audit log
         const log = parseStoredJson(store, "misadActivityLog");
-        log.unshift({id: `ACT-${Date.now()}`, companyOwnerId: "platform", type: "حذف مستخدم", title: `تم حذف المستخدم ${deletedUser.name} (${targetUserId}) بواسطة المشرف ${requesterId}`, ref: targetUserId, user: requesterId, userId: requesterId, createdAt: new Date().toLocaleString("ar-SA"), createdAtMs: Date.now()});
+        log.unshift({id: `ACT-${Date.now()}`, companyOwnerId: "platform", type: "تعطيل مستخدم", title: `تم تعطيل المستخدم ${users[userIdx].name} (${targetUserId}) بواسطة المشرف ${requesterId}`, ref: targetUserId, user: requesterId, userId: requesterId, createdAt: new Date().toLocaleString("ar-SA"), createdAtMs: Date.now()});
         store.misadActivityLog = JSON.stringify(log.slice(0, 300));
         writeStore(store);
-        sendJson(res, 200, {ok: true, deletedUser: deletedUser.name});
+        sendJson(res, 200, {ok: true, deletedUser: users[userIdx].name});
+      } catch (e) {
+        sendJson(res, 400, {error: "Invalid request: " + e.message});
+      }
+    });
+    return;
+  }
+
+  if (pathname === "/api/admin/restore-user" && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => {
+      try {
+        const input = JSON.parse(body || "{}");
+        const cid = v => String(v || "").replace(/\D/g, "");
+        const targetUserId = cid(input.userId);
+        const requesterRole = String(input.role || "");
+        const requesterId = cid(input.requesterId || "");
+        if (requesterRole !== "admin") return sendJson(res, 403, {error: "غير مصرح. المشرف فقط."});
+        if (!targetUserId) return sendJson(res, 400, {error: "رقم المستخدم مطلوب"});
+        const store = readStore();
+        let users = parseStoredJson(store, "misadUsers");
+        const userIdx = users.findIndex(u => cid(u.id) === targetUserId);
+        if (userIdx === -1) return sendJson(res, 404, {error: "المستخدم غير موجود"});
+        if (!users[userIdx].deletedAt) return sendJson(res, 400, {error: "المستخدم ليس معطلاً"});
+        delete users[userIdx].status;
+        delete users[userIdx].deletedAt;
+        delete users[userIdx].deletedBy;
+        store.misadUsers = JSON.stringify(users);
+        writeStore(store);
+        const log = parseStoredJson(store, "misadActivityLog");
+        log.unshift({id: `ACT-${Date.now()}`, companyOwnerId: "platform", type: "استعادة مستخدم", title: `تم استعادة المستخدم ${users[userIdx].name} (${targetUserId}) بواسطة المشرف ${requesterId}`, ref: targetUserId, user: requesterId, userId: requesterId, createdAt: new Date().toLocaleString("ar-SA"), createdAtMs: Date.now()});
+        store.misadActivityLog = JSON.stringify(log.slice(0, 300));
+        writeStore(store);
+        sendJson(res, 200, {ok: true, restoredUser: users[userIdx].name});
       } catch (e) {
         sendJson(res, 400, {error: "Invalid request: " + e.message});
       }
@@ -4376,15 +4409,15 @@ http.createServer(async (req, res) => {
         let ownerCompanies = parseStoredJson(store, "misadOwnerCompanies");
         const coIdx = ownerCompanies.findIndex(c => c.id === targetCompanyId || c.ownerId === targetCompanyId);
         if (coIdx === -1) return sendJson(res, 404, {error: "الشركة غير موجودة"});
+        if (ownerCompanies[coIdx].deletedAt) return sendJson(res, 400, {error: "الشركة معطلة مسبقاً"});
         const deletedCompany = ownerCompanies[coIdx];
         const companyOwnerIds = [deletedCompany.ownerId, ...(deletedCompany.ownerIds || []), ...(deletedCompany.pendingOwnerIds || [])].filter(Boolean);
-        ownerCompanies.splice(coIdx, 1);
+        deletedCompany.status = "ملغية";
+        deletedCompany.deletedAt = new Date().toISOString();
+        deletedCompany.deletedBy = requesterId;
+        ownerCompanies[coIdx] = deletedCompany;
         store.misadOwnerCompanies = JSON.stringify(ownerCompanies);
-        // Remove associated contracts
-        const contracts = parseStoredJson(store, "misadContracts");
-        const remainingContracts = contracts.filter(c => c.companyOwnerId !== targetCompanyId && c.companyOwnerId !== deletedCompany.ownerId && !(c.companyOwnerId && companyOwnerIds.includes(c.companyOwnerId)));
-        store.misadContracts = JSON.stringify(remainingContracts);
-        // Nullify companyOwnerId in users linked to this company
+        // Nullify companyOwnerId in users linked to this company but keep the company record
         const users = parseStoredJson(store, "misadUsers");
         for (const u of users) {
           if (u.companyOwnerId && (u.companyOwnerId === targetCompanyId || u.companyOwnerId === deletedCompany.ownerId || companyOwnerIds.includes(u.companyOwnerId))) {
@@ -4393,12 +4426,45 @@ http.createServer(async (req, res) => {
         }
         store.misadUsers = JSON.stringify(users);
         writeStore(store);
-        // Audit log
         const log = parseStoredJson(store, "misadActivityLog");
-        log.unshift({id: `ACT-${Date.now()}`, companyOwnerId: "platform", type: "حذف شركة", title: `تم حذف الشركة ${deletedCompany.name} (${targetCompanyId}) بواسطة المشرف ${requesterId}`, ref: targetCompanyId, user: requesterId, userId: requesterId, createdAt: new Date().toLocaleString("ar-SA"), createdAtMs: Date.now()});
+        log.unshift({id: `ACT-${Date.now()}`, companyOwnerId: "platform", type: "تعطيل شركة", title: `تم تعطيل الشركة ${deletedCompany.name} (${targetCompanyId}) بواسطة المشرف ${requesterId}`, ref: targetCompanyId, user: requesterId, userId: requesterId, createdAt: new Date().toLocaleString("ar-SA"), createdAtMs: Date.now()});
         store.misadActivityLog = JSON.stringify(log.slice(0, 300));
         writeStore(store);
         sendJson(res, 200, {ok: true, deletedCompany: deletedCompany.name});
+      } catch (e) {
+        sendJson(res, 400, {error: "Invalid request: " + e.message});
+      }
+    });
+    return;
+  }
+
+  if (pathname === "/api/admin/restore-company" && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => {
+      try {
+        const input = JSON.parse(body || "{}");
+        const cid = v => String(v || "").replace(/\D/g, "");
+        const targetCompanyId = String(input.companyId || "").trim();
+        const requesterRole = String(input.role || "");
+        const requesterId = cid(input.requesterId || "");
+        if (requesterRole !== "admin") return sendJson(res, 403, {error: "غير مصرح. المشرف فقط."});
+        if (!targetCompanyId) return sendJson(res, 400, {error: "معرف الشركة مطلوب"});
+        const store = readStore();
+        let ownerCompanies = parseStoredJson(store, "misadOwnerCompanies");
+        const coIdx = ownerCompanies.findIndex(c => c.id === targetCompanyId || c.ownerId === targetCompanyId);
+        if (coIdx === -1) return sendJson(res, 404, {error: "الشركة غير موجودة"});
+        if (!ownerCompanies[coIdx].deletedAt) return sendJson(res, 400, {error: "الشركة ليست معطلة"});
+        delete ownerCompanies[coIdx].status;
+        delete ownerCompanies[coIdx].deletedAt;
+        delete ownerCompanies[coIdx].deletedBy;
+        store.misadOwnerCompanies = JSON.stringify(ownerCompanies);
+        writeStore(store);
+        const log = parseStoredJson(store, "misadActivityLog");
+        log.unshift({id: `ACT-${Date.now()}`, companyOwnerId: "platform", type: "استعادة شركة", title: `تم استعادة الشركة ${ownerCompanies[coIdx].name} (${targetCompanyId}) بواسطة المشرف ${requesterId}`, ref: targetCompanyId, user: requesterId, userId: requesterId, createdAt: new Date().toLocaleString("ar-SA"), createdAtMs: Date.now()});
+        store.misadActivityLog = JSON.stringify(log.slice(0, 300));
+        writeStore(store);
+        sendJson(res, 200, {ok: true, restoredCompany: ownerCompanies[coIdx].name});
       } catch (e) {
         sendJson(res, 400, {error: "Invalid request: " + e.message});
       }
@@ -5907,9 +5973,17 @@ ${JSON.stringify(rows, null, 2)}
       console.log("Backup restore failed:", e.message);
     }
     if (!restored) {
-      const defaultStore = {misadCreatedAt: new Date().toISOString()};
-      fs.writeFileSync(storagePath, JSON.stringify(defaultStore, null, 2), "utf8");
-      console.log("Created initial storage.json (no backup found)");
+      const templatePath = path.join(root, "storage.template.json");
+      if (fs.existsSync(templatePath)) {
+        let template = JSON.parse(fs.readFileSync(templatePath, "utf8"));
+        template.misadCreatedAt = new Date().toISOString();
+        fs.writeFileSync(storagePath, JSON.stringify(template, null, 2), "utf8");
+        console.log("Created initial storage.json from storage.template.json");
+      } else {
+        const defaultStore = {misadCreatedAt: new Date().toISOString()};
+        fs.writeFileSync(storagePath, JSON.stringify(defaultStore, null, 2), "utf8");
+        console.log("Created initial storage.json (no template found)");
+      }
     }
   }
   const store = readStore();
