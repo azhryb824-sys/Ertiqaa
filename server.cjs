@@ -604,6 +604,10 @@ function jameelVoicePython(rootPath) {
 }
 
 function jameelVoiceReady() {
+  const endpoint = process.env.JAMEEL_VOICE_ENDPOINT || "";
+  if (endpoint && /^https?:\/\//i.test(endpoint)) {
+    return {ready: true, root: "", references: 0, remote: true, endpoint: endpoint.replace(/\/+$/, "")};
+  }
   const rootPath = jameelVoiceRoot();
   if (!rootPath) return {ready: false, root: "", references: 0};
   const refs = path.join(rootPath, "voice_samples", "wav");
@@ -639,7 +643,7 @@ function jameelSynthesize(text) {
       source: "jameel-ai-api"
     };
   });
-  if (process.env.JAMEEL_VOICE_ALLOW_DIRECT !== "1") return endpointRequest;
+  if (status.remote || process.env.JAMEEL_VOICE_ALLOW_DIRECT !== "1") return endpointRequest;
   return endpointRequest.catch(() => jameelSynthesizeDirect(text, status, timeoutMs));
 }
 

@@ -16,6 +16,10 @@ services:
         value: "1"
       - key: VOICE_CLONE_TIMEOUT_MS
         value: "60000"
+      - key: JAMEEL_VOICE_ENDPOINT
+        value: https://sd-ai.onrender.com
+      - key: JAMEEL_VOICE_TIMEOUT_MS
+        value: "120000"
       - key: AI_INTERNET_ENABLED
         value: "0"
       - key: AI_INTERNET_REFRESH_HOURS
