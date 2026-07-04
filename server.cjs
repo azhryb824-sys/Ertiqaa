@@ -4373,14 +4373,15 @@ ${JSON.stringify(rows, null, 2)}
 
   if (pathname === "/api/voice/test" && req.method === "GET") {
     const samples = voiceSampleList();
-    const jameel = jameelVoiceReady();
+      const jameel = jameelVoiceReady();
     return sendJson(res, 200, {
       ok: true,
       samples: samples.length,
       localVoice: jameel,
+      browserTTS: true,
       message: jameel.ready
         ? "بصمة الصوت جاهزة عبر jameel-ai."
-        : "شغّل خدمة jameel-ai المحلية لتفعيل بصمة الصوت."
+        : "بصمة jameel-ai غير شغالة. سيتم استخدام صوت المتصفح كبديل."
     });
   }
 
@@ -5655,9 +5656,26 @@ ${JSON.stringify(rows, null, 2)}
 }).listen(port, host, () => {
   console.log(`Server running at http://${host}:${port}/`);
   if (!fs.existsSync(storagePath)) {
-    const defaultStore = {misadCreatedAt: new Date().toISOString()};
-    fs.writeFileSync(storagePath, JSON.stringify(defaultStore, null, 2), "utf8");
-    console.log("Created initial storage.json");
+    // محاولة استعادة من آخر نسخة احتياطية
+    let restored = false;
+    try {
+      if (fs.existsSync(backupDir)) {
+        const backups = fs.readdirSync(backupDir).filter(f => f.startsWith("storage-") && f.endsWith(".json")).sort().reverse();
+        if (backups.length) {
+          const latest = path.join(backupDir, backups[0]);
+          fs.copyFileSync(latest, storagePath);
+          console.log(`Restored storage.json from backup: ${backups[0]}`);
+          restored = true;
+        }
+      }
+    } catch (e) {
+      console.log("Backup restore failed:", e.message);
+    }
+    if (!restored) {
+      const defaultStore = {misadCreatedAt: new Date().toISOString()};
+      fs.writeFileSync(storagePath, JSON.stringify(defaultStore, null, 2), "utf8");
+      console.log("Created initial storage.json (no backup found)");
+    }
   }
   const store = readStore();
   const invites = inviteList(store);
