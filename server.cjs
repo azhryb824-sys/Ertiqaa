@@ -4201,34 +4201,33 @@ http.createServer(async (req, res) => {
   ];
 
   if (pathname === "/api/auth/login" && req.method === "POST") {
-    let body = "";
-    req.on("data", chunk => body += chunk);
-    req.on("end", () => {
-      try {
-        const input = JSON.parse(body || "{}");
-        const uid = cleanId(input.userId);
-        const pwd = String(input.password || "");
-        if (!uid || !pwd) return sendJson(res, 400, {error: "رقم الهوية وكلمة المرور مطلوبان"});
-        const store = readStore();
-        const storedUsers = parseStoredJson(store, "misadUsers");
-        const user = storedUsers.find(u => cleanId(u.id) === uid && u.password === pwd)
-          || serverSystemUsers.find(u => cleanId(u.id) === uid && u.password === pwd);
-        if (!user) return sendJson(res, 401, {error: "رقم الهوية أو كلمة المرور غير صحيحة"});
-        const storedUser = storedUsers.find(u => cleanId(u.id) === uid);
-        const coId = storedUser?.companyOwnerId || user.companyOwnerId || "";
-        sendJson(res, 200, {
-          id: user.id,
-          role: user.role,
-          name: user.name,
-          permissions: user.permissions || [],
-          mustChangePassword: !!(user.mustChangePassword && storedUser?.mustChangePassword !== false),
-          companyOwnerId: user.role === "owner" ? user.id : (coId || ""),
-          _linkedCoId: coId
-        });
-      } catch (e) {
-        sendJson(res, 400, {error: "طلب غير صالح"});
-      }
-    });
+    try {
+      const buffers = [];
+      for await (const chunk of req) buffers.push(chunk);
+      const body = Buffer.concat(buffers).toString("utf-8");
+      const input = JSON.parse(body || "{}");
+      const uid = cleanId(input.userId);
+      const pwd = String(input.password || "");
+      if (!uid || !pwd) return sendJson(res, 400, {error: "رقم الهوية وكلمة المرور مطلوبان"});
+      const store = readStore();
+      const storedUsers = parseStoredJson(store, "misadUsers");
+      const user = storedUsers.find(u => cleanId(u.id) === uid && u.password === pwd)
+        || serverSystemUsers.find(u => cleanId(u.id) === uid && u.password === pwd);
+      if (!user) return sendJson(res, 401, {error: "رقم الهوية أو كلمة المرور غير صحيحة"});
+      const storedUser = storedUsers.find(u => cleanId(u.id) === uid);
+      const coId = storedUser?.companyOwnerId || user.companyOwnerId || "";
+      sendJson(res, 200, {
+        id: user.id,
+        role: user.role,
+        name: user.name,
+        permissions: user.permissions || [],
+        mustChangePassword: !!(user.mustChangePassword && storedUser?.mustChangePassword !== false),
+        companyOwnerId: user.role === "owner" ? user.id : (coId || ""),
+        _linkedCoId: coId
+      });
+    } catch (e) {
+      sendJson(res, 400, {error: "طلب غير صالح: " + e.message});
+    }
     return;
   }
 
