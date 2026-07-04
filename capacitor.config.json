@@ -8,8 +8,7 @@
     "allowNavigation": [
       "ertiqaa.onrender.com",
       "*.onrender.com",
-      "quickchart.io",
-      "api.elevenlabs.io"
+      "quickchart.io"
     ]
   },
   "ios": {

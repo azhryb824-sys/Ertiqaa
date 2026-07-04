@@ -2,6 +2,7 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const zlib = require("zlib");
 const {spawn} = require("child_process");
 require("dotenv").config();
 
@@ -402,7 +403,7 @@ function writeStore(store) {
 
 const backupDir = path.join(root, "backups");
 const backupMaxAgeDays = Math.max(1, Number(process.env.AI_BACKUP_RETENTION_DAYS || 30));
-const backupIntervalMs = Math.max(60000, Number(process.env.AI_BACKUP_INTERVAL_MINUTES || 360)) * 60000;
+const backupIntervalMs = Math.max(60000, Number(process.env.AI_BACKUP_INTERVAL_MINUTES || 360) * 60000);
 
 function backupStorage(store) {
   try {
@@ -571,28 +572,6 @@ function writeVoiceCache(key, audio, contentType) {
   } catch {}
 }
 
-function elevenLabsApiKey() {
-  return process.env.ELEVENLABS_API_KEY || "";
-}
-
-function elevenLabsConfiguredVoiceId(store = {}) {
-  return String(process.env.ELEVENLABS_VOICE_ID || store.elevenlabsVoiceId || "").trim();
-}
-
-function elevenLabsBaseUrl() {
-  return (process.env.VOICE_CLONE_ENDPOINT || "https://api.elevenlabs.io/v1").replace(/\/+$/, "");
-}
-
-function isElevenLabsMode() {
-  return Boolean(elevenLabsApiKey() && elevenLabsBaseUrl().includes("elevenlabs"));
-}
-
-function paidVoiceEnabled() {
-  if (process.env.ALLOW_PAID_VOICE === "1") return true;
-  if (process.env.ALLOW_PAID_VOICE === "0") return false;
-  return Boolean(process.env.RENDER && elevenLabsApiKey());
-}
-
 function jameelVoiceRoot() {
   const configured = process.env.JAMEEL_VOICE_ROOT || "D:\\البرمجيات - نسخ احتياطية\\jameel-ai";
   return fs.existsSync(path.join(configured, "inference", "voice.py")) ? configured : "";
@@ -681,88 +660,6 @@ function jameelSynthesizeDirect(text, status, timeoutMs) {
       resolve({audio: fs.readFileSync(audioPath), contentType: "audio/wav", source: "jameel-ai"});
     });
   });
-}
-
-async function elevenLabsCreateVoice(store, samples) {
-  const apiKey = elevenLabsApiKey();
-  const baseUrl = elevenLabsBaseUrl();
-  const boundary = "----Voice" + crypto.randomBytes(8).toString("hex");
-  const parts = [];
-  const addField = (name, value) => {
-    parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`, "utf8"));
-  };
-  const addFile = (name, filePath) => {
-    const ext = path.extname(name).toLowerCase();
-    const mime = {".aac":"audio/aac",".m4a":"audio/mp4",".mp3":"audio/mpeg",".wav":"audio/wav",".ogg":"audio/ogg",".flac":"audio/flac"}[ext] || "application/octet-stream";
-    const data = fs.readFileSync(filePath);
-    const safeName = encodeURIComponent(name);
-    parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="files"; filename="${safeName}"; filename*=UTF-8''${safeName}\r\nContent-Type: ${mime}\r\n\r\n`, "utf8"));
-    parts.push(data);
-    parts.push(Buffer.from("\r\n", "utf8"));
-  };
-  addField("name", "Owner Voice");
-  addField("description", "Voice cloned from local audio samples for the elevator management system");
-  addField("labels", JSON.stringify({use: "local", source: "owner-samples"}));
-  for (const s of samples) {
-    addFile(s.name, path.join(root, s.name));
-  }
-  parts.push(Buffer.from(`--${boundary}--\r\n`, "utf8"));
-  const buf = Buffer.concat(parts);
-  const response = await fetch(`${baseUrl}/voices/add`, {
-    method: "POST",
-    headers: {
-      "Content-Type": `multipart/form-data; boundary=${boundary}`,
-      "xi-api-key": apiKey,
-      "Content-Length": buf.length.toString()
-    },
-    signal: AbortSignal.timeout(15000),
-    body: buf
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const raw = data.detail || data.message || data.error || `HTTP ${response.status}`;
-    const errMsg = typeof raw === "string" ? raw : JSON.stringify(raw);
-    throw new Error(`ElevenLabs voice creation failed: ${errMsg}`);
-  }
-  if (!data.voice_id) throw new Error("ElevenLabs did not return a voice_id");
-  store.elevenlabsVoiceId = data.voice_id;
-  store.elevenlabsVoiceCreatedAt = new Date().toISOString();
-  writeStore(store);
-  return data.voice_id;
-}
-
-async function elevenLabsSynthesize(text, voiceId) {
-  const apiKey = elevenLabsApiKey();
-  const baseUrl = elevenLabsBaseUrl();
-  const model = process.env.VOICE_CLONE_MODEL || "eleven_monolingual_v1";
-  const timeoutMs = Math.max(5000, Math.min(60000, Number(process.env.VOICE_CLONE_TIMEOUT_MS || 30000)));
-  const response = await fetch(`${baseUrl}/text-to-speech/${voiceId}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "xi-api-key": apiKey
-    },
-    signal: AbortSignal.timeout(timeoutMs),
-    body: JSON.stringify({
-      text,
-      model_id: model,
-      voice_settings: {
-        stability: Number(process.env.ELEVENLABS_STABILITY || 0.35),
-        similarity_boost: Number(process.env.ELEVENLABS_SIMILARITY || 0.85),
-        style: Number(process.env.ELEVENLABS_STYLE || 0.2),
-        use_speaker_boost: true
-      }
-    })
-  });
-  if (!response.ok) {
-    let details;
-    try { const errData = await response.json(); details = errData.detail || errData.message || errData.error || JSON.stringify(errData); } catch { details = await response.text().catch(() => ""); }
-    const errMsg = typeof details === "string" ? details.slice(0, 300) : JSON.stringify(details).slice(0, 300);
-    throw new Error(`ElevenLabs TTS failed (${response.status}): ${errMsg}`);
-  }
-  const contentType = response.headers.get("content-type") || "audio/mpeg";
-  const audio = Buffer.from(await response.arrayBuffer());
-  return {audio, contentType};
 }
 
 function inviteList(store) {
@@ -3255,6 +3152,244 @@ function dateVal(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+function xmlText(s = "") {
+  return String(s).replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, "\"").replace(/&apos;/g, "'").replace(/&amp;/g, "&").trim();
+}
+
+function zipEntries(buffer) {
+  const entries = {};
+  let i = 0;
+  while (i < buffer.length - 30) {
+    if (buffer.readUInt32LE(i) !== 0x04034b50) { i++; continue; }
+    const method = buffer.readUInt16LE(i + 8);
+    const compressedSize = buffer.readUInt32LE(i + 18);
+    const fileNameLength = buffer.readUInt16LE(i + 26);
+    const extraLength = buffer.readUInt16LE(i + 28);
+    const name = buffer.slice(i + 30, i + 30 + fileNameLength).toString("utf8");
+    const dataStart = i + 30 + fileNameLength + extraLength;
+    const dataEnd = dataStart + compressedSize;
+    const compressed = buffer.slice(dataStart, dataEnd);
+    try {
+      entries[name] = method === 0 ? compressed : method === 8 ? zlib.inflateRawSync(compressed) : Buffer.alloc(0);
+    } catch {
+      entries[name] = Buffer.alloc(0);
+    }
+    i = dataEnd;
+  }
+  return entries;
+}
+
+function parseWorkbookSheets(entries) {
+  const workbook = entries["xl/workbook.xml"]?.toString("utf8") || "";
+  const rels = entries["xl/_rels/workbook.xml.rels"]?.toString("utf8") || "";
+  const relMap = {};
+  rels.replace(/<Relationship\b([^>]+?)\/?>/g, (_, attrs) => {
+    const id = attrs.match(/\bId="([^"]+)"/)?.[1];
+    const target = attrs.match(/\bTarget="([^"]+)"/)?.[1];
+    if (id && target) relMap[id] = target.replace(/^\/?xl\//, "");
+    return "";
+  });
+  const sheets = [];
+  workbook.replace(/<sheet\b([^>]+?)\/?>/g, (_, attrs) => {
+    const name = xmlText(attrs.match(/\bname="([^"]*)"/)?.[1] || "Sheet");
+    const rid = attrs.match(/\br:id="([^"]+)"/)?.[1] || attrs.match(/\brelationshipId="([^"]+)"/)?.[1];
+    const target = relMap[rid] || `worksheets/sheet${sheets.length + 1}.xml`;
+    sheets.push({name, path: `xl/${target}`});
+    return "";
+  });
+  return sheets.length ? sheets : [{name: "Sheet1", path: "xl/worksheets/sheet1.xml"}];
+}
+
+function parseSharedStrings(entries) {
+  const xml = entries["xl/sharedStrings.xml"]?.toString("utf8") || "";
+  const out = [];
+  xml.replace(/<si\b[\s\S]*?<\/si>/g, si => {
+    const parts = [];
+    si.replace(/<t\b[^>]*>([\s\S]*?)<\/t>/g, (_, t) => { parts.push(xmlText(t)); return ""; });
+    out.push(parts.join(""));
+    return "";
+  });
+  return out;
+}
+
+function columnIndex(ref = "") {
+  const letters = String(ref).match(/[A-Z]+/i)?.[0]?.toUpperCase() || "A";
+  return letters.split("").reduce((n, ch) => n * 26 + ch.charCodeAt(0) - 64, 0) - 1;
+}
+
+function excelDate(n) {
+  const serial = Number(n);
+  if (!Number.isFinite(serial) || serial <= 0) return "";
+  return dateVal(new Date(Date.UTC(1899, 11, 30 + serial)));
+}
+
+function parseSheetRows(xml, shared) {
+  const rows = [];
+  xml.replace(/<row\b[\s\S]*?<\/row>/g, rowXml => {
+    const row = [];
+    rowXml.replace(/<c\b([^>]*)>([\s\S]*?)<\/c>/g, (_, attrs, body) => {
+      const idx = columnIndex(attrs.match(/\br="([^"]+)"/)?.[1] || "");
+      const type = attrs.match(/\bt="([^"]+)"/)?.[1] || "";
+      const inline = body.match(/<is\b[\s\S]*?<t\b[^>]*>([\s\S]*?)<\/t>[\s\S]*?<\/is>/)?.[1];
+      const raw = body.match(/<v>([\s\S]*?)<\/v>/)?.[1] ?? inline ?? "";
+      row[idx] = type === "s" ? (shared[Number(raw)] || "") : xmlText(raw);
+      return "";
+    });
+    if (row.some(v => String(v || "").trim())) rows.push(row);
+    return "";
+  });
+  return rows;
+}
+
+function normalizeHeader(value) {
+  return String(value || "").toLowerCase().replace(/[اأإآ]/g, "ا").replace(/[ة]/g, "ه").replace(/[^\p{L}\p{N}]+/gu, "");
+}
+
+function pickCell(row, headers, aliases) {
+  for (const alias of aliases) {
+    const key = normalizeHeader(alias);
+    const idx = headers.findIndex(h => h === key || h.includes(key) || key.includes(h));
+    if (idx >= 0 && row[idx] !== undefined && String(row[idx]).trim() !== "") return String(row[idx]).trim();
+  }
+  return "";
+}
+
+function numberCell(value) {
+  const n = String(value || "").replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(/[۰-۹]/g, d => "۰۱۲۳۴۵۶۷۸۹".indexOf(d)).replace(/[^\d.-]/g, "");
+  return Number(n || 0);
+}
+
+function dateCell(value) {
+  const v = String(value || "").trim();
+  if (!v) return "";
+  if (/^\d+(\.\d+)?$/.test(v) && Number(v) > 20000) return excelDate(v);
+  const m = v.match(/(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/) || v.match(/(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/);
+  if (!m) return v;
+  const y = m[1].length === 4 ? m[1] : m[3], mo = m[1].length === 4 ? m[2] : m[2], d = m[1].length === 4 ? m[3] : m[1];
+  return `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
+function parseExcelContracts(buffer) {
+  const entries = zipEntries(buffer);
+  const shared = parseSharedStrings(entries);
+  const sheets = parseWorkbookSheets(entries);
+  const parsed = [];
+  for (const sheet of sheets) {
+    const xml = entries[sheet.path]?.toString("utf8");
+    if (!xml) continue;
+    const rows = parseSheetRows(xml, shared);
+    if (rows.length < 2) continue;
+    const headerRowIndex = rows.findIndex(r => r.filter(Boolean).length >= 2);
+    if (headerRowIndex < 0) continue;
+    const headers = rows[headerRowIndex].map(normalizeHeader);
+    for (const row of rows.slice(headerRowIndex + 1)) {
+      const clientCompanyName = pickCell(row, headers, ["اسم المنشأة", "الشركة", "اسم الشركة", "العميل", "الطرف الثاني", "client company", "company", "client"]);
+      const clientName = pickCell(row, headers, ["اسم العميل", "ممثل العميل", "المالك", "client name", "customer"]);
+      const value = numberCell(pickCell(row, headers, ["قيمة العقد", "القيمة", "المبلغ", "اجمالي", "الإجمالي", "value", "amount", "total"]));
+      const buildingName = pickCell(row, headers, ["المبنى", "اسم المبنى", "الموقع", "العقار", "building", "site", "location"]);
+      const startDate = dateCell(pickCell(row, headers, ["بداية العقد", "تاريخ البداية", "تاريخ العقد", "start date", "start"]));
+      const endDate = dateCell(pickCell(row, headers, ["نهاية العقد", "تاريخ النهاية", "end date", "end"]));
+      if (!clientCompanyName && !clientName && !buildingName && !value) continue;
+      parsed.push({
+        sheet: sheet.name,
+        type: /تركيب|install/i.test(pickCell(row, headers, ["نوع العقد", "النوع", "type"])) ? "تركيب" : "صيانة",
+        clientName,
+        clientCompanyName: clientCompanyName || clientName,
+        clientId: cleanNationalId(pickCell(row, headers, ["هوية العميل", "رقم الهوية", "client id", "id"])),
+        clientCompanyUnifiedNumber: cleanNationalId(pickCell(row, headers, ["الرقم الموحد", "رقم المنشأة", "unified number", "company id"])),
+        value,
+        startDate: startDate || dateVal(new Date()),
+        endDate,
+        contractYears: numberCell(pickCell(row, headers, ["مدة العقد", "المدة", "years"])) || 1,
+        details: pickCell(row, headers, ["التفاصيل", "الوصف", "ملاحظات", "details", "notes"]) || "مستورد من ملف Excel عبر الذكاء الاصطناعي.",
+        elevatorInfo: {
+          count: pickCell(row, headers, ["عدد المصاعد", "العدد", "elevator count", "count"]) || "1",
+          brand: pickCell(row, headers, ["الماركة", "brand"]),
+          age: pickCell(row, headers, ["العمر", "age"]),
+          capacity: pickCell(row, headers, ["السعة", "capacity"]),
+          usage: pickCell(row, headers, ["الاستخدام", "usage"])
+        },
+        buildings: [{name: buildingName || "موقع غير محدد", district: pickCell(row, headers, ["الحي", "district"]), mapUrl: pickCell(row, headers, ["رابط الموقع", "الخريطة", "map"]), guardMobile: pickCell(row, headers, ["جوال الحارس", "حارس", "guard"])}]
+      });
+    }
+  }
+  return parsed;
+}
+
+function cleanNationalId(value) {
+  return String(value || "").replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(/[۰-۹]/g, d => "۰۱۲۳۴۵۶۷۸۹".indexOf(d)).replace(/\D/g, "");
+}
+
+function parseMultipartFile(req, limitBytes = 12 * 1024 * 1024) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let size = 0;
+    req.on("data", chunk => {
+      size += chunk.length;
+      if (size > limitBytes) { reject(new Error("حجم الملف أكبر من الحد المسموح 12MB.")); req.destroy(); return; }
+      chunks.push(chunk);
+    });
+    req.on("error", reject);
+    req.on("end", () => {
+      const contentType = req.headers["content-type"] || "";
+      const boundary = contentType.match(/boundary=(?:"([^"]+)"|([^;]+))/)?.[1] || contentType.match(/boundary=(?:"([^"]+)"|([^;]+))/)?.[2];
+      if (!boundary) return reject(new Error("طلب الرفع غير صحيح."));
+      const body = Buffer.concat(chunks);
+      const marker = Buffer.from(`--${boundary}`);
+      let offset = body.indexOf(marker);
+      while (offset >= 0) {
+        const next = body.indexOf(marker, offset + marker.length);
+        if (next < 0) break;
+        const part = body.slice(offset + marker.length + 2, next - 2);
+        const sep = part.indexOf(Buffer.from("\r\n\r\n"));
+        if (sep > 0) {
+          const headers = part.slice(0, sep).toString("utf8");
+          const data = part.slice(sep + 4);
+          if (/name="file"/.test(headers)) {
+            const filename = headers.match(/filename="([^"]*)"/)?.[1] || "contracts.xlsx";
+            return resolve({filename, data});
+          }
+        }
+        offset = next;
+      }
+      reject(new Error("لم يتم العثور على ملف Excel في الطلب."));
+    });
+  });
+}
+
+function buildImportedContract(item, contracts, actionOwnerId, owner, userId) {
+  const startDate = item.startDate || dateVal(new Date());
+  const endDate = item.endDate || dateVal(addYears(new Date(`${startDate}T00:00`), item.contractYears || 1));
+  return {
+    id: nextContractId(contracts),
+    companyOwnerId: actionOwnerId,
+    companyId: owner?.id || "",
+    type: item.type || "صيانة",
+    targetType: item.clientCompanyName ? "company" : "client",
+    clientId: item.clientId || "",
+    clientName: item.clientName || "",
+    clientCompanyUnifiedNumber: item.clientCompanyUnifiedNumber || "",
+    clientCompanyName: item.clientCompanyName || item.clientName || "",
+    value: Number(item.value || 0),
+    elevatorInfo: Object.assign({count: "", brand: "", age: "", capacity: "", doorType: "", usage: ""}, item.elevatorInfo || {}),
+    installationInfo: {},
+    maintenanceChecklist: defaultMaintenanceChecklist(),
+    buildings: item.buildings?.length ? item.buildings : [{name: "موقع غير محدد", district: "", mapUrl: "", guardMobile: ""}],
+    items: [],
+    customItems: [],
+    details: item.details || "مستورد من ملف Excel.",
+    status: "بانتظار موافقة العميل",
+    startDate,
+    contractYears: Number(item.contractYears || 1),
+    endDate,
+    createdAt: arabicLocaleDate(),
+    createdAtMs: Date.now(),
+    createdBy: userId || "excel-import",
+    importedFromExcel: true,
+    company: {name: owner?.name || "شركة غير محددة"}
+  };
+}
+
 function getMissingFields(action, data) {
   const d = data || {};
   const required = {
@@ -4013,7 +4148,7 @@ function generateLocalAiResponse(question, plan, context, user = {}, knowledge =
   ]);
 }
 
-http.createServer((req, res) => {
+http.createServer(async (req, res) => {
   const pathname = decodeURIComponent(req.url.split("?")[0]);
   if (sendMobileAssociation(res, pathname)) return;
   if (pathname === "/health" || pathname === "/api/health") return sendJson(res, 200, {ok: true, at: new Date().toISOString()});
@@ -4036,46 +4171,216 @@ http.createServer((req, res) => {
 
   if (!hasEntryAccess(req) && !hasDeviceAccess(req)) return sendLocked(res);
 
+  if (pathname === "/api/contracts/ai-import-excel" && req.method === "POST") {
+    try {
+      const role = String(url.searchParams.get("role") || "");
+      const userId = String(url.searchParams.get("userId") || "");
+      const companyOwnerId = String(url.searchParams.get("companyOwnerId") || "");
+      if (!["owner", "company_admin", "admin"].includes(role)) return sendJson(res, 403, {error: "رفع العقود متاح للمالك والإداري فقط."});
+      const upload = await parseMultipartFile(req);
+      if (!/\.xlsx$/i.test(upload.filename)) return sendJson(res, 400, {error: "ارفع ملف Excel بصيغة .xlsx فقط."});
+      const store = readStore();
+      const contracts = parseStoredJson(store, "misadContracts");
+      const ownerCompanies = parseStoredJson(store, "misadOwnerCompanies");
+      const actionOwnerId = role === "company_admin" ? (companyOwnerId || userId) : role === "admin" ? "platform" : userId;
+      const owner = ownerCompanies.find(c => c.ownerId === actionOwnerId || c.id === actionOwnerId) || {id: "", name: "شركة غير محددة"};
+      const rows = parseExcelContracts(upload.data);
+      if (!rows.length) return sendJson(res, 400, {error: "لم يتم العثور على بيانات عقود في الملف."});
+      // تحليل البيانات بالذكاء الاصطناعي لتحسين دقة الحقول
+      const aiPrompt = `أنت محلل عقود مصاعد. أمامك بيانات مستخلصة من ملف Excel. المطلوب: تصحيح وتحسين الحقول التالية لكل عقد بناءً على فهمك لقطاع المصاعد:
+- type: يجب أن تكون "صيانة" أو "تركيب" حسب محتوى العقد
+- clientName و clientCompanyName: الاسم الصحيح للعميل/المنشأة
+- value: القيمة المالية (رقم فقط)
+- startDate, endDate: تواريخ نصية بصيغة YYYY-MM-DD
+- buildings: اسم المبنى والموقع
+- elevatorInfo: معلومات المصعد (العدد، الماركة، العمر، السعة)
+- details: وصف العقد
+
+أعد JSON فقط بهذا الشكل ولا تضف أي شرح:
+{"contracts":[{"type":"...","clientName":"...","clientCompanyName":"...","clientId":"...","clientCompanyUnifiedNumber":"...","value":0,"startDate":"YYYY-MM-DD","endDate":"YYYY-MM-DD","contractYears":1,"details":"...","buildings":[{"name":"...","district":"..."}],"elevatorInfo":{"count":"...","brand":"...","age":"...","capacity":"...","usage":"..."}}]}
+
+البيانات المستخلصة:
+${JSON.stringify(rows, null, 2)}
+
+حلل كل صف بدقة وأعد المصفوفة كاملة. إذا كان هناك نقص في البيانات، املأها بقيم معقولة بناءً على فهمك للمجال.`;
+      let aiResult;
+      try {
+        const providers = aiModelProviders();
+        const primary = providers.find(p => p.id === "primary");
+        if (primary && primary.apiKey) {
+          aiResult = await requestAiProvider(primary, [
+            {role: "system", content: "أنت خبير في تحليل عقود المصاعد واستخراج البيانات بدقة. أجب فقط بـ JSON صالح."},
+            {role: "user", content: aiPrompt}
+          ]);
+        } else {
+          aiResult = generateLocalAiResponse(aiPrompt, {}, {}, {});
+        }
+      } catch (err) {
+        // إذا فشل الذكاء الاصطناعي، استخدم البيانات المباشرة
+        aiResult = JSON.stringify({contracts: rows});
+      }
+      let enhancedRows;
+      try {
+        const parsed = JSON.parse(typeof aiResult === "string" ? aiResult : readAiAnswer(aiResult) || "{}");
+        enhancedRows = Array.isArray(parsed) ? parsed : (parsed.contracts || []);
+      } catch {
+        enhancedRows = rows;
+      }
+      if (!enhancedRows.length) enhancedRows = rows;
+      const existingKeys = new Set(contracts.map(c => [
+        cleanNationalId(c.clientId || c.clientCompanyUnifiedNumber),
+        c.clientCompanyName || c.clientName,
+        c.startDate,
+        c.endDate,
+        (c.buildings || [])[0]?.name || "",
+        Number(c.value || 0)
+      ].map(x => String(x || "").trim()).join("|")));
+      const imported = [];
+      const skipped = [];
+      for (const item of enhancedRows) {
+        if (!item.clientCompanyName && !item.clientName) {
+          skipped.push({reason: "لا يوجد اسم عميل أو منشأة", row: item});
+          continue;
+        }
+        if (!Number(item.value || 0)) {
+          skipped.push({reason: "قيمة العقد غير موجودة أو غير صحيحة", row: item});
+          continue;
+        }
+        const candidateKey = [
+          cleanNationalId(item.clientId || item.clientCompanyUnifiedNumber),
+          item.clientCompanyName || item.clientName,
+          item.startDate,
+          item.endDate,
+          (item.buildings || [])[0]?.name || "",
+          Number(item.value || 0)
+        ].map(x => String(x || "").trim()).join("|");
+        if (existingKeys.has(candidateKey)) {
+          skipped.push({reason: "عقد مكرر", row: item});
+          continue;
+        }
+        const contract = buildImportedContract(item, contracts, actionOwnerId, owner, userId);
+        contract.importedFromExcel = true;
+        contract.details = (contract.details || "") + " (مستورد عبر الذكاء الاصطناعي)";
+        contracts.unshift(contract);
+        imported.push(contract);
+        existingKeys.add(candidateKey);
+      }
+      store.misadContracts = JSON.stringify(contracts.slice(0, 500));
+      writeStore(store);
+      return sendJson(res, 200, {
+        ok: true,
+        fileName: upload.filename,
+        analyzedRows: rows.length,
+        importedCount: imported.length,
+        skippedCount: skipped.length,
+        skipped: skipped.slice(0, 30),
+        contracts: contracts.slice(0, 500),
+        imported,
+        summary: `تم تحليل ${rows.length} صف بواسطة الذكاء الاصطناعي وإضافة ${imported.length} عقد. تم تجاوز ${skipped.length} صف.`
+      });
+    } catch (err) {
+      return sendJson(res, 400, {error: "تعذر تحليل ملف Excel بالذكاء الاصطناعي: " + (err.message || "خطأ غير معروف")});
+    }
+  }
+
+  if (pathname === "/api/contracts/import-excel" && req.method === "POST") {
+    try {
+      const role = String(url.searchParams.get("role") || "");
+      const userId = String(url.searchParams.get("userId") || "");
+      const companyOwnerId = String(url.searchParams.get("companyOwnerId") || "");
+      if (!["owner", "company_admin", "admin"].includes(role)) return sendJson(res, 403, {error: "رفع العقود متاح للمالك والإداري فقط."});
+      const upload = await parseMultipartFile(req);
+      if (!/\.xlsx$/i.test(upload.filename)) return sendJson(res, 400, {error: "ارفع ملف Excel بصيغة .xlsx فقط."});
+      const store = readStore();
+      const contracts = parseStoredJson(store, "misadContracts");
+      const ownerCompanies = parseStoredJson(store, "misadOwnerCompanies");
+      const actionOwnerId = role === "company_admin" ? (companyOwnerId || userId) : role === "admin" ? "platform" : userId;
+      const owner = ownerCompanies.find(c => c.ownerId === actionOwnerId || c.id === actionOwnerId) || {id: "", name: "شركة غير محددة"};
+      const rows = parseExcelContracts(upload.data);
+      const existingKeys = new Set(contracts.map(c => [
+        cleanNationalId(c.clientId || c.clientCompanyUnifiedNumber),
+        c.clientCompanyName || c.clientName,
+        c.startDate,
+        c.endDate,
+        (c.buildings || [])[0]?.name || "",
+        Number(c.value || 0)
+      ].map(x => String(x || "").trim()).join("|")));
+      const imported = [];
+      const skipped = [];
+      for (const item of rows) {
+        if (!item.clientCompanyName && !item.clientName) {
+          skipped.push({reason: "لا يوجد اسم عميل أو منشأة", row: item});
+          continue;
+        }
+        if (!Number(item.value || 0)) {
+          skipped.push({reason: "قيمة العقد غير موجودة أو غير صحيحة", row: item});
+          continue;
+        }
+        const candidateKey = [
+          cleanNationalId(item.clientId || item.clientCompanyUnifiedNumber),
+          item.clientCompanyName || item.clientName,
+          item.startDate,
+          item.endDate,
+          item.buildings?.[0]?.name || "",
+          Number(item.value || 0)
+        ].map(x => String(x || "").trim()).join("|");
+        if (existingKeys.has(candidateKey)) {
+          skipped.push({reason: "عقد مكرر", row: item});
+          continue;
+        }
+        const contract = buildImportedContract(item, contracts, actionOwnerId, owner, userId);
+        contracts.unshift(contract);
+        imported.push(contract);
+        existingKeys.add(candidateKey);
+      }
+      store.misadContracts = JSON.stringify(contracts.slice(0, 500));
+      writeStore(store);
+      return sendJson(res, 200, {
+        ok: true,
+        fileName: upload.filename,
+        analyzedRows: rows.length,
+        importedCount: imported.length,
+        skippedCount: skipped.length,
+        skipped: skipped.slice(0, 30),
+        contracts: contracts.slice(0, 500),
+        imported,
+        summary: `تم تحليل ${rows.length} صف وإضافة ${imported.length} عقد. الصفوف المتجاهلة: ${skipped.length}.`
+      });
+    } catch (err) {
+      return sendJson(res, 400, {error: "تعذر تحليل ملف Excel: " + (err.message || "خطأ غير معروف")});
+    }
+  }
+
   if (pathname === "/api/voice/samples" && req.method === "GET") {
     const samples = voiceSampleList();
     const cachedAudio = fs.existsSync(voiceCacheDir) ? fs.readdirSync(voiceCacheDir).filter(name => name.endsWith(".audio")).length : 0;
-    const store = readStore();
-    const elevenLabsReady = paidVoiceEnabled() && isElevenLabsMode();
-    const elevenLabsVoiceId = elevenLabsConfiguredVoiceId(store);
     const jameelVoice = jameelVoiceReady();
-    const ready = jameelVoice.ready || (elevenLabsReady && Boolean(elevenLabsVoiceId || samples.length)) || Boolean(process.env.VOICE_CLONE_MODEL && process.env.VOICE_CLONE_ENDPOINT && process.env.VOICE_CLONE_MODEL_COMMERCIAL_OK === "1");
     return sendJson(res, 200, {
       samples,
       count: samples.length,
       cachedAudio,
       speechRecognitionLang: "ar-SA",
       dialect: "Saudi Arabic",
-      voiceCloneModel: process.env.VOICE_CLONE_MODEL || (elevenLabsReady ? "eleven_monolingual_v1" : ""),
-      voiceCloneEndpointReady: jameelVoice.ready || Boolean(process.env.VOICE_CLONE_ENDPOINT) || elevenLabsReady,
-      commercialUseVerified: ready,
-      timeoutMs: Math.max(5000, Math.min(60000, Number(process.env.VOICE_CLONE_TIMEOUT_MS || 30000))),
-      mode: ready ? "my-voice-model-ready" : "my-voice-model-required",
+      voiceCloneEndpointReady: jameelVoice.ready || Boolean(process.env.JAMEEL_VOICE_ENDPOINT),
+      commercialUseVerified: jameelVoice.ready,
       localVoice: jameelVoice,
-      freeVoiceOnly: !paidVoiceEnabled(),
-      renderDeployment: Boolean(process.env.RENDER),
-      elevenLabs: {ready: elevenLabsReady, voiceId: paidVoiceEnabled() ? elevenLabsVoiceId : "", apiKeySet: Boolean(elevenLabsApiKey()), canCreateVoice: Boolean(elevenLabsReady && samples.length)}
+      mode: jameelVoice.ready ? "my-voice-model-ready" : "my-voice-model-required",
+      message: jameelVoice.ready
+        ? "بصمة الصوت جاهزة عبر jameel-ai."
+        : "شغّل خدمة jameel-ai المحلية لتفعيل بصمة الصوت."
     });
   }
 
   if (pathname === "/api/voice/test" && req.method === "GET") {
     const samples = voiceSampleList();
-    const store = readStore();
+    const jameel = jameelVoiceReady();
     return sendJson(res, 200, {
       ok: true,
       samples: samples.length,
-      localVoice: jameelVoiceReady(),
-      freeVoiceOnly: !paidVoiceEnabled(),
-      elevenLabsReady: paidVoiceEnabled() && isElevenLabsMode(),
-      voiceId: paidVoiceEnabled() ? elevenLabsConfiguredVoiceId(store) : "",
-      canCreateVoice: Boolean(paidVoiceEnabled() && isElevenLabsMode() && samples.length),
-      message: jameelVoiceReady().ready
-        ? "بصمة الصوت المجانية المحلية جاهزة عبر jameel-ai."
-        : "شغّل خدمة jameel-ai المحلية لتفعيل بصمة الصوت المجانية."
+      localVoice: jameel,
+      message: jameel.ready
+        ? "بصمة الصوت جاهزة عبر jameel-ai."
+        : "شغّل خدمة jameel-ai المحلية لتفعيل بصمة الصوت."
     });
   }
 
@@ -4086,98 +4391,19 @@ http.createServer((req, res) => {
       try {
         const input = JSON.parse(body || "{}");
         const text = String(input.text || "").replace(/<[^>]+>/g, " ").trim();
-        const samples = voiceSampleList();
         if (!text) return sendJson(res, 400, {error: "Missing text"});
-        if (jameelVoiceReady().ready) {
-          try {
-            const {audio, contentType} = await jameelSynthesize(text);
-            res.writeHead(200, {"Content-Type": contentType, "Cache-Control": "private, max-age=86400", "X-Voice-Source": "jameel-ai"});
-            res.end(audio);
-            return;
-          } catch (err) {
-            return sendJson(res, 502, {error: "تعذر توليد الصوت من بصمة jameel-ai المحلية: " + (err.message || "خطأ غير معروف")});
-          }
-        }
-        if (!paidVoiceEnabled()) {
+        if (!jameelVoiceReady().ready) {
           return sendJson(res, 503, {
-            error: "بصمة الصوت المجانية غير شغالة حالياً. شغّل start-with-local-voice.ps1 لتشغيل jameel-ai ثم أعد المحاولة.",
-            mode: "free-local-voice-required"
+            error: "خدمة jameel-ai غير شغالة. شغّل start-with-local-voice.ps1 لتشغيل بصمة الصوت المحلية.",
+            mode: "jameel-ai-required"
           });
         }
-        if (!samples.length) return sendJson(res, 409, {error: "لا توجد عينات صوت لاستخدام بصمتك."});
-        if (isElevenLabsMode()) {
-          const store = readStore();
-          let voiceId = elevenLabsConfiguredVoiceId(store);
-          if (!voiceId) {
-            try {
-              voiceId = await elevenLabsCreateVoice(store, samples);
-            } catch (err) {
-              return sendJson(res, 502, {
-                error: "تعذر إنشاء بصمة الصوت عبر ElevenLabs: " + (err.message || "خطأ غير معروف"),
-                fix: "تأكد من صحة ELEVENLABS_API_KEY وأن ملفات AAC مدعومة. بديل: ارفع العينات يدوياً على elevenlabs.io وأنشئ voice_id ثم أضفه إلى storage.json كـ elevenlabsVoiceId"
-              });
-            }
-          }
-          const cacheKey = voiceCacheKey(text, "elevenlabs:" + voiceId, samples);
-          const cached = readVoiceCache(cacheKey);
-          if (cached) {
-            res.writeHead(200, {"Content-Type": cached.contentType, "Cache-Control": "private, max-age=86400", "X-Voice-Cache": "hit"});
-            res.end(cached.audio);
-            return;
-          }
-          try {
-            const {audio, contentType} = await elevenLabsSynthesize(text, voiceId);
-            writeVoiceCache(cacheKey, audio, contentType);
-            res.writeHead(200, {"Content-Type": contentType, "Cache-Control": "private, max-age=86400", "X-Voice-Cache": "miss"});
-            res.end(audio);
-          } catch (err) {
-            if (err.message?.includes("voice_id") || err.message?.includes("404")) {
-              if (!process.env.ELEVENLABS_VOICE_ID) store.elevenlabsVoiceId = "";
-              writeStore(store);
-            }
-            return sendJson(res, 502, {error: "فشل توليد الصوت: " + (err.message || "خطأ غير معروف")});
-          }
-        } else {
-          const model = process.env.VOICE_CLONE_MODEL || "";
-          const endpoint = process.env.VOICE_CLONE_ENDPOINT || "";
-          const commercialOk = process.env.VOICE_CLONE_MODEL_COMMERCIAL_OK === "1";
-          const timeoutMs = Math.max(5000, Math.min(60000, Number(process.env.VOICE_CLONE_TIMEOUT_MS || 30000)));
-          const cacheKey = voiceCacheKey(text, model || "pending-owner-model", samples);
-          const cached = readVoiceCache(cacheKey);
-          if (cached) {
-            res.writeHead(200, {"Content-Type": cached.contentType, "Cache-Control": "private, max-age=86400", "X-Voice-Cache": "hit"});
-            res.end(cached.audio);
-            return;
-          }
-          if (!model || !endpoint || !commercialOk) {
-            return sendJson(res, 503, {
-              error: "نموذج بصمة صوتك غير مفعل. يجب ضبط VOICE_CLONE_MODEL و VOICE_CLONE_ENDPOINT و VOICE_CLONE_MODEL_COMMERCIAL_OK=1 أو ضبط ELEVENLABS_API_KEY.",
-              samples: samples.length,
-              mode: "my-voice-model-required"
-            });
-          }
-          const response = await fetch(endpoint, {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            signal: AbortSignal.timeout(timeoutMs),
-            body: JSON.stringify({
-              text,
-              model,
-              language: "ar-SA",
-              dialect: "Saudi Arabic",
-              voiceProfile: "owner-local-samples",
-              sampleFiles: samples.map(s => path.join(root, s.name))
-            })
-          });
-          if (!response.ok) {
-            const details = await response.text().catch(() => "");
-            return sendJson(res, 502, {error: "تعذر توليد الصوت من نموذج بصمتك.", details: details.slice(0, 300)});
-          }
-          const contentType = response.headers.get("content-type") || "audio/wav";
-          const audio = Buffer.from(await response.arrayBuffer());
-          writeVoiceCache(cacheKey, audio, contentType);
-          res.writeHead(200, {"Content-Type": contentType, "Cache-Control": "private, max-age=86400", "X-Voice-Cache": "miss"});
+        try {
+          const {audio, contentType} = await jameelSynthesize(text);
+          res.writeHead(200, {"Content-Type": contentType, "Cache-Control": "private, max-age=86400", "X-Voice-Source": "jameel-ai"});
           res.end(audio);
+        } catch (err) {
+          return sendJson(res, 502, {error: "تعذر توليد الصوت من jameel-ai: " + (err.message || "خطأ غير معروف")});
         }
       } catch (err) {
         sendJson(res, 400, {error: "Invalid voice synthesis request: " + (err.message || "Unknown error")});
