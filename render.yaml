@@ -5,9 +5,23 @@ services:
     repo: https://github.com/azhryb824-sys/Ertiqaa
     buildCommand: npm install
     startCommand: node server.cjs
+    # CRITICAL: This persistent disk stores all users, passwords, contracts,
+    # quotes, documents, and customer data. Do not remove or change it in future edits.
+    disk:
+      name: ertiqaa-secure-data
+      mountPath: /var/data
+      sizeGB: 1
     envVars:
       - key: HOST
         value: 0.0.0.0
+      - key: DATA_DIR
+        value: /var/data
+      - key: STORAGE_PATH
+        value: /var/data/storage.json
+      - key: AI_BACKUP_RETENTION_DAYS
+        value: "365"
+      - key: AI_BACKUP_INTERVAL_MINUTES
+        value: "60"
       - key: SECRET_ENTRY_TOKEN
         generateValue: true
       - key: ELEVENLABS_API_KEY

@@ -10,3 +10,6 @@ app.bundle.js
 .DS_Store
 .env
 storage.json
+.storage.git.json
+.elevator-storage.json
+.elevator-data/

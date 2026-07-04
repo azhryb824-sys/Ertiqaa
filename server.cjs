@@ -9,10 +9,14 @@ require("dotenv").config();
 const root = __dirname;
 const port = Number(process.env.PORT || 4173);
 const host = process.env.HOST || "0.0.0.0";
+// CRITICAL DATA SAFETY:
+// On Render, DATA_DIR and STORAGE_PATH must stay on the persistent disk (/var/data).
+// Do not move storage.json back into the project directory. It contains users,
+// passwords, contracts, quotes, documents, and all customer operational data.
 const dataDir = process.env.DATA_DIR || path.join(require("os").homedir(), ".elevator-data");
 const storagePath = process.env.STORAGE_PATH || path.join(dataDir, "storage.json");
 const storageFailover = path.join(require("os").homedir(), ".elevator-storage.json");
-const storageGitPath = path.join(root, ".storage.git.json");
+const legacyStoragePath = path.join(root, "storage.json");
 const aiResponseBankPath = path.join(root, "ai-response-bank.json");
 const voiceCacheDir = path.join(dataDir, ".voice-cache");
 const entrySecret = process.env.SECRET_ENTRY_TOKEN || crypto.randomBytes(32).toString("hex");
@@ -400,9 +404,9 @@ function readStore() {
 
 function writeStore(store) {
   const data = JSON.stringify(store, null, 2);
+  try { if (!fs.existsSync(path.dirname(storagePath))) fs.mkdirSync(path.dirname(storagePath), {recursive: true}); } catch {}
   fs.writeFileSync(storagePath, data, "utf8");
   try { fs.writeFileSync(storageFailover, data, "utf8"); } catch {}
-  try { fs.writeFileSync(storageGitPath, data, "utf8"); } catch {}
   storeCache = store;
   storeMtime = fs.statSync(storagePath).mtimeMs;
 }
@@ -5998,13 +6002,13 @@ ${JSON.stringify(rows, null, 2)}
   if (!fs.existsSync(storagePath)) {
     // محاولة استعادة من نسخة احتياطية خارج المشروع أولاً
     let restored = false;
-    if (fs.existsSync(storageGitPath)) {
+    if (fs.existsSync(legacyStoragePath) && path.resolve(legacyStoragePath) !== path.resolve(storagePath)) {
       try {
-        fs.copyFileSync(storageGitPath, storagePath);
-        console.log("Restored storage.json from git-tracked failover: " + storageGitPath);
+        fs.copyFileSync(legacyStoragePath, storagePath);
+        console.log("Migrated legacy storage.json into persistent storage: " + storagePath);
         restored = true;
       } catch (e) {
-        console.log("Git failover restore failed:", e.message);
+        console.log("Legacy storage migration failed:", e.message);
       }
     }
     if (!restored && fs.existsSync(storageFailover)) {
@@ -6048,7 +6052,6 @@ ${JSON.stringify(rows, null, 2)}
     // storage.json موجود — تأكد من وجود نسخ احتياطية
     try {
       if (!fs.existsSync(storageFailover)) fs.copyFileSync(storagePath, storageFailover);
-      if (!fs.existsSync(storageGitPath)) fs.copyFileSync(storagePath, storageGitPath);
     } catch {}
   }
   const store = readStore();
