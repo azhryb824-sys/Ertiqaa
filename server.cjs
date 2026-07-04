@@ -11,6 +11,7 @@ const port = Number(process.env.PORT || 4173);
 const host = process.env.HOST || "0.0.0.0";
 const storagePath = process.env.STORAGE_PATH || path.join(root, "storage.json");
 const storageFailover = path.join(require("os").homedir(), ".elevator-storage.json");
+const storageGitPath = path.join(root, ".storage.git.json");
 const aiResponseBankPath = path.join(root, "ai-response-bank.json");
 const voiceCacheDir = path.join(root, ".voice-cache");
 const entrySecret = process.env.SECRET_ENTRY_TOKEN || crypto.randomBytes(32).toString("hex");
@@ -400,6 +401,7 @@ function writeStore(store) {
   const data = JSON.stringify(store, null, 2);
   fs.writeFileSync(storagePath, data, "utf8");
   try { fs.writeFileSync(storageFailover, data, "utf8"); } catch {}
+  try { fs.writeFileSync(storageGitPath, data, "utf8"); } catch {}
   storeCache = store;
   storeMtime = fs.statSync(storagePath).mtimeMs;
 }
@@ -5994,7 +5996,16 @@ ${JSON.stringify(rows, null, 2)}
   if (!fs.existsSync(storagePath)) {
     // محاولة استعادة من نسخة احتياطية خارج المشروع أولاً
     let restored = false;
-    if (fs.existsSync(storageFailover)) {
+    if (fs.existsSync(storageGitPath)) {
+      try {
+        fs.copyFileSync(storageGitPath, storagePath);
+        console.log("Restored storage.json from git-tracked failover: " + storageGitPath);
+        restored = true;
+      } catch (e) {
+        console.log("Git failover restore failed:", e.message);
+      }
+    }
+    if (!restored && fs.existsSync(storageFailover)) {
       try {
         fs.copyFileSync(storageFailover, storagePath);
         console.log("Restored storage.json from external failover: " + storageFailover);
@@ -6032,9 +6043,10 @@ ${JSON.stringify(rows, null, 2)}
       }
     }
   } else {
-    // storage.json موجود — تأكد من وجود نسخة خارجية احتياطية
+    // storage.json موجود — تأكد من وجود نسخ احتياطية
     try {
       if (!fs.existsSync(storageFailover)) fs.copyFileSync(storagePath, storageFailover);
+      if (!fs.existsSync(storageGitPath)) fs.copyFileSync(storagePath, storageGitPath);
     } catch {}
   }
   const store = readStore();

@@ -1,7 +1,7 @@
 {
   "misadCreatedAt": "",
   "misadUsers": "[]",
-  "misadOwnerCompanies": "[]",
+  "misadOwnerCompanies": "[{\"id\":\"OWN-SHUMAAS\",\"ownerIds\":[\"1010389102\"],\"ownerId\":\"1010389102\",\"name\":\"مؤسسة شموس الماسية للمصاعد\",\"unifiedNumber\":\"7036326168\",\"commercialNumber\":\"\",\"taxNumber\":\"\",\"phone\":\"\",\"email\":\"\",\"address\":\"\",\"pdfFooter\":\"\",\"createdAt\":\"2026-07-04T00:00:00.000Z\",\"updatedAt\":\"2026-07-04T00:00:00.000Z\"}]",
   "misadContracts": "[]",
   "misadVisits": "[]",
   "misadClientCompanies": "[]",
