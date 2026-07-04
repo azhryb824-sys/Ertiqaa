@@ -4306,6 +4306,106 @@ http.createServer(async (req, res) => {
     return;
   }
 
+  if (pathname === "/api/admin/delete-user" && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => {
+      try {
+        const input = JSON.parse(body || "{}");
+        const cid = v => String(v || "").replace(/\D/g, "");
+        const targetUserId = cid(input.userId);
+        const requesterRole = String(input.role || "");
+        const requesterId = cid(input.requesterId || "");
+        if (requesterRole !== "admin") return sendJson(res, 403, {error: "غير مصرح. المشرف فقط."});
+        if (!targetUserId) return sendJson(res, 400, {error: "رقم المستخدم مطلوب"});
+        if (targetUserId === "2572280689") return sendJson(res, 400, {error: "لا يمكن حذف حساب مشرف النظام"});
+        const store = readStore();
+        // Remove from misadUsers
+        let users = parseStoredJson(store, "misadUsers");
+        const userIdx = users.findIndex(u => cid(u.id) === targetUserId);
+        if (userIdx === -1) return sendJson(res, 404, {error: "المستخدم غير موجود"});
+        const deletedUser = users[userIdx];
+        users.splice(userIdx, 1);
+        store.misadUsers = JSON.stringify(users);
+        // Remove from ownerIds/pendingOwnerIds in all companies
+        const ownerCompanies = parseStoredJson(store, "misadOwnerCompanies");
+        for (const co of ownerCompanies) {
+          let changed = false;
+          if (co.ownerIds && co.ownerIds.includes(targetUserId)) { co.ownerIds = co.ownerIds.filter(id => id !== targetUserId); changed = true; }
+          if (co.pendingOwnerIds && co.pendingOwnerIds.includes(targetUserId)) { co.pendingOwnerIds = co.pendingOwnerIds.filter(id => id !== targetUserId); changed = true; }
+          if (co.ownerId === targetUserId) { co.ownerId = ""; changed = true; }
+          if (changed) co.modifiedAt = new Date().toISOString();
+        }
+        store.misadOwnerCompanies = JSON.stringify(ownerCompanies);
+        // Remove from company staff
+        const staff = parseStoredJson(store, "misadCompanyStaff");
+        const filteredStaff = staff.filter(s => cid(s.identity) !== targetUserId && cid(s.id) !== targetUserId && cid(s.userId) !== targetUserId);
+        store.misadCompanyStaff = JSON.stringify(filteredStaff);
+        // Nullify companyOwnerId in other users referencing the deleted user's company
+        for (const u of users) {
+          if (u.companyOwnerId && cid(u.companyOwnerId) === targetUserId) u.companyOwnerId = "";
+        }
+        store.misadUsers = JSON.stringify(users);
+        writeStore(store);
+        // Audit log
+        const log = parseStoredJson(store, "misadActivityLog");
+        log.unshift({id: `ACT-${Date.now()}`, companyOwnerId: "platform", type: "حذف مستخدم", title: `تم حذف المستخدم ${deletedUser.name} (${targetUserId}) بواسطة المشرف ${requesterId}`, ref: targetUserId, user: requesterId, userId: requesterId, createdAt: new Date().toLocaleString("ar-SA"), createdAtMs: Date.now()});
+        store.misadActivityLog = JSON.stringify(log.slice(0, 300));
+        writeStore(store);
+        sendJson(res, 200, {ok: true, deletedUser: deletedUser.name});
+      } catch (e) {
+        sendJson(res, 400, {error: "Invalid request: " + e.message});
+      }
+    });
+    return;
+  }
+
+  if (pathname === "/api/admin/delete-company" && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => {
+      try {
+        const input = JSON.parse(body || "{}");
+        const cid = v => String(v || "").replace(/\D/g, "");
+        const targetCompanyId = String(input.companyId || "").trim();
+        const requesterRole = String(input.role || "");
+        const requesterId = cid(input.requesterId || "");
+        if (requesterRole !== "admin") return sendJson(res, 403, {error: "غير مصرح. المشرف فقط."});
+        if (!targetCompanyId) return sendJson(res, 400, {error: "معرف الشركة مطلوب"});
+        const store = readStore();
+        let ownerCompanies = parseStoredJson(store, "misadOwnerCompanies");
+        const coIdx = ownerCompanies.findIndex(c => c.id === targetCompanyId || c.ownerId === targetCompanyId);
+        if (coIdx === -1) return sendJson(res, 404, {error: "الشركة غير موجودة"});
+        const deletedCompany = ownerCompanies[coIdx];
+        const companyOwnerIds = [deletedCompany.ownerId, ...(deletedCompany.ownerIds || []), ...(deletedCompany.pendingOwnerIds || [])].filter(Boolean);
+        ownerCompanies.splice(coIdx, 1);
+        store.misadOwnerCompanies = JSON.stringify(ownerCompanies);
+        // Remove associated contracts
+        const contracts = parseStoredJson(store, "misadContracts");
+        const remainingContracts = contracts.filter(c => c.companyOwnerId !== targetCompanyId && c.companyOwnerId !== deletedCompany.ownerId && !(c.companyOwnerId && companyOwnerIds.includes(c.companyOwnerId)));
+        store.misadContracts = JSON.stringify(remainingContracts);
+        // Nullify companyOwnerId in users linked to this company
+        const users = parseStoredJson(store, "misadUsers");
+        for (const u of users) {
+          if (u.companyOwnerId && (u.companyOwnerId === targetCompanyId || u.companyOwnerId === deletedCompany.ownerId || companyOwnerIds.includes(u.companyOwnerId))) {
+            u.companyOwnerId = "";
+          }
+        }
+        store.misadUsers = JSON.stringify(users);
+        writeStore(store);
+        // Audit log
+        const log = parseStoredJson(store, "misadActivityLog");
+        log.unshift({id: `ACT-${Date.now()}`, companyOwnerId: "platform", type: "حذف شركة", title: `تم حذف الشركة ${deletedCompany.name} (${targetCompanyId}) بواسطة المشرف ${requesterId}`, ref: targetCompanyId, user: requesterId, userId: requesterId, createdAt: new Date().toLocaleString("ar-SA"), createdAtMs: Date.now()});
+        store.misadActivityLog = JSON.stringify(log.slice(0, 300));
+        writeStore(store);
+        sendJson(res, 200, {ok: true, deletedCompany: deletedCompany.name});
+      } catch (e) {
+        sendJson(res, 400, {error: "Invalid request: " + e.message});
+      }
+    });
+    return;
+  }
+
   if (pathname === "/api/contracts/ai-import-excel" && req.method === "POST") {
     try {
       const role = String(url.searchParams.get("role") || "");
