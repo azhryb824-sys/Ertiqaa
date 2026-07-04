@@ -588,7 +588,9 @@ function isElevenLabsMode() {
 }
 
 function paidVoiceEnabled() {
-  return process.env.ALLOW_PAID_VOICE === "1";
+  if (process.env.ALLOW_PAID_VOICE === "1") return true;
+  if (process.env.ALLOW_PAID_VOICE === "0") return false;
+  return Boolean(process.env.RENDER && elevenLabsApiKey());
 }
 
 function jameelVoiceRoot() {
@@ -4051,6 +4053,7 @@ http.createServer((req, res) => {
       mode: ready ? "my-voice-model-ready" : "my-voice-model-required",
       localVoice: jameelVoice,
       freeVoiceOnly: !paidVoiceEnabled(),
+      renderDeployment: Boolean(process.env.RENDER),
       elevenLabs: {ready: elevenLabsReady, voiceId: paidVoiceEnabled() ? elevenLabsVoiceId : "", apiKeySet: Boolean(elevenLabsApiKey()), canCreateVoice: Boolean(elevenLabsReady && samples.length)}
     });
   }
