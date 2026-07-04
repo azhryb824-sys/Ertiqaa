@@ -4258,7 +4258,7 @@ http.createServer(async (req, res) => {
     return;
   }
 
-  if (!hasEntryAccess(req) && !hasDeviceAccess(req)) return sendLocked(res);
+  if (!hasEntryAccess(req) && !hasDeviceAccess(req) && !pathname.startsWith("/login") && !pathname.startsWith("/register") && !pathname.startsWith("/api/") && !pathname.startsWith("/invite/") && pathname !== "/" && !pathname.startsWith("/assets/") && !pathname.endsWith(".js") && !pathname.endsWith(".css") && !pathname.endsWith(".json") && !pathname.endsWith(".png") && !pathname.endsWith(".svg") && !pathname.endsWith(".ico")) return sendLocked(res);
 
   if (pathname === "/api/owner/register" && req.method === "POST") {
     let body = "";
