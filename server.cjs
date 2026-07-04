@@ -6118,10 +6118,30 @@ ${JSON.stringify(rows, null, 2)}
       }
     }
   } else {
-    // storage.json موجود — تأكد من وجود نسخ احتياطية
+    // storage.json موجود — تأكد من وجود نسخ احتياطية وملء المفاتيح المفقودة من القالب
     try {
       if (!fs.existsSync(storageFailover)) fs.copyFileSync(storagePath, storageFailover);
     } catch {}
+    try {
+      const templatePath = path.join(root, "storage.template.json");
+      if (fs.existsSync(templatePath)) {
+        const template = JSON.parse(fs.readFileSync(templatePath, "utf8"));
+        const current = JSON.parse(fs.readFileSync(storagePath, "utf8"));
+        let changed = false;
+        for (const [key, value] of Object.entries(template)) {
+          if (!(key in current) || (typeof value === "string" && value.startsWith("[]") && current[key] === "[]")) {
+            current[key] = value;
+            changed = true;
+          }
+        }
+        if (changed) {
+          fs.writeFileSync(storagePath, JSON.stringify(current, null, 2), "utf8");
+          console.log("Merged missing keys from storage.template.json into existing storage.json");
+        }
+      }
+    } catch (e) {
+      console.log("Template merge skipped:", e.message);
+    }
   }
   const store = readStore();
   const invites = inviteList(store);
