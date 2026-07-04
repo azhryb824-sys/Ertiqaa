@@ -9,5 +9,4 @@ app.bundle.js
 .idea/
 .DS_Store
 .env
-# storage.json متعقب في git لمنع فقدان البيانات عند النشر
-# (ملاحظة: كلمات المرور مخزنة بنص واضح - هذا حل مؤقت)
+storage.json
