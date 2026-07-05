@@ -44,7 +44,7 @@ function saveAndOpen(rawUrl) {
     if (error) error.textContent = "";
     openInApp(normalized);
   } catch {
-    if (error) error.textContent = "فضلاً أدخل رابطاً صحيحاً يبدأ بـ https:// أو اسم نطاق صحيح.";
+    if (error) error.textContent = "فضلا أدخل رابطا صحيحا يبدأ بـ https:// أو اسم نطاق صحيح.";
   }
 }
 

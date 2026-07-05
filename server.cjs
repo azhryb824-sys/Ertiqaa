@@ -13,7 +13,14 @@ const host = process.env.HOST || "0.0.0.0";
 // On Render, DATA_DIR and STORAGE_PATH must stay on the persistent disk (/var/data).
 // Do not move storage.json back into the project directory. It contains users,
 // passwords, contracts, quotes, documents, and all customer operational data.
-const dataDir = process.env.DATA_DIR || path.join(require("os").homedir(), ".elevator-data");
+const preferredDataDir = process.env.DATA_DIR || path.join(require("os").homedir(), ".elevator-data");
+let dataDir = preferredDataDir;
+try {
+  fs.mkdirSync(dataDir, {recursive: true});
+} catch {
+  dataDir = path.join(root, ".elevator-data");
+  fs.mkdirSync(dataDir, {recursive: true});
+}
 const storagePath = process.env.STORAGE_PATH || path.join(dataDir, "storage.json");
 const storageFailover = path.join(require("os").homedir(), ".elevator-storage.json");
 const legacyStoragePath = path.join(root, "storage.json");
@@ -27,6 +34,13 @@ const entryCookieValue = crypto.createHash("sha256").update(entrySecret).digest(
 let storeCache = null;
 let storeMtime = 0;
 const _lastQs = new Map(); // {userId: {q, time, answer}}
+
+try {
+  fs.mkdirSync(dataDir, {recursive: true});
+  fs.mkdirSync(voiceCacheDir, {recursive: true});
+} catch (err) {
+  console.warn("Storage directory initialization failed:", err.message);
+}
 
 function loadAiResponseBank() {
   try {
@@ -3344,6 +3358,98 @@ function parseExcelContracts(buffer) {
 
 function cleanNationalId(value) {
   return String(value || "").replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(/[۰-۹]/g, d => "۰۱۲۳۴۵۶۷۸۹".indexOf(d)).replace(/\D/g, "");
+}
+
+function normalizeArabicImportText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[أإآٱ]/g, "ا")
+    .replace(/ى/g, "ي")
+    .replace(/ة/g, "ه")
+    .replace(/ؤ/g, "و")
+    .replace(/ئ/g, "ي")
+    .replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦٧٨٩".indexOf(d))
+    .replace(/[۰-۹]/g, d => "۰۱۲۳۴۵۶۷۸۹".indexOf(d));
+}
+
+function importHeaderKey(value) {
+  return normalizeArabicImportText(value).replace(/[^\p{L}\p{N}]+/gu, "");
+}
+
+function cleanNationalId(value) {
+  return String(value || "")
+    .replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦٧٨٩".indexOf(d))
+    .replace(/[۰-۹]/g, d => "۰۱۲۳۴۵۶۷۸۹".indexOf(d))
+    .replace(/\D/g, "");
+}
+
+function numberCell(value) {
+  const n = String(value || "")
+    .replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦٧٨٩".indexOf(d))
+    .replace(/[۰-۹]/g, d => "۰۱۲۳۴۵۶۷۸۹".indexOf(d))
+    .replace(/[^\d.-]/g, "");
+  return Number(n || 0);
+}
+
+function parseExcelContracts(buffer) {
+  const entries = zipEntries(buffer);
+  const shared = parseSharedStrings(entries);
+  const sheets = parseWorkbookSheets(entries);
+  const parsed = [];
+  const pick = (row, headers, aliases) => {
+    for (const alias of aliases) {
+      const key = importHeaderKey(alias);
+      const idx = headers.findIndex(h => h === key || h.includes(key) || key.includes(h));
+      if (idx >= 0 && row[idx] !== undefined && String(row[idx]).trim() !== "") return String(row[idx]).trim();
+    }
+    return "";
+  };
+  for (const sheet of sheets) {
+    const xml = entries[sheet.path]?.toString("utf8");
+    if (!xml) continue;
+    const rows = parseSheetRows(xml, shared);
+    if (rows.length < 2) continue;
+    const headerRowIndex = rows.findIndex(r => r.filter(Boolean).length >= 2);
+    if (headerRowIndex < 0) continue;
+    const headers = rows[headerRowIndex].map(importHeaderKey);
+    for (const row of rows.slice(headerRowIndex + 1)) {
+      const contractType = pick(row, headers, ["نوع العقد", "النوع", "نوع الخدمة", "خدمة", "type", "contract type"]);
+      const clientCompanyName = pick(row, headers, ["اسم المنشأة", "اسم الشركة", "الشركة", "المؤسسة", "العميل", "الطرف الثاني", "client company", "company", "client"]);
+      const clientName = pick(row, headers, ["اسم العميل", "ممثل العميل", "المالك", "صاحب العقد", "client name", "customer", "owner"]);
+      const value = numberCell(pick(row, headers, ["قيمة العقد", "القيمة", "المبلغ", "اجمالي", "الإجمالي", "السعر", "value", "amount", "total", "price"]));
+      const buildingName = pick(row, headers, ["المبنى", "اسم المبنى", "الموقع", "العقار", "المشروع", "building", "site", "location", "project"]);
+      const startDate = dateCell(pick(row, headers, ["بداية العقد", "تاريخ البداية", "تاريخ العقد", "من تاريخ", "start date", "start", "from"]));
+      const endDate = dateCell(pick(row, headers, ["نهاية العقد", "تاريخ النهاية", "إلى تاريخ", "الى تاريخ", "end date", "end", "to"]));
+      if (!clientCompanyName && !clientName && !buildingName && !value) continue;
+      parsed.push({
+        sheet: sheet.name,
+        type: /تركيب|install/i.test(contractType) ? "تركيب" : "صيانة",
+        clientName,
+        clientCompanyName: clientCompanyName || clientName,
+        clientId: cleanNationalId(pick(row, headers, ["هوية العميل", "رقم الهوية", "هوية المالك", "client id", "customer id", "id"])),
+        clientCompanyUnifiedNumber: cleanNationalId(pick(row, headers, ["الرقم الموحد", "رقم المنشأة", "رقم الشركة", "السجل", "unified number", "company id", "cr"])),
+        value,
+        startDate: startDate || dateVal(new Date()),
+        endDate,
+        contractYears: numberCell(pick(row, headers, ["مدة العقد", "المدة", "عدد السنوات", "years", "duration"])) || 1,
+        details: pick(row, headers, ["التفاصيل", "الوصف", "ملاحظات", "بيان", "details", "notes", "description"]) || "مستورد من ملف Excel عبر الذكاء الاصطناعي.",
+        elevatorInfo: {
+          count: pick(row, headers, ["عدد المصاعد", "العدد", "elevator count", "count"]) || "1",
+          brand: pick(row, headers, ["الماركة", "العلامة", "brand"]),
+          age: pick(row, headers, ["العمر", "سنة الصنع", "age"]),
+          capacity: pick(row, headers, ["السعة", "الحمولة", "capacity"]),
+          usage: pick(row, headers, ["الاستخدام", "نوع الاستخدام", "usage"])
+        },
+        buildings: [{
+          name: buildingName || "موقع غير محدد",
+          district: pick(row, headers, ["الحي", "المنطقة", "district", "area"]),
+          mapUrl: pick(row, headers, ["رابط الموقع", "الخريطة", "map", "maps"]),
+          guardMobile: pick(row, headers, ["جوال الحارس", "الحارس", "جوال المسؤول", "guard", "mobile"])
+        }]
+      });
+    }
+  }
+  return parsed;
 }
 
 function parseMultipartFile(req, limitBytes = 12 * 1024 * 1024) {
