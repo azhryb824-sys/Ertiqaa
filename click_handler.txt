@@ -1,0 +1,288 @@
+document.addEventListener("click",e=>{
+    const ctab=e.target.closest("[data-contract-tab]");if(ctab){const form=ctab.closest("form"),idx=ctab.dataset.contractTab;if(form){$$("[data-contract-tab]",form).forEach(x=>x.classList.toggle("active",x.dataset.contractTab===idx));$$("[data-contract-tab-panel]",form).forEach(x=>{const on=x.dataset.contractTabPanel===idx;x.classList.toggle("active",on);if(on)x.style.display=""})}return}
+    const page=e.target.closest("[data-page-link]");if(page){render(page.dataset.pageLink);return}
+    const aiLookup=e.target.closest("#adminInviteLookupBtn");if(aiLookup){const id=cleanId($("#adminInviteUserId").value);if(!id||id.length<4){$("#adminInviteResult").innerHTML='<div class="notice error">أدخل رقم هوية صحيحًا.</div>';return}fetch("/api/users/lookup?id="+encodeURIComponent(id),{cache:"no-store"}).then(r=>r.json()).then(data=>{if(!r.ok||!data.found){$("#adminInviteResult").innerHTML='<div class="notice error">لم يتم العثور على مستخدم.</div>';return}const u=data.user;if(u.role==="admin"||u.role==="owner"){$("#adminInviteResult").innerHTML='<div class="notice error">لا يمكن دعوة مشرف أو مالك.</div>';return}if(u.role==="company_admin"&&u.companyOwnerId){if(ownerCompanies.find(c=>c.ownerId===u.companyOwnerId||c.id===u.companyOwnerId||(c.ownerIds||[]).includes(u.companyOwnerId))?.name){$("#adminInviteResult").innerHTML='<div class="notice error">هذا المستخدم إداري بالفعل في شركة أخرى.</div>';return}}const myCo=activeOwnerCompany();const coName=myCo?.name||"الشركة";if(adminInvites.some(i=>i.userId===u.id&&i.companyOwnerId===ownerId()&&i.status==="pending")){$("#adminInviteResult").innerHTML='<div class="notice info">دعوة معلقة مسبقًا لهذا المستخدم.</div>';return}$("#adminInviteResult").innerHTML='<div class="link-result-card"><div><b>'+esc(u.name)+'</b><span>'+ (roles[u.role]||u.role)+'</span><small>'+u.id+'</small></div><p>إرسال دعوة للإدارة في <b>'+esc(coName)+'</b>؟</p><button class="btn-primary" data-send-admin-invite="'+esc(u.id)+'" data-name="'+esc(u.name)+'">إرسال الدعوة</button></div>'}).catch(()=>{$("#adminInviteResult").innerHTML='<div class="notice error">تعذر البحث.</div>'});return}
+    const linkLookup=e.target.closest("#linkLookupBtn");if(linkLookup){const id=cleanId($("#linkUserId").value);if(!id||id.length<4){$("#linkLookupResult").innerHTML='<div class="notice error">أدخل رقم هوية صحيحًا.</div>';return}fetch("/api/users/lookup?id="+encodeURIComponent(id),{cache:"no-store"}).then(r=>r.json()).then(data=>{if(!r.ok||!data.found){$("#linkLookupResult").innerHTML='<div class="notice error">لم يتم العثور على مستخدم.</div>';return}const u=data.user;if(u.role==="owner"||u.role==="admin"){$("#linkLookupResult").innerHTML='<div class="notice error">لا يمكن ربط مالك أو مشرف النظام.</div>';return}if(u.role==="client"){$("#linkLookupResult").innerHTML='<div class="notice error">العملاء يُربطون عبر عقود الصيانة، ليس هنا.</div>';return}const myIds=[...new Set([activeOwnerCompany()?.ownerId,...(activeOwnerCompany()?.ownerIds||[])])];const linkedToMyCo=u.companyOwnerId&&myIds.includes(u.companyOwnerId);const linkedOther=u.companyOwnerId&&!myIds.includes(u.companyOwnerId);const otherCoName=linkedOther?ownerCompanies.find(c=>c.id===u.companyOwnerId||(c.ownerIds||[]).concat(c.ownerId||[]).includes(u.companyOwnerId))?.name||"شركة أخرى":"";$("#linkLookupResult").innerHTML='<div class="link-result-card"><div><b>'+esc(u.name)+'</b><span>'+(roles[u.role]||u.role)+'</span><small>'+u.id+'</small></div>'+(linkedToMyCo?'<div class="notice success">✓ هذا المستخدم مرتبط بمنشأتك بالفعل.</div><button class="action-btn" data-unlink-user="'+esc(u.id)+'">فك الربط</button>':'')+(linkedOther?'<div class="notice error">✗ هذا المستخدم مرتبط بـ "'+esc(otherCoName)+'". لا يمكن ربطه بمنشأتين.</div>':'')+(u.companyOwnerId&&!linkedToMyCo&&!linkedOther?'<div class="notice info">هذا المستخدم مرتبط بمنشأة أخرى ولكن يمكن ربطه.</div>':'')+(!u.companyOwnerId?'<button class="btn-primary" data-confirm-link="'+esc(u.id)+'" data-link-name="'+esc(u.name)+'" data-link-role="'+esc(u.role)+'">ربط '+esc(u.name)+' بالمنشأة</button><div class="notice" style="margin-top:6px;font-size:12px">ⓘ بعد الربط، يجب على المستخدم تسجيل الخروج والدخول مرة أخرى.</div>':'')+'</div>'}).catch(()=>{$("#linkLookupResult").innerHTML='<div class="notice error">تعذر البحث.</div>'});return}
+    const sendInvite=e.target.closest("[data-send-admin-invite]");if(sendInvite){const uid=sendInvite.dataset.sendAdminInvite,name=sendInvite.dataset.name,myCo=activeOwnerCompany(),coName=myCo?.name||"الشركة",coId=ownerId();const inv={id:`ADMIN-INV-${Date.now()}`,userId:uid,userName:name,companyOwnerId:coId,companyName:coName,invitedBy:session.id,invitedByName:session.name,status:"pending",createdAt:new Date().toISOString()};adminInvites.unshift(inv);write("misadAdminInvites",adminInvites);sendNotification({userId:uid,type:"admin_invite",title:"دعوة للإدارة",body:`تمت دعوتك للإدارة في ${coName} من قبل ${session.name}`,url:"dashboard.html"});$("#adminInviteResult").innerHTML='<div class="notice success">تم إرسال الدعوة إلى '+esc(name)+'</div>';render("team");return}
+    const acceptAdmin=e.target.closest("[data-accept-admin]");if(acceptAdmin){const inviteId=acceptAdmin.dataset.acceptAdmin,inv=adminInvites.find(i=>i.id===inviteId);if(!inv)return;fetch("/api/users/link",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({userId:inv.userId,companyOwnerId:inv.companyOwnerId,linkedBy:inv.invitedBy})}).then(r=>r.json()).then(data=>{if(data.ok){inv.status="accepted";write("misadAdminInvites",adminInvites);sendNotification({userId:inv.invitedBy,type:"admin_accepted",title:"قبول دعوة إدارة",body:`${session.name} قبل الدعوة للإدارة في ${inv.companyName}`});toast("تم قبول الدعوة! الرجاء تسجيل الخروج والدخول مرة أخرى.");render("team")}else toast(data.error||"فشل القبول")}).catch(()=>toast("تعذر الاتصال بالخادم"));return}
+    const rejectAdmin=e.target.closest("[data-reject-admin]");if(rejectAdmin){const inviteId=rejectAdmin.dataset.rejectAdmin,inv=adminInvites.find(i=>i.id===inviteId);if(inv){inv.status="rejected";write("misadAdminInvites",adminInvites);sendNotification({userId:inv.invitedBy,type:"admin_rejected",title:"رفض دعوة إدارة",body:`${session.name} رفض الدعوة للإدارة في ${inv.companyName}`});toast("تم رفض الدعوة");render("team")}return}
+    const cancelInvite=e.target.closest("[data-cancel-invite]");if(cancelInvite){const inviteId=cancelInvite.dataset.cancelInvite;if(confirm("إلغاء الدعوة؟")){const inv=adminInvites.find(i=>i.id===inviteId);if(inv){inv.status="cancelled";write("misadAdminInvites",adminInvites);render("team")}}return}
+    const aiPageBtn=e.target.closest("[data-ai-page]");if(aiPageBtn){const dock=$("#voiceAiDock");if(dock){dock.classList.add("open");const input=$(".voice-ai-input",dock);if(input){input.value=aiPagePrompt[aiPageBtn.dataset.aiPage]||"";input.focus()}}return}
+    const makeLink=e.target.closest("[data-create-entry-link]");if(makeLink){createInviteLink(makeLink.dataset.createEntryLink).then(inv=>{toast("تم توليد الرابط");renderEntryLinks();navigator.clipboard?.writeText(inv.url).catch(()=>{})}).catch(()=>toast("تعذر توليد الرابط"));return}
+    const copyInvite=e.target.closest("[data-copy-invite]");if(copyInvite){navigator.clipboard?.writeText(copyInvite.dataset.copyInvite).then(()=>toast("تم نسخ الرابط")).catch(()=>prompt("انسخ الرابط",copyInvite.dataset.copyInvite));return}
+    const shareInvite=e.target.closest("[data-share-invite]");if(shareInvite){const text=`${shareInvite.dataset.shareLabel}\n${shareInvite.dataset.shareInvite}`;if(navigator.share)navigator.share({title:shareInvite.dataset.shareLabel,text,url:shareInvite.dataset.shareInvite}).catch(()=>{});else navigator.clipboard?.writeText(text).then(()=>toast("تم نسخ نص المشاركة")).catch(()=>prompt("انسخ الرابط",text));return}
+const linkUser=e.target.closest("[data-confirm-link]");if(linkUser){const uid=linkUser.dataset.confirmLink,name=linkUser.dataset.linkName;if(!confirm(`ربط ${name||uid} بالمنشأة؟`))return;fetch("/api/users/link",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({userId:uid,companyOwnerId:ownerId(),linkedBy:session.id})}).then(r=>r.json()).then(data=>{if(data.ok){toast("تم ربط المستخدم بالمنشأة");render("team")}else toast(data.error||"فشل الربط")}).catch(()=>toast("تعذر الاتصال بالخادم"));return}
+const unlinkUser=e.target.closest("[data-unlink-user]");if(unlinkUser){const uid=unlinkUser.dataset.unlinkUser;if(!confirm(`فك ربط المستخدم ${uid} عن المنشأة؟`))return;fetch("/api/users/unlink",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({userId:uid,unlinkedBy:session.id})}).then(r=>r.json()).then(data=>{if(data.ok){toast("تم فك ربط المستخدم");render("team")}else toast(data.error||"فشل فك الربط")}).catch(()=>toast("تعذر الاتصال بالخادم"));return}
+    const markRead=e.target.closest("[data-notification-read]");if(markRead){fetch("/api/notifications/mark-read",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({notificationId:markRead.dataset.notificationRead,userId:session.id})}).then(()=>{toast("تم تعليم الإشعار كمقروء");notificationsPage()}).catch(()=>toast("تعذر تحديث الإشعار"));return}
+    const archiveNotice=e.target.closest("[data-notification-archive]");if(archiveNotice){fetch("/api/notifications/mark-read",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({notificationId:archiveNotice.dataset.notificationArchive,userId:session.id,archived:true})}).then(()=>{toast("تمت أرشفة الإشعار");notificationsPage()}).catch(()=>toast("تعذر أرشفة الإشعار"));return}
+    const markAll=e.target.closest("[data-notification-mark-all]");if(markAll){fetch("/api/notifications/mark-all-read",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({userId:session.id,role:session.role})}).then(()=>{toast("تم تعليم الكل كمقروء");notificationsPage()}).catch(()=>toast("تعذر تحديث الإشعارات"));return}
+    const aiApprove=e.target.closest("[data-ai-approve]");if(aiApprove){const [type,id]=aiApprove.dataset.aiApprove.split(":");const map={quote:[quotes,"misadQuotes"],contract:[contracts,"misadContracts"],ticket:[tickets,"misadTickets"],visit:[visits,"misadVisits"],staff:[staff,"misadCompanyStaff"],supplier:[suppliers,"misadSuppliers"]},m=map[type],r=m?.[0].find(x=>x.id===id||x.identity===id);if(r){if(type==="quote")r.status="معتمد";if(type==="contract")r.status="ساري";r.approvedAt=new Date().toISOString();r.approvedBy=session.id;write(m[1],m[0]);logActivity("ذكاء اصطناعي","تم اعتماد سجل من المعاينة",id);toast("تم الاعتماد");render(currentPage)}return}
+    const aiCancel=e.target.closest("[data-ai-cancel]");if(aiCancel){const [type,id]=aiCancel.dataset.aiCancel.split(":");const map={quote:[quotes,"misadQuotes"],contract:[contracts,"misadContracts"],ticket:[tickets,"misadTickets"],visit:[visits,"misadVisits"],staff:[staff,"misadCompanyStaff"],supplier:[suppliers,"misadSuppliers"]},m=map[type];if(m&&confirm("إلغاء وحذف السجل الذي أنشأه الذكاء الاصطناعي؟")){const next=m[0].filter(x=>x.id!==id&&x.identity!==id);if(type==="quote")quotes=next;if(type==="contract")contracts=next;if(type==="ticket")tickets=next;if(type==="visit")visits=next;if(type==="staff")staff=next;if(type==="supplier")suppliers=next;write(m[1],next);logActivity("ذكاء اصطناعي","تم إلغاء سجل من المعاينة",id);toast("تم الإلغاء");render(currentPage)}return}
+    const aiEdit=e.target.closest("[data-ai-edit]");if(aiEdit){toast("اكتب التعديل المطلوب في سؤال الإدارة الذكية، وسيطبقه الوكيل بالحوار في المرحلة التالية.");return}
+    const approveDoc=e.target.closest("[data-approve-doc]");if(approveDoc){const d=docs.find(x=>x.id===approveDoc.dataset.approveDoc);if(d){Object.assign(d,{status:"معتمد",approvedAt:new Date().toISOString(),approvedBy:session.id});write("misadCompanyDocs",docs);logActivity("اعتماد","تم اعتماد مستند",d.id);sendNotification({roles:["owner","company_admin","admin"],type:"document_approved",title:"تم اعتماد مستند",body:d.name||d.id,url:"dashboard.html"});toast("تم اعتماد المستند");render("company-docs")}return}
+    const rejectDoc=e.target.closest("[data-reject-doc]");if(rejectDoc){const d=docs.find(x=>x.id===rejectDoc.dataset.rejectDoc);if(d){Object.assign(d,{status:"مرفوض",rejectedAt:new Date().toISOString(),rejectedBy:session.id});write("misadCompanyDocs",docs);logActivity("رفض","تم رفض مستند",d.id);toast("تم رفض المستند");render("company-docs")}return}
+    const approveQuote=e.target.closest("[data-approve-quote]");if(approveQuote){const q=quotes.find(x=>x.id===approveQuote.dataset.approveQuote);if(q){Object.assign(q,{status:"معتمد",approvedAt:new Date().toISOString(),approvedBy:session.id});write("misadQuotes",quotes);logActivity("اعتماد","تم اعتماد عرض سعر",q.id);sendNotification({roles:["owner","company_admin","admin"],type:"document_approved",title:"تم اعتماد عرض سعر",body:`${q.id} - ${q.client||""}`,url:"dashboard.html"});toast("تم اعتماد عرض السعر");render("quotes")}return}
+    const rejectQuote=e.target.closest("[data-reject-quote]");if(rejectQuote){const q=quotes.find(x=>x.id===rejectQuote.dataset.rejectQuote);if(q){Object.assign(q,{status:"مرفوض",rejectedAt:new Date().toISOString(),rejectedBy:session.id});write("misadQuotes",quotes);logActivity("رفض","تم رفض عرض سعر",q.id);toast("تم رفض عرض السعر");render("quotes")}return}
+    const comms=e.target.closest("[data-visit-comms]");if(comms){const v=visits.find(x=>x.id===comms.dataset.visitComms);if(v)modal("تواصل الزيارة",visitCommunication(v));return}
+    const vc=e.target.closest("[data-view-contract]");if(vc){const x=contracts.find(c=>c.id===vc.dataset.viewContract);if(x)modal("تفاصيل العقد",contractDetails(x));return}
+    const cc=e.target.closest("[data-contract-cancel]");if(cc){const x=contracts.find(c=>c.id===cc.dataset.contractCancel);if(x&&canManageContract(x)&&confirm("تأكيد إلغاء العقد؟")){x.status="ملغي";x.canceledAt=new Date().toLocaleString("ar-SA");x.canceledBy=session.id;write("misadContracts",contracts);render("contracts");toast("تم إلغاء العقد")}return}
+    const dc=e.target.closest("[data-contract-delete]");if(dc){const x=contracts.find(c=>c.id===dc.dataset.contractDelete);if(x&&canManageContract(x)&&confirm("سيتم حذف العقد نهائيا من القائمة، هل تريد المتابعة؟")){contracts=contracts.filter(c=>c.id!==x.id);write("misadContracts",contracts);render("contracts");toast("تم حذف العقد")}return}
+    const aiExcel=e.target.closest("[data-ai-import-excel]");if(aiExcel){modal("استيراد عقود من Excel بالذكاء الاصطناعي",'<form class="modal-form" data-form="ai-excel-import"><label>اختر ملف Excel<small>يحتوي على عقود الصيانة والتركيب</small><input type="file" name="file" accept=".xlsx" required></label><button class="btn-primary" id="aiExcelBtn">تحليل واستيراد</button><div id="aiExcelResult" style="display:none"></div></form>');const fm=document.querySelector("[data-form=ai-excel-import]");if(fm)fm.onsubmit=async function(e){e.preventDefault();const fd=new FormData(this);const btn=$("#aiExcelBtn");if(btn){btn.disabled=true;btn.textContent="جاري التحليل..."}try{const r=await fetch("/api/contracts/ai-import-excel?role="+encodeURIComponent(session.role)+"&userId="+encodeURIComponent(session.id)+"&companyOwnerId="+encodeURIComponent(session.companyOwnerId||ownerId()),{method:"POST",body:fd});const d=await r.json();const res=$("#aiExcelResult");if(res){res.style.display="block";if(!r.ok||!d.ok){res.innerHTML="<p style=color:#d32>خطأ: "+(d.error||"فشل الاستيراد")+"</p>"}else{res.innerHTML="<p style=color:#1a7>✅ تم بنجاح</p><p>تم تحليل "+d.analyzedRows+" صف واستيراد "+d.importedCount+" عقد"+(d.skippedCount?"، تم تجاوز "+d.skippedCount+" صف":"")+".</p>"+(d.skipped?.length?'<details><summary>التجاوزات</summary><ul>'+d.skipped.map(s=>"<li>"+(s.reason||"")+"</li>").join("")+"</ul></details>":"")+"<button class=btn-primary onclick='render(\"contracts\");closeModal()'>عرض العقود</button>"}}setTimeout(()=>render("contracts"),500)}catch(err){toast("تعذر الاتصال");console.error(err)}finally{if(btn){btn.disabled=false;btn.textContent="تحليل واستيراد"}}};return}
+    const vr=e.target.closest("[data-view-report]");if(vr){const x=reports.find(r=>r.id===vr.dataset.viewReport);if(x)modal("تقرير الزيارة",reportDetails(x));return}
+    const vt=e.target.closest("[data-view-ticket]");if(vt){const x=tickets.find(t=>t.id===vt.dataset.viewTicket);if(x)modal("تفاصيل البلاغ",ticketDetails(x));return}
+    const ko=e.target.closest("[data-knowledge-open]");if(ko){const p=knowledgePages.find(x=>x.id===ko.dataset.knowledgeOpen);if(p)modal(p.title,knowledgeDetails(p));return}
+    const tb=e.target.closest("[data-toggle-banner]");if(tb&&session.role==="admin"){const b=systemBanners.find(x=>x.id===tb.dataset.toggleBanner);if(b){b.status=(b.status||"active")==="active"?"paused":"active";write("misadSystemBanners",systemBanners);render("admin-banners");toast("تم تحديث حالة البنر")}return}
+    const db=e.target.closest("[data-delete-banner]");if(db&&session.role==="admin"){if(confirm("حذف البنر؟")){systemBanners=systemBanners.filter(x=>x.id!==db.dataset.deleteBanner);write("misadSystemBanners",systemBanners);render("admin-banners");toast("تم حذف البنر")}return}
+    const tk=e.target.closest("[data-toggle-knowledge]");if(tk&&session.role==="admin"){const p=knowledgePages.find(x=>x.id===tk.dataset.toggleKnowledge);if(p){p.status=(p.status||"published")==="published"?"draft":"published";write("misadKnowledgePages",knowledgePages);render("admin-knowledge");toast("تم تحديث حالة الصفحة")}return}
+    const dk=e.target.closest("[data-delete-knowledge]");if(dk&&session.role==="admin"){if(confirm("حذف الصفحة التوعوية؟")){knowledgePages=knowledgePages.filter(x=>x.id!==dk.dataset.deleteKnowledge);write("misadKnowledgePages",knowledgePages);render("admin-knowledge");toast("تم حذف الصفحة")}return}
+    const du=e.target.closest("[data-delete-user]");if(du&&session.role==="admin"){const uid=du.dataset.deleteUser;if(!confirm(`تعطيل المستخدم ${uid}؟ سيبقى سجله محفوظاً ويمكن استعادته لاحقاً.`))return;fetch("/api/admin/delete-user",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({userId:uid,role:"admin",requesterId:session.id})}).then(r=>r.json()).then(data=>{if(data.ok){toast(`تم تعطيل ${data.deletedUser||uid}`);render("users")}else toast(data.error||"فشل تعطيل المستخدم")}).catch(()=>toast("تعذر الاتصال بالخادم"));return}
+    const ru=e.target.closest("[data-restore-user]");if(ru&&session.role==="admin"){const uid=ru.dataset.restoreUser;if(!confirm(`استعادة المستخدم ${uid}؟`))return;fetch("/api/admin/restore-user",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({userId:uid,role:"admin",requesterId:session.id})}).then(r=>r.json()).then(data=>{if(data.ok){toast(`تم استعادة ${data.restoredUser||uid}`);render("users")}else toast(data.error||"فشل استعادة المستخدم")}).catch(()=>toast("تعذر الاتصال بالخادم"));return}
+    const dcCmd=e.target.closest("[data-delete-company]");if(dcCmd&&session.role==="admin"){const cid=dcCmd.dataset.deleteCompany;if(!confirm(`تعطيل الشركة ${cid}؟ سيبقى سجلها محفوظاً ويمكن استعادتها لاحقاً.`))return;fetch("/api/admin/delete-company",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({companyId:cid,role:"admin",requesterId:session.id})}).then(r=>r.json()).then(data=>{if(data.ok){toast(`تم تعطيل ${data.deletedCompany||cid}`);render("companies")}else toast(data.error||"فشل تعطيل الشركة")}).catch(()=>toast("تعذر الاتصال بالخادم"));return}
+    const rc=e.target.closest("[data-restore-company]");if(rc&&session.role==="admin"){const cid=rc.dataset.restoreCompany;if(!confirm(`استعادة الشركة ${cid}؟`))return;fetch("/api/admin/restore-company",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({companyId:cid,role:"admin",requesterId:session.id})}).then(r=>r.json()).then(data=>{if(data.ok){toast(`تم استعادة ${data.restoredCompany||cid}`);render("companies")}else toast(data.error||"فشل استعادة الشركة")}).catch(()=>toast("تعذر الاتصال بالخادم"));return}
+    const pdf=e.target.closest("[data-pdf-doc]");if(pdf){downloadPdf(pdf.dataset.pdfDoc,pdf.dataset.pdfId);return}
+    const prev=e.target.closest("[data-pdf-preview]");if(prev){printDoc(prev.dataset.pdfPreview,prev.dataset.pdfId);return}
+    const focus=e.target.closest("[data-focus-map]");if(focus){$("#trackingMap").src=mapEmbed(focus.dataset.focusMap,focus.dataset.focusFallback);return}
+    const aiPrompt=e.target.closest("[data-ai-prompt]");if(aiPrompt){runUnifiedAiCommand(aiPrompt.dataset.aiPrompt).catch(()=>{});return}
+    const vcBtn = e.target.closest("[data-voice-chat-mic]");
+    if (vcBtn) {
+      const msg = document.getElementById("aiExecMessages"), st = document.getElementById("aiExecStatus"),
+            wave = document.getElementById("aiWaveform"), trn = document.getElementById("aiTranscript"),
+            intr = document.getElementById("aiInterruptBtn"), mic = vcBtn;
+      const dot = st?.querySelector(".vc-status-dot");
+      if (!window.voiceChatActive) {
+        window.voiceChatActive = true;
+        mic.classList.add("listening");
+        if (intr) intr.style.display = "grid";
+        const empty = msg?.querySelector(".vc-empty");
+        if (empty) empty.remove();
+        function setStatus(text, ok) {
+          if (!st) return;
+          st.innerHTML = '<span class="vc-status-dot" style="background:' + (ok ? '#9abf8a' : '#e8b84b') + '"></span> ' + text;
+        }
+        function scrollMsg() { if (msg) { msg.scrollTop = msg.scrollHeight; } }
+        function addMsg(sender, text, err) {
+          const t = new Date().toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
+          const cls = sender === "user" ? "vc-user" : "vc-ai";
+          const extra = err ? " vc-error" : "";
+          if (msg) {
+            msg.insertAdjacentHTML("beforeend", '<div class="vc-msg ' + cls + '"><div class="vc-bubble' + extra + '">' + esc(text) + '<span class="vc-time">' + t + '</span></div></div>');
+            scrollMsg();
+          }
+        }
+        function showTyping(show) {
+          if (!msg) return;
+          const existing = msg.querySelector(".vc-typing");
+          if (show && !existing) {
+            msg.insertAdjacentHTML("beforeend", '<div class="vc-msg vc-ai"><div class="vc-typing"><span></span><span></span><span></span></div></div>');
+            scrollMsg();
+          } else if (!show && existing) {
+            existing.closest(".vc-msg")?.remove();
+          }
+        }
+        function startWave() { if (wave) wave.classList.add("active"); }
+        function stopWave() { if (wave) wave.classList.remove("active"); }
+
+        // Create dedicated recognition for real-time transcription
+        var rec = null;
+        try {
+          var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+          if (SR) {
+            rec = new SR();
+            rec.lang = "ar-SA";
+            rec.interimResults = true;
+            rec.continuous = false;
+            window.voiceChatRec = rec;
+          }
+        } catch (_) { rec = null; }
+
+        var _vcListenTimeout = null;
+
+        function startListen() {
+          if (!window.voiceChatActive) return;
+          if (window._vcListening) return;
+          window._vcListening = true;
+          setStatus("🎤 استمع...", true);
+          startWave();
+          if (trn) { trn.style.display = "none"; trn.textContent = ""; }
+
+          if (rec) {
+            try { rec.abort(); } catch (_) {}
+            var finalText = "";
+            rec.onstart = function () { /* started */ };
+            rec.onerror = function (ev) {
+              if (!window.voiceChatActive) { window._vcListening = false; return; }
+              if (ev.error === "no-speech") { window._vcListening = false; _vcListenTimeout = setTimeout(function () { if (window.voiceChatActive) startListen(); }, 1200); return; }
+              if (ev.error === "aborted") { window._vcListening = false; return; }
+              stopWave();
+              window._vcListening = false;
+              setStatus("❌ تعذر الاستماع، حاول مرة أخرى", false);
+              setTimeout(function () { if (window.voiceChatActive) startListen(); }, 1500);
+            };
+            rec.onresult = function (ev) {
+              var interim = "";
+              for (var i = 0; i < ev.results.length; i++) {
+                var r = ev.results[i];
+                if (r.isFinal) {
+                  finalText += (finalText ? " " : "") + (r[0]?.transcript || "");
+                } else {
+                  interim += (r[0]?.transcript || "");
+                }
+              }
+              var display = finalText + (interim ? " " + interim : "");
+              if (display && trn) {
+                trn.textContent = display;
+                trn.style.display = "block";
+              }
+            };
+            rec.onend = function () {
+              stopWave();
+              window._vcListening = false;
+              if (trn) trn.style.display = "none";
+              if (!window.voiceChatActive) return;
+              var txt = finalText.trim();
+              if (txt && txt.length > 1) {
+                handleCommand(txt);
+              } else {
+                setStatus("🎤 لم أسمعك، حاول مرة أخرى", false);
+                _vcListenTimeout = setTimeout(function () { if (window.voiceChatActive) startListen(); }, 1800);
+              }
+            };
+            rec.start();
+          } else {
+            window._vcListening = false;
+            window.voiceChatRec = listenArabic(
+              function (text) { if (window.voiceChatActive && text) handleCommand(text); },
+              function (status) { if (window.voiceChatActive && status) setStatus(status, true); }
+            );
+            stopWave();
+          }
+        }
+
+        function handleCommand(text) {
+          if (!window.voiceChatActive) return;
+          if (_vcListenTimeout) { clearTimeout(_vcListenTimeout); _vcListenTimeout = null; }
+          window._vcListening = true;
+          addMsg("user", text);
+          setStatus("⚡ جاري التنفيذ...", true);
+          showTyping(true);
+
+          var body = Object.assign({ question: text }, aiRequestUser());
+          if (window._pendingCreation) {
+            // If the new text starts with a fresh command word, discard pending
+            if (/^(?:سوي|أنشئ|أنشي|إنشي|اعمل|أضف|اضف|كم|عطيني|أرني|ارني|أظهر|اظهر|شوف|من أنت|السلام|شكراً|مرحبا|حلل)/i.test(text)) {
+              delete window._pendingCreation;
+            } else {
+              body._pendingAction = window._pendingCreation.action;
+              body._pendingData = window._pendingCreation.data;
+              delete window._pendingCreation;
+            }
+          }
+
+          fetch("/api/ai/execute", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body)
+          })
+          .then(function (r) { return r.json(); })
+          .then(async function (d) {
+            showTyping(false);
+            if (!window.voiceChatActive) return;
+            var reply = d.message || "تم التنفيذ";
+            addMsg("ai", reply);
+            if (d.executed === false && d.missingFields && d.missingFields.length) {
+              window._pendingCreation = { action: d.action, data: d.data || {} };
+            }
+            if (d.openForm && d.formType) {
+              var fm = { contract: "contract", quote: "quote", ticket: "ticket", visit: "visit", staff: "staff", supplier: "supplier", part: "part" };
+              var fk = fm[d.formType] || d.formType;
+              var dd = d.data || {};
+              openForm(fk);
+              setTimeout(function () {
+                var f = document.getElementById("modalContent")?.querySelector("form");
+                if (!f) return;
+                var fl = { contract: ["clientName", "clientCompanyName", "clientId", "type", "value", "contractYears", "contractStartDate", "details", "buildingName", "buildingDistrict"], quote: ["clientName", "clientCompanyName", "clientId", "title", "type", "value", "details"], ticket: ["title", "description", "priority", "clientName", "clientCompanyName"], visit: ["clientName", "clientCompanyName", "clientId", "buildingName", "buildingDistrict", "scheduledAt", "notes"], staff: ["name", "identity", "role"], supplier: ["name", "phone", "email", "city", "category"] };
+                var fs = fl[d.formType] || [];
+                fs.forEach(function (k) { var v = dd[k]; if (!v) return; var el = f.querySelector('[name="' + k + '"]'); if (el) { el.value = v; el.dispatchEvent(new Event("input", { bubbles: true })); } });
+                if (dd.building && dd.building.name) { var b = f.querySelector('[name="buildingName"]'); if (b) { b.value = dd.building.name; b.dispatchEvent(new Event("input", { bubbles: true })); } }
+              }, 300);
+            }
+            setStatus("🔊 يتحدث النظام...", true);
+            await speakArabic(reply);
+            await new Promise(function (r) { return setTimeout(r, 2000); });
+            if (window.voiceChatActive) startListen();
+            else setStatus("متوقف", false);
+          })
+          .catch(function (e) {
+            showTyping(false);
+            if (!window.voiceChatActive) return;
+            addMsg("ai", "خطأ: " + e.message, true);
+            window._vcListening = false;
+            setTimeout(function () { if (window.voiceChatActive) startListen(); }, 1500);
+          });
+        }
+
+        window.handleVoiceCommand = handleCommand;
+
+        // Start the first listen cycle
+        startListen();
+      } else {
+        // Stop conversation
+        window.voiceChatActive = false;
+        window._vcListening = false;
+        if (_vcListenTimeout) { clearTimeout(_vcListenTimeout); _vcListenTimeout = null; }
+        if (window.voiceChatRec) {
+          try { window.voiceChatRec.stop(); } catch (_) {}
+          try { window.voiceChatRec.abort(); } catch (_) {}
+          window.voiceChatRec = null;
+        }
+        stopVoiceOutput();
+        mic.classList.remove("listening");
+        if (intr) intr.style.display = "none";
+        stopWave();
+        if (trn) trn.style.display = "none";
+        setStatus("متوقف", false);
+      }
+      return;
+    }
+
+    // Interrupt button handler
+    const intBtn = e.target.closest("#aiInterruptBtn");
+    if (intBtn && window.voiceChatActive) {
+      stopVoiceOutput();
+      window._vcListening = false;
+      if (_vcListenTimeout) { clearTimeout(_vcListenTimeout); _vcListenTimeout = null; }
+      if (window.voiceChatRec) {
+        try { window.voiceChatRec.stop(); } catch (_) {}
+        try { window.voiceChatRec.abort(); } catch (_) {}
+      }
+      var si2 = document.getElementById("aiExecStatus");
+      if (si2) si2.innerHTML = '<span class="vc-status-dot" style="background:#9abf8a"></span> 🎤 استمع...';
+      var wr = document.getElementById("aiWaveform");
+      if (wr) wr.classList.add("active");
+      var msg2 = document.getElementById("aiExecMessages");
+      var mt2 = msg2?.querySelector(".vc-typing");
+      if (mt2) mt2.closest(".vc-msg")?.remove();
+      window.voiceChatActive = false;
+      var micEl = document.querySelector("[data-voice-chat-mic]");
+      if (micEl) { micEl.classList.remove("listening"); setTimeout(function () { micEl.click(); }, 50); }
+      return;
+    }
+
+    var _sendBtn=e.target.closest("#aiSendBtn,.voice-chat-send");if(_sendBtn){var _inp=document.getElementById("aiTextInput");if(_inp){var _txt=_inp.value.trim();if(_txt){_inp.value="";if(typeof window.handleVoiceCommand==="function"&&window.voiceChatActive){window.handleVoiceCommand(_txt)}else{runUnifiedAiCommand(_txt).catch(()=>{})}}}return}
+
+    const aiExecCreate=e.target.closest("[data-ai-exec-create]");if(aiExecCreate){const panel=aiExecCreate.closest(".ai-exec-form")||aiExecCreate.closest("section");if(!panel)return;const desc=panel.querySelector("[name=aiExecDesc]")?.value.trim();const box=$("#aiExecResult");if(!desc)return toast("اكتب الأمر المطلوب");box.innerHTML='<div class="ai-assistant-result loading" style="display:block">جاري تحليل الأمر...</div>';fetch("/api/ai/execute",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(Object.assign({question:desc},aiRequestUser()))}).then(r=>r.json()).then(data=>{if(data.openForm&&data.formType){box.innerHTML=`<pre style="white-space:pre-wrap;background:#dff4eb;color:#267158;padding:14px;border-radius:10px;line-height:1.9">${esc(data.message)}</pre>`;const d=data.data||{};toast("جاري فتح النموذج...");const formKeyMap={contract:"contract",quote:"quote",ticket:"ticket",visit:"visit",staff:"staff",supplier:"supplier",part:"part"};const fk=formKeyMap[data.formType]||data.formType;if(openForm(fk)){setTimeout(()=>{const form=$("#modalContent form");if(!form)return;const fieldMap={contract:["clientName","clientCompanyName","clientCompanyUnifiedNumber","clientId","type","value","details"],quote:["clientName","clientCompanyName","client","value","details"],ticket:["title","description","clientName","clientCompanyName","priority"],visit:["clientName","clientCompanyName","scheduledAt","notes"],staff:["name","identity","role"],supplier:["name","phone","city","category"]};const fields=fieldMap[data.formType]||[];fields.forEach(k=>{const v=d[k];if(!v)return;const el=form.querySelector(`[name="${k}"]`);if(el){el.value=v;el.dispatchEvent(new Event("input",{bubbles:true}));el.dispatchEvent(new Event("change",{bubbles:true}))}});if(d.type){const sel=form.querySelector('[name="type"]');if(sel){sel.value=d.type;sel.dispatchEvent(new Event("change",{bubbles:true}))}}if(d.building?.name){const b=form.querySelector('[name="buildingName"]');if(b){b.value=d.building.name;b.dispatchEvent(new Event("input",{bubbles:true}))}}toast("تم تعبئة البيانات المستخرجة، أكمل الباقي يدوياً")},300)}}else if(data.executed){box.innerHTML=`<pre style="white-space:pre-wrap;background:#dff4eb;color:#267158;padding:14px;border-radius:10px;line-height:1.9">${esc(data.message)}</pre>`;toast("✅ تم التنفيذ");setTimeout(()=>render(),1500)}else{box.innerHTML=`<pre style="white-space:pre-wrap;background:#fff0ed;color:#b33;padding:14px;border-radius:10px;line-height:1.9">${esc(data.message||"لم أتمكن من فهم الأمر")}</pre>`}}).catch(err=>{box.innerHTML=`<pre style="white-space:pre-wrap;background:#fff0ed;color:#b33;padding:14px;border-radius:10px;line-height:1.9">خطأ: ${esc(err.message)}</pre>`});return}
+    const aiToggle=e.target.closest("[data-ai-toggle]");if(aiToggle){const body=aiToggle.parentElement.querySelector(".ai-assistant-body");const arrow=aiToggle.querySelector(".ai-arrow");if(body){const open=body.style.display!="none";body.style.display=open?"none":"block";if(arrow)arrow.textContent=open?"▶":"▼"}return}
+    const aiExec=e.target.closest("[data-ai-execute]");if(aiExec){const panel=aiExec.closest("[data-ai-kind]");const input=panel?.querySelector(".ai-assistant-input");const q=input?.value.trim();if(!q)return toast("اكتب وصفاً أولاً");const kind=panel.dataset.aiKind;const form=panel.closest("form");const result=panel.querySelector(".ai-assistant-result");result.className="ai-assistant-result loading";result.textContent="جاري التعبئة...";result.style.display="block";setTimeout(()=>{const filled=aiFillForm(kind,q,form);result.className="ai-assistant-result";result.innerHTML=filled.length?`<div class="form-note" style="background:#dff4eb;color:#267158">✓ تم تعبئة ${filled.length} حقل: ${filled.join("، ")}</div>`:`<div class="form-note">لم أتمكن من استخراج بيانات كافية. حاول كتابة وصف أكثر تفصيلاً.</div>`},100);return}
+    const aiForm=e.target.closest("[data-ai-form]");if(aiForm){const dock=$("#voiceAiDock");if(dock){const prompts={contract:"أنشئ عقد صيانة أو تركيب",quote:"أنشئ عرض سعر",ticket:"أنشئ بلاغ",visit:"أنشئ زيارة",supplier:"أضف مورد",staff:"أضف فني",part:"أضف قطعة مخزون"};dock.classList.add("open");const input=$(".voice-ai-input",dock);if(input){input.value=prompts[aiForm.dataset.aiForm]||"";input.focus()}}return}
+    const draftSave=e.target.closest("[data-draft-save]");if(draftSave){const type=draftSave.dataset.draftSave;const form=draftSave.closest("form");if(!form)return toast("لم يتم العثور على النموذج");const drafts=aiFormDraftSave(type,form);toast("تم حفظ المسودة");draftSave.textContent="✓ حفظت كمسودة";setTimeout(()=>{draftSave.textContent="💾 حفظ كمسودة"},2000);return}
+    const draftOpen=e.target.closest("[data-draft-open]");if(draftOpen){const id=draftOpen.dataset.draftOpen;const drafts=aiFormDraftLoad();const d=drafts.find(x=>x.id===id);if(!d)return toast("لم يتم العثور على المسودة");const typeLabel={contract:"contract",quote:"quote",ticket:"ticket",visit:"visit",supplier:"supplier",staff:"staff",part:"part"};const formKey=typeLabel[d.type]||d.type;if(openForm(`${formKey}`)){setTimeout(()=>{const form=$("#modalContent form");if(form&&d.data){Object.entries(d.data).forEach(([k,v])=>{const el=form.querySelector(`[name="${k}"]`);if(el){el.value=v;el.dispatchEvent(new Event("input",{bubbles:true}))}});if(d.data.elevatorInfo){Object.entries(d.data.elevatorInfo).forEach(([k,v])=>{const el=form.querySelector(`[name="elevator${k.charAt(0).toUpperCase()+k.slice(1)}"]`);if(el){el.value=v;el.dispatchEvent(new Event("input",{bubbles:true}))}})}}},200)};return}
+    const draftDelete=e.target.closest("[data-draft-delete]");if(draftDelete&&confirm("حذف المسودة؟")){const id=draftDelete.dataset.draftDelete;aiFormDraftDelete(id);render("drafts");toast("تم حذف المسودة");return}
+    const draftAi=e.target.closest("[data-draft-ai]");if(draftAi){const id=draftAi.dataset.draftAi;const drafts=aiFormDraftLoad();const d=drafts.find(x=>x.id===id);if(!d)return toast("لم يتم العثور على المسودة");const dock=$("#voiceAiDock");if(dock){const prompts={contract:"أكمل إنشاء عقد",quote:"أكمل إنشاء عرض سعر",ticket:"أكمل إنشاء بلاغ",visit:"أكمل إنشاء زيارة",supplier:"أكمل إضافة مورد",staff:"أكمل إضافة فني",part:"أكمل إضافة قطعة"};dock.classList.add("open");const input=$(".voice-ai-input",dock);if(input){input.value=(prompts[d.type]||"أكمل الإنشاء")+" بناء على البيانات التالية: "+JSON.stringify(d.data);input.focus()}}return}
+    const scope=e.target.closest("[data-map-scope]");if(scope){const data=JSON.parse($("#trackingMapData")?.textContent||"{}"),items=data[scope.dataset.mapScope]||[];if(!items.length)return toast("لا توجد مواقع");$("#trackingMap").src=mapEmbed(items.slice(0,8).map(i=>mapsQuery(i.url)||i.fallback).join(" | "),items[0].fallback);toast(`تم عرض ${items.length} موقع`);return}
+    if(e.target.closest("[data-start-live-location]"))return startLive();
+    if(e.target.closest("[data-stop-live-location]"))return stopLive();
+    if(e.target.closest("[data-update-location]"))return updateLoc(false);
+    const addB=e.target.closest("[data-add-building]");if(addB){$("[data-buildings]",addB.closest("form")).insertAdjacentHTML("beforeend",buildingRow());return}
+    const rem=e.target.closest("[data-remove-building]");if(rem){rem.closest(".building-row").remove();return}
+    const a=e.target.closest("[data-action]");if(!a)return;openForm(a.dataset.action);
+  }

@@ -6143,6 +6143,332 @@ ${JSON.stringify(rows, null, 2)}
     return sendJson(res, 200, {token});
   }
 
+  // ===== Visit Approval System API =====
+  if (req.url.startsWith("/api/visits/generate-code") && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => {
+      try {
+        const input = JSON.parse(body || "{}");
+        const visitId = String(input.visitId || "");
+        if (!visitId) return sendJson(res, 400, {error: "Missing visitId"});
+        const store = readStore();
+        const visits = parseStoredJson(store, "misadVisits");
+        const v = visits.find(x => x.id === visitId);
+        if (!v) return sendJson(res, 404, {error: "Visit not found"});
+        if (v.secretCodeHash) return sendJson(res, 200, {ok: true, message: "الرمز موجود مسبقًا"});
+        // Generate 10-digit secure code
+        const code = String(crypto.randomInt(0, 10000000000)).padStart(10, "0");
+        const hash = crypto.createHash("sha256").update(code).digest("hex");
+        v.secretCodeHash = hash;
+        v.secretCodeCreatedAt = new Date().toISOString();
+        v.secretCodeExpiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
+        store.misadVisits = JSON.stringify(visits);
+        writeStore(store);
+        // Send code to client via notification
+        const notifications = notificationList(store);
+        notifications.unshift({
+          id: `NTF-${Date.now()}`,
+          userId: v.clientId || "",
+          roles: v.clientId ? [] : ["client"],
+          type: "visit_secret_code",
+          title: "رمز اعتماد الزيارة",
+          body: `رمز اعتماد الزيارة ${visitId}: ${code}. صالح لمدة 48 ساعة.`,
+          url: "/dashboard.html",
+          createdAt: new Date().toISOString(),
+          readBy: []
+        });
+        store.misadNotifications = JSON.stringify(notifications.slice(0, 200));
+        writeStore(store);
+        console.log(`[VisitCode] Generated code for visit ${visitId} (hash: ${hash.slice(0,8)}...)`);
+        sendJson(res, 200, {ok: true, message: "تم إنشاء الرمز وإرساله إلى العميل"});
+      } catch (err) {
+        sendJson(res, 400, {error: "Code generation failed: " + (err.message || "")});
+      }
+    });
+    return;
+  }
+
+  if (req.url.startsWith("/api/visits/approve-by-code") && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => {
+      try {
+        const input = JSON.parse(body || "{}");
+        const visitId = String(input.visitId || "");
+        const code = String(input.code || "");
+        const userId = String(input.userId || "");
+        if (!visitId || !code) return sendJson(res, 400, {error: "Missing visitId or code"});
+        const store = readStore();
+        const visits = parseStoredJson(store, "misadVisits");
+        const v = visits.find(x => x.id === visitId);
+        if (!v) return sendJson(res, 404, {error: "Visit not found"});
+        if (!v.secretCodeHash) return sendJson(res, 400, {error: "لم يتم إنشاء رمز لهذه الزيارة بعد"});
+        if (v.status !== "بانتظار الاعتماد") return sendJson(res, 400, {error: "الزيارة غير جاهزة للاعتماد"});
+        const hash = crypto.createHash("sha256").update(code).digest("hex");
+        if (hash !== v.secretCodeHash) return sendJson(res, 400, {error: "الرمز السري غير صحيح"});
+        if (v.secretCodeUsed) return sendJson(res, 400, {error: "الرمز مستخدم مسبقًا"});
+        // Approve
+        v.status = "بانتظار التقييم";
+        v.approvedAt = new Date().toISOString();
+        v.approvedBy = userId || "unknown";
+        v.approvalMethod = "secret_code";
+        v.secretCodeUsed = true;
+        v.ratingRequestedAt = new Date().toISOString();
+        store.misadVisits = JSON.stringify(visits);
+        writeStore(store);
+        // Audit log
+        const activity = parseStoredJson(store, "misadActivityLog");
+        activity.unshift({
+          id: `ACT-${Date.now()}`,
+          companyOwnerId: v.companyOwnerId || "",
+          type: "زيارة",
+          title: `اعتماد الزيارة ${visitId} عبر الرمز السري`,
+          ref: visitId,
+          user: userId,
+          userId: userId,
+          createdAt: new Date().toLocaleString("ar-SA"),
+          createdAtMs: Date.now()
+        });
+        store.misadActivityLog = JSON.stringify(activity.slice(0, 300));
+        writeStore(store);
+        console.log(`[VisitApprove] Visit ${visitId} approved via code by ${userId}`);
+        sendJson(res, 200, {ok: true, message: "تم اعتماد الزيارة بنجاح"});
+      } catch (err) {
+        sendJson(res, 400, {error: "Approval failed: " + (err.message || "")});
+      }
+    });
+    return;
+  }
+
+  if (req.url.startsWith("/api/visits/approve-by-client") && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => {
+      try {
+        const input = JSON.parse(body || "{}");
+        const visitId = String(input.visitId || "");
+        const userId = String(input.userId || "");
+        if (!visitId || !userId) return sendJson(res, 400, {error: "Missing visitId or userId"});
+        const store = readStore();
+        const visits = parseStoredJson(store, "misadVisits");
+        const v = visits.find(x => x.id === visitId);
+        if (!v) return sendJson(res, 404, {error: "Visit not found"});
+        if (v.status !== "بانتظار الاعتماد") return sendJson(res, 400, {error: "الزيارة غير جاهزة للاعتماد"});
+        // Approve
+        v.status = "بانتظار التقييم";
+        v.approvedAt = new Date().toISOString();
+        v.approvedBy = userId;
+        v.approvalMethod = "client_login";
+        v.ratingRequestedAt = new Date().toISOString();
+        store.misadVisits = JSON.stringify(visits);
+        writeStore(store);
+        // Audit log
+        const activity = parseStoredJson(store, "misadActivityLog");
+        activity.unshift({
+          id: `ACT-${Date.now()}`,
+          companyOwnerId: v.companyOwnerId || "",
+          type: "زيارة",
+          title: `اعتماد الزيارة ${visitId} من حساب العميل`,
+          ref: visitId,
+          user: userId,
+          userId: userId,
+          createdAt: new Date().toLocaleString("ar-SA"),
+          createdAtMs: Date.now()
+        });
+        store.misadActivityLog = JSON.stringify(activity.slice(0, 300));
+        writeStore(store);
+        console.log(`[VisitApprove] Visit ${visitId} approved by client ${userId}`);
+        sendJson(res, 200, {ok: true, message: "تم اعتماد الزيارة بنجاح"});
+      } catch (err) {
+        sendJson(res, 400, {error: "Client approval failed: " + (err.message || "")});
+      }
+    });
+    return;
+  }
+
+  if (req.url.startsWith("/api/visits/rate") && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => {
+      try {
+        const input = JSON.parse(body || "{}");
+        const visitId = String(input.visitId || "");
+        const stars = Number(input.stars || 0);
+        const notes = String(input.notes || "");
+        const isAuto = input.auto === true;
+        if (!visitId) return sendJson(res, 400, {error: "Missing visitId"});
+        if (stars < 1 || stars > 5) return sendJson(res, 400, {error: "التقييم يجب أن يكون بين 1 و 5"});
+        const store = readStore();
+        const visits = parseStoredJson(store, "misadVisits");
+        const v = visits.find(x => x.id === visitId);
+        if (!v) return sendJson(res, 404, {error: "Visit not found"});
+        if (v.status !== "بانتظار التقييم") return sendJson(res, 400, {error: "الزيارة غير جاهزة للتقييم"});
+        // Save rating
+        v.rating = {stars, notes, auto: isAuto, createdAt: new Date().toISOString()};
+        v.status = "مكتملة";
+        v.completedAt = new Date().toISOString();
+        store.misadVisits = JSON.stringify(visits);
+        writeStore(store);
+        // Audit log
+        const activity = parseStoredJson(store, "misadActivityLog");
+        activity.unshift({
+          id: `ACT-${Date.now()}`,
+          companyOwnerId: v.companyOwnerId || "",
+          type: "تقييم",
+          title: `تقييم الفني ${isAuto ? "(تلقائي)" : ""} ${stars} نجوم للزيارة ${visitId}`,
+          ref: visitId,
+          user: isAuto ? "system" : input.userId || "unknown",
+          userId: isAuto ? "system" : input.userId || "",
+          createdAt: new Date().toLocaleString("ar-SA"),
+          createdAtMs: Date.now()
+        });
+        store.misadActivityLog = JSON.stringify(activity.slice(0, 300));
+        writeStore(store);
+        console.log(`[VisitRating] Visit ${visitId} rated ${stars} stars${isAuto ? " (auto)" : ""}`);
+        sendJson(res, 200, {ok: true, message: "تم تسجيل التقييم بنجاح"});
+      } catch (err) {
+        sendJson(res, 400, {error: "Rating failed: " + (err.message || "")});
+      }
+    });
+    return;
+  }
+
+  if (req.url.startsWith("/api/visits/pending-approval") && req.method === "GET") {
+    const url = new URL(req.url, "http://localhost");
+    const userId = url.searchParams.get("userId") || "";
+    const role = url.searchParams.get("role") || "";
+    if (!userId) return sendJson(res, 400, {error: "Missing userId"});
+    const store = readStore();
+    const visits = parseStoredJson(store, "misadVisits");
+    const pending = visits.filter(v =>
+      v.status === "بانتظار الاعتماد" &&
+      (cleanId(v.clientId || "") === cleanId(userId) || v.clientCompanyUnifiedNumber === userId)
+    ).map(v => ({
+      id: v.id,
+      contractId: v.contractId,
+      clientName: v.clientName,
+      buildingName: v.building?.name || "",
+      scheduledAt: v.scheduledAt,
+      status: v.status,
+      technicianName: v.assignedName || ""
+    }));
+    sendJson(res, 200, {visits: pending.slice(0, 50)});
+    return;
+  }
+
+  if (req.url.startsWith("/api/visits/pending-rating") && req.method === "GET") {
+    const url = new URL(req.url, "http://localhost");
+    const userId = url.searchParams.get("userId") || "";
+    if (!userId) return sendJson(res, 400, {error: "Missing userId"});
+    const store = readStore();
+    const visits = parseStoredJson(store, "misadVisits");
+    const pendingRating = visits.filter(v =>
+      v.status === "بانتظار التقييم" &&
+      (cleanId(v.clientId || "") === cleanId(userId) || v.clientCompanyUnifiedNumber === userId)
+    ).map(v => ({
+      id: v.id,
+      contractId: v.contractId,
+      clientName: v.clientName,
+      technicianName: v.assignedName || "",
+      approvedAt: v.approvedAt
+    }));
+    sendJson(res, 200, {visits: pendingRating.slice(0, 50)});
+    return;
+  }
+
+  if (req.url === "/api/visits/auto-rate-expired" && req.method === "POST") {
+    // Auto-rate all visits in "بانتظار التقييم" for more than 24h
+    try {
+      const store = readStore();
+      const visits = parseStoredJson(store, "misadVisits");
+      const now = Date.now();
+      let rated = 0;
+      for (const v of visits) {
+        if (v.status === "بانتظار التقييم" && v.ratingRequestedAt) {
+          const elapsed = now - new Date(v.ratingRequestedAt).getTime();
+          if (elapsed > 24 * 60 * 60 * 1000) {
+            v.rating = {stars: 5, notes: "", auto: true, createdAt: new Date().toISOString()};
+            v.status = "مكتملة";
+            v.completedAt = new Date().toISOString();
+            rated++;
+            const activity = parseStoredJson(store, "misadActivityLog");
+            activity.unshift({
+              id: `ACT-${Date.now()}`,
+              companyOwnerId: v.companyOwnerId || "",
+              type: "تقييم",
+              title: `تقييم تلقائي 5 نجوم للزيارة ${v.id} - انتهت مهلة التقييم`,
+              ref: v.id,
+              user: "system",
+              userId: "system",
+              createdAt: new Date().toLocaleString("ar-SA"),
+              createdAtMs: Date.now()
+            });
+            store.misadActivityLog = JSON.stringify(activity.slice(0, 300));
+          }
+        }
+      }
+      if (rated > 0) {
+        store.misadVisits = JSON.stringify(visits);
+        writeStore(store);
+        console.log(`[AutoRate] Auto-rated ${rated} expired visits`);
+      }
+      sendJson(res, 200, {ok: true, rated});
+    } catch (err) {
+      sendJson(res, 400, {error: "Auto-rate failed: " + (err.message || "")});
+    }
+    return;
+  }
+
+  if (req.url === "/api/visits/auto-generate-codes" && req.method === "POST") {
+    // Generate codes for visits within 24h of scheduled time
+    try {
+      const store = readStore();
+      const visits = parseStoredJson(store, "misadVisits");
+      const now = Date.now();
+      let generated = 0;
+      for (const v of visits) {
+        if (v.status === "مجدولة" && v.scheduledAt && !v.secretCodeHash) {
+          const sched = new Date(v.scheduledAt).getTime();
+          const diff = sched - now;
+          if (diff > 0 && diff <= 25 * 60 * 60 * 1000) { // Within 1-25 hours
+            const code = String(crypto.randomInt(0, 10000000000)).padStart(10, "0");
+            const hash = crypto.createHash("sha256").update(code).digest("hex");
+            v.secretCodeHash = hash;
+            v.secretCodeCreatedAt = new Date().toISOString();
+            v.secretCodeExpiresAt = new Date(sched).toISOString();
+            v.status = "بانتظار التنفيذ";
+            generated++;
+            const notifications = notificationList(store);
+            notifications.unshift({
+              id: `NTF-${Date.now()}`,
+              userId: v.clientId || "",
+              roles: v.clientId ? [] : ["client"],
+              type: "visit_secret_code",
+              title: "رمز اعتماد الزيارة",
+              body: `رمز اعتماد الزيارة ${v.id}: ${code}.`,
+              url: "/dashboard.html",
+              createdAt: new Date().toISOString(),
+              readBy: []
+            });
+            store.misadNotifications = JSON.stringify(notifications.slice(0, 200));
+          }
+        }
+      }
+      if (generated > 0) {
+        store.misadVisits = JSON.stringify(visits);
+        writeStore(store);
+        console.log(`[AutoCodes] Generated codes for ${generated} visits`);
+      }
+      sendJson(res, 200, {ok: true, generated});
+    } catch (err) {
+      sendJson(res, 400, {error: "Auto-generate failed: " + (err.message || "")});
+    }
+    return;
+  }
+
+  // ===== End Visit Approval System =====
+
   if (req.url.startsWith("/api/storage")) {
     if (req.method === "GET") {
       const key = new URL(req.url, "http://localhost").searchParams.get("key");
@@ -6321,4 +6647,55 @@ ${JSON.stringify(rows, null, 2)}
   runBackup();
   setInterval(runBackup, backupIntervalMs).unref?.();
   console.log(`Auto-backup every ${Math.round(backupIntervalMs/60000)} min, retention ${backupMaxAgeDays} days`);
+  // Auto-visit operations scheduler (every 5 minutes) - direct function calls
+  const runVisitOps = () => {
+    try {
+      const store = readStore();
+      // Auto-generate codes
+      const visits = parseStoredJson(store, "misadVisits");
+      const now = Date.now();
+      let generated = 0;
+      for (const v of visits) {
+        if (v.status === "مجدولة" && v.scheduledAt && !v.secretCodeHash) {
+          const sched = new Date(v.scheduledAt).getTime();
+          const diff = sched - now;
+          if (diff > 0 && diff <= 25 * 60 * 60 * 1000) {
+            const code = String(crypto.randomInt(0, 10000000000)).padStart(10, "0");
+            const hash = crypto.createHash("sha256").update(code).digest("hex");
+            v.secretCodeHash = hash;
+            v.secretCodeCreatedAt = new Date().toISOString();
+            v.secretCodeExpiresAt = new Date(sched).toISOString();
+            v.status = "بانتظار التنفيذ";
+            generated++;
+            const notifications = notificationList(store);
+            notifications.unshift({
+              id: `NTF-${Date.now()}`, userId: v.clientId || "", roles: v.clientId ? [] : ["client"],
+              type: "visit_secret_code", title: "رمز اعتماد الزيارة",
+              body: `رمز اعتماد الزيارة ${v.id}: ${code}.`, url: "/dashboard.html",
+              createdAt: new Date().toISOString(), readBy: []
+            });
+            store.misadNotifications = JSON.stringify(notifications.slice(0, 200));
+          }
+        }
+      }
+      if (generated) { store.misadVisits = JSON.stringify(visits); writeStore(store); console.log(`[Auto] Generated codes for ${generated} visits`); }
+      // Auto-rate expired
+      let rated = 0;
+      for (const v of visits) {
+        if (v.status === "بانتظار التقييم" && v.ratingRequestedAt) {
+          if (now - new Date(v.ratingRequestedAt).getTime() > 24 * 60 * 60 * 1000) {
+            v.rating = {stars: 5, notes: "", auto: true, createdAt: new Date().toISOString()};
+            v.status = "مكتملة"; v.completedAt = new Date().toISOString(); rated++;
+            const activity = parseStoredJson(store, "misadActivityLog");
+            activity.unshift({id: `ACT-${Date.now()}`, companyOwnerId: v.companyOwnerId || "", type: "تقييم", title: `تقييم تلقائي 5 نجوم للزيارة ${v.id}`, ref: v.id, user: "system", userId: "system", createdAt: new Date().toLocaleString("ar-SA"), createdAtMs: Date.now()});
+            store.misadActivityLog = JSON.stringify(activity.slice(0, 300));
+          }
+        }
+      }
+      if (rated) { store.misadVisits = JSON.stringify(visits); writeStore(store); console.log(`[Auto] Auto-rated ${rated} visits`); }
+    } catch (e) { console.log("[Auto] Visit ops error:", e.message); }
+  };
+  runVisitOps();
+  setInterval(runVisitOps, 5 * 60 * 1000).unref?.();
+  console.log("Auto-visit code generation and auto-rating scheduler active (5 min interval)");
 });

@@ -85,7 +85,7 @@
   const aiRequestUser=()=>({userId:session.id,role:session.role,name:session.name,companyOwnerId:session.companyOwnerId||ownerId()});
   function head(t,d,b=""){const aiBtn=aiPagePrompt[currentPage]?`<button class="btn-ai" data-ai-page="${currentPage}">ذكي</button>`:"";const allBtns=aiBtn+b;return `<div class="page-head"><div><h1>${t}</h1><p>${d}</p></div>${allBtns||""}</div>`}
   function empty(t,d,b=""){return `<div class="panel empty-state"><h3>${t}</h3><p>${d}</p>${b}</div>`}
-  const badge=s=>`<span class="badge ${s==="ساري"||s==="مجدولة"?"success":"pending"}">${s||"غير محدد"}</span>`;
+  const badge=s=>`<span class="badge ${s==="ساري"||s==="مجدولة"||s==="معتمدة"||s==="مكتملة"?"success":"pending"}">${s||"غير محدد"}</span>`;
   const inviteAllowedRoles=()=>session.role==="admin"?["owner","company_admin","client"]:session.role==="owner"?["company_admin","client"]:session.role==="company_admin"?["client"]:[];
   function inviteStatus(inv){if(inv.revoked)return "ملغي";if(Number(inv.used||0)>=Number(inv.maxUses||1))return "مستخدم";if(Number(inv.expiresAtMs||0)<Date.now())return "منتهي";return "جاهز"}
   async function createInviteLink(targetRole){
@@ -247,7 +247,7 @@
   function canWriteReport(v){return ["technician","engineer"].includes(session.role)&&cleanId(v.assignedTo)===cleanId(session.id)&&!visitReport(v)}
   function visitRoom(v){return `shumoos-${String(v.id||"visit").replace(/[^a-zA-Z0-9-]/g,"")}`}
   function visitCommunication(v){const c=contracts.find(x=>x.id===v.contractId)||{},tech=staff.find(s=>cleanId(s.identity)===cleanId(v.assignedTo))||{},msgs=visitMessages.filter(m=>m.visitId===v.id).slice(-50),room=visitRoom(v),meet=`https://meet.jit.si/${room}`,phone=tech.phone||tech.mobile||v.building?.guardMobile||c.buildings?.[0]?.guardMobile||"";return `<div class="visit-comms"><div class="quick-grid"><a class="quick-card" target="_blank" rel="noopener" href="${meet}"><b>مكالمة فيديو</b><small>غرفة الزيارة ${v.id}</small></a><a class="quick-card" target="_blank" rel="noopener" href="${phone?`tel:${phone}`:meet}"><b>مكالمة صوتية</b><small>${phone||"عبر غرفة الاجتماع"}</small></a><button class="quick-card" type="button" data-copy-invite="${meet}"><b>نسخ رابط الاجتماع</b><small>للمشاركة مع الطرف الآخر</small></button></div><section class="panel"><h3>رسائل الزيارة</h3><div class="visit-chat">${msgs.length?msgs.map(m=>`<article><b>${esc(m.senderName)}</b><small>${esc(m.createdAt)}</small><p>${esc(m.text)}</p></article>`).join(""):"لا توجد رسائل بعد."}</div><form class="modal-form" data-form="visit-message"><input type="hidden" name="visitId" value="${esc(v.id)}"><label>رسالة جديدة<textarea name="message" required placeholder="اكتب رسالة مرتبطة بهذه الزيارة"></textarea></label><button class="btn-primary">إرسال الرسالة</button></form></section></div>`}
-  function visitActions(v){const r=visitReport(v);let b=`<button class="action-btn primary" data-visit-comms="${v.id}">تواصل</button>`;if(r)b+=` <button class="action-btn primary" data-view-report="${r.id}">عرض التقرير</button>`;if(canWriteReport(v))b+=` <button class="action-btn primary" data-action="visit-report:${v.id}">تعبئة التقرير</button>`;return b}
+  function visitActions(v){const r=visitReport(v);let b=`<button class="action-btn primary" data-visit-comms="${v.id}">تواصل</button>`;if(r)b+=` <button class="action-btn primary" data-view-report="${r.id}">عرض التقرير</button>`;if(canWriteReport(v))b+=` <button class="action-btn primary" data-action="visit-report:${v.id}">تعبئة التقرير</button>`;if(v.status==="بانتظار الاعتماد"&&session.role==="client"&&matchClient(v))b+=` <button class="action-btn success" data-approve-visit="${v.id}">اعتماد الزيارة</button>`;if(v.status==="بانتظار الاعتماد"&&["technician","engineer"].includes(session.role)&&cleanId(v.assignedTo)===cleanId(session.id))b+=` <button class="action-btn" data-enter-code="${v.id}">إدخال رمز العميل</button>`;if(v.status==="بانتظار التقييم"&&session.role==="client"&&matchClient(v))b+=` <button class="action-btn primary" data-rate-visit="${v.id}">تقييم الفني</button>`;if(v.rating)b+=` <span class="badge success">${"★".repeat(v.rating.stars)}${"☆".repeat(5-v.rating.stars)}</span>`;return b}
   function meetingUrl(m){return m.url||`https://meet.jit.si/${m.room}`}
   function meetingInvitees(m){return (m.invitees||[]).map(id=>staff.find(s=>cleanId(s.identity)===cleanId(id))?.name||users.find(u=>cleanId(u.id)===cleanId(id))?.name||id).join("، ")||"كل الفريق"}
   function meetingsPage(){const rows=meetings.filter(m=>sameCompany(m)||m.createdBy===session.id).map(m=>[m.title,fmtDate(m.scheduledAt),meetingInvitees(m),m.createdByName||"—",`<a class="action-btn primary" target="_blank" rel="noopener" href="${meetingUrl(m)}">دخول</a> <button class="action-btn" data-copy-invite="${meetingUrl(m)}">نسخ</button> <button class="action-btn" data-share-invite="${meetingUrl(m)}" data-share-label="${esc(m.title)}">مشاركة</button>`]);return head("الاجتماعات","إنشاء اجتماعات ودعوة أعضاء الفريق",["owner","company_admin","admin"].includes(session.role)?'<button class="btn-primary" data-action="meeting">اجتماع جديد</button>':"")+(rows.length?table(["العنوان","الموعد","المدعوون","المنشئ","الإجراء"],rows):empty("لا توجد اجتماعات","أنشئ اجتماعًا جديدًا وشارك رابطه مع الأعضاء."))}
@@ -444,7 +444,7 @@ a[href]:after{content:""}
     else if(page==="contracts"){const rows=visibleContracts().map(x=>[x.id,x.type,contractLabel(x),x.buildings?.map(b=>`${b.name||"مبنى"} - ${b.district||""}`).join("<br>")||"غير محدد",money(x.value),badge(x.status),contractActions(x)]);c.innerHTML=head(session.role==="client"?"عقودي":"العقود","إدارة العقود",canManage?'<button class="btn-primary" data-action="contract">عقد جديد</button> <button class="btn-secondary" data-ai-import-excel>استيراد Excel بالذكاء الاصطناعي</button>':"")+(rows.length?table(["الرقم","النوع","اسم الطرف الثاني","المباني","القيمة","الحالة","الإجراء"],rows):empty("لا توجد عقود",""))}
     else if(page==="assets"){const rows=assetRows().map(a=>[a.id,a.client||"—",a.building,a.district||"—",a.brand||"—",a.count||1,a.age||"—",a.capacity||"—",badge(a.status||"نشط"),a.contractId||a.source||"يدوي"]);c.innerHTML=head("أصول المصاعد","سجل المصاعد المرتبطة بالعقود أو المضافة يدويًا",canManage?'<button class="btn-primary" data-action="asset">إضافة أصل</button>':"")+(rows.length?table(["الرقم","العميل/المنشأة","المبنى","الحي","الماركة","العدد","العمر","السعة","الحالة","المرجع"],rows):empty("لا توجد أصول","ستظهر المصاعد تلقائيًا من العقود أو يمكن إضافتها يدويًا."))}
     else if(page==="tickets"){const rows=visibleTickets().map(t=>[t.id,t.title,t.clientCompanyName||t.clientName||"غير محدد",t.contractId||"بدون عقد",badge(t.status),staff.find(s=>s.identity===t.assignedTo)?.name||"غير مسند",`<button class="action-btn primary" data-view-ticket="${t.id}">عرض</button>`]);c.innerHTML=head(session.role==="client"?"بلاغاتي":"البلاغات","إنشاء ومتابعة البلاغات",'<button class="btn-primary" data-action="ticket">بلاغ جديد</button>')+(rows.length?table(["الرقم","العنوان","العميل/المنشأة","العقد","الحالة","الفني","الإجراء"],rows):empty("لا توجد بلاغات",""))}
-    else if(page==="visits"){const rows=visibleVisits().map(v=>[v.id,v.contractId||"—",contractLabel(contracts.find(c=>c.id===v.contractId)||v),v.building?.name||"غير محدد",v.assignedName||"غير مسند",fmtDate(v.scheduledAt),badge(v.status),visitActions(v)]);c.innerHTML=head(session.role==="technician"?"زياراتي":"الزيارات","مواقع وجدولة الزيارات",canManage?'<button class="btn-primary" data-action="visit">زيارة جديدة</button>':"")+(rows.length?table(["الرقم","العقد","الطرف الثاني","الموقع","الفني","الموعد","الحالة","التقرير"],rows):empty("لا توجد زيارات",""))}
+    else if(page==="visits"){const rows=visibleVisits().map(v=>[v.id,v.contractId||"—",contractLabel(contracts.find(c=>c.id===v.contractId)||v),v.building?.name||"غير محدد",v.assignedName||"غير مسند",fmtDate(v.scheduledAt),badge(v.status),visitActions(v)]);c.innerHTML=(session.role==="client"?clientPendingApprovals():"")+head(session.role==="technician"?"زياراتي":"الزيارات","مواقع وجدولة الزيارات",canManage?'<button class="btn-primary" data-action="visit">زيارة جديدة</button>':"")+(rows.length?table(["الرقم","العقد","الطرف الثاني","الموقع","الفني","الموعد","الحالة","الإجراء"],rows):empty("لا توجد زيارات",""))}
     else if(page==="meetings")c.innerHTML=meetingsPage();
     else if(page==="tracking")c.innerHTML=trackingPage();
     else if(page==="my-location")c.innerHTML=myLocationPage();
@@ -754,6 +754,9 @@ const unlinkUser=e.target.closest("[data-unlink-user]");if(unlinkUser){const uid
     if(e.target.closest("[data-update-location]"))return updateLoc(false);
     const addB=e.target.closest("[data-add-building]");if(addB){$("[data-buildings]",addB.closest("form")).insertAdjacentHTML("beforeend",buildingRow());return}
     const rem=e.target.closest("[data-remove-building]");if(rem){rem.closest(".building-row").remove();return}
+    const av=e.target.closest("[data-approve-visit]");if(av){const v=visits.find(x=>x.id===av.dataset.approveVisit);if(v&&v.status==="بانتظار الاعتماد"){if(session.role==="client"){approveVisitAsClient(v.id);}else{modal("اعتماد الزيارة",approveVisitUI(v));}}return}
+    const ec=e.target.closest("[data-enter-code]");if(ec){const v=visits.find(x=>x.id===ec.dataset.enterCode);if(v&&v.status==="بانتظار الاعتماد")modal("إدخال رمز الاعتماد",enterCodeForm(v.id));return}
+    const rv=e.target.closest("[data-rate-visit]");if(rv){const v=visits.find(x=>x.id===rv.dataset.rateVisit);if(v&&v.status==="بانتظار التقييم"&&session.role==="client"&&matchClient(v))modal("تقييم الفني",rateTechnicianUI(v.id));return}
     const a=e.target.closest("[data-action]");if(!a)return;openForm(a.dataset.action);
   });
   document.addEventListener("click",e=>{
@@ -787,7 +790,7 @@ const unlinkUser=e.target.closest("[data-unlink-user]");if(unlinkUser){const uid
     if(f.dataset.form==="contract-edit"){const c=contracts.find(x=>x.id===fd.get("contractId"));if(!c||!canEditContract(c)){toast("لا يمكن تعديل هذا العقد");return}const start=fd.get("contractStartDate"),years=Number(fd.get("contractYears")||1),end=dateVal(addYears(new Date(`${start}T00:00`),years)),clientId=cleanId(fd.get("clientId")),num=cleanId(fd.get("clientCompanyUnifiedNumber")),u=users.find(x=>cleanId(x.id)===clientId),cc=clientCompanies.find(x=>cleanId(x.unifiedNumber)===num),picked=fd.getAll("defaultItems").map(id=>defaultItems.find(i=>i.id==id)).filter(Boolean),custom=collectCustom(f);Object.assign(c,{type:fd.get("type"),targetType:fd.get("targetType"),clientId,clientName:u?.name||fd.get("clientName")?.trim()||"",clientCompanyUnifiedNumber:num,clientCompanyName:cc?.name||fd.get("clientCompanyName")?.trim()||"",value:Number(fd.get("value")),elevatorInfo:collectContractElevator(f,c.elevatorInfo||{}),installationInfo:collectInstallation(f.elements),maintenanceChecklist:collectMaintenanceChecklist(f),buildings:collectBuildings(f),items:picked.length?picked:c.items||[],customItems:custom.length?custom:c.customItems||[],details:fd.get("details"),status:"بانتظار موافقة العميل",startDate:start,contractYears:years,endDate:end,updatedAt:now,updatedBy:session.id,amendmentRequired:true});c.amendmentHistory=c.amendmentHistory||[];c.amendmentHistory.unshift({at:now,by:session.id,note:"تم تعديل العقد ويحتاج موافقة العميل على النسخة المعدلة"});write("misadContracts",contracts);modalClose("تم تعديل العقد وإرساله لموافقة العميل");render("contracts");return}
     if(f.dataset.form==="ticket"){const c=contracts.find(x=>x.id===fd.get("contractId"));const key=fd.get("buildingKey"),building=c?(c.buildings||[]).find(b=>[b.name,b.district,b.mapUrl,b.guardMobile].join("|")===key):{name:fd.get("ticketBuildingName"),district:fd.get("ticketBuildingDistrict"),mapUrl:fd.get("ticketBuildingMapUrl"),guardMobile:fd.get("ticketBuildingGuardMobile")};const t={id:`TKT-${Date.now()}`,companyOwnerId:c?.companyOwnerId||ownerId(),title:fd.get("title"),description:fd.get("description"),priority:fd.get("priority"),status:"مفتوح",contractId:c?.id||"",clientId:c?.clientId||cleanId(fd.get("clientId")),clientName:fd.get("clientName")||c?.clientName||"",clientCompanyUnifiedNumber:c?.clientCompanyUnifiedNumber||cleanId(fd.get("clientCompanyUnifiedNumber")),clientCompanyName:fd.get("clientCompanyName")||c?.clientCompanyName||"",building,elevatorInfo:c?.elevatorInfo||collectElevator(f.elements),assignedTo:fd.get("assignedTo"),createdBy:session.id,createdByName:session.name,createdAt:now,createdAtMs:Date.now(),updates:[]};tickets.unshift(t);write("misadTickets",tickets);logActivity("بلاغ","تم إنشاء بلاغ جديد",t.id);modalClose("تم حفظ البلاغ");render("tickets");return}
     if(f.dataset.form==="scouting-visit"){const member=autoAssignMember(),info=clientLookup(fd.get("clientId"),fd.get("clientCompanyUnifiedNumber"));const v={id:`VIS-K-${Date.now()}`,companyOwnerId:ownerId(),contractId:"",visitType:"كشفية",clientId:cleanId(fd.get("clientId")),clientName:info.name||fd.get("clientName")||"",clientCompanyUnifiedNumber:cleanId(fd.get("clientCompanyUnifiedNumber")),clientCompanyName:info.companyName||fd.get("clientCompanyName")||"",building:{name:fd.get("buildingName"),district:fd.get("buildingDistrict"),mapUrl:fd.get("buildingMapUrl"),guardMobile:fd.get("buildingGuardMobile")},elevatorInfo:collectElevator(f.elements),assignedTo:member?.identity||"",assignedName:member?.name||"بانتظار الإسناد",scheduledAt:fd.get("scheduledAt"),status:member?"مجدولة":"بانتظار الإسناد",periodic:false,createdAt:now,notes:fd.get("notes")};visits.unshift(v);write("misadVisits",visits);logActivity("زيارة كشفية","تم إنشاء زيارة كشفية",v.id);modalClose(member?`تم إنشاء الزيارة وإسنادها إلى ${member.name}`:"تم إنشاء الزيارة بانتظار الإسناد");render("visits");return}
-    if(f.dataset.form==="visit-report"){const v=visits.find(x=>x.id===fd.get("visitId"));if(!v||!canWriteReport(v)){toast("لا يمكن إنشاء تقرير لهذه الزيارة");return}const c=contracts.find(x=>x.id===v.contractId)||{};const r={id:`REP-${Date.now()}`,companyOwnerId:v.companyOwnerId||c.companyOwnerId||ownerId(),visitId:v.id,visitType:v.visitType||"",contractId:v.contractId||"",clientId:v.clientId||c.clientId||"",clientName:c.clientName||v.clientName||"",clientCompanyUnifiedNumber:v.clientCompanyUnifiedNumber||c.clientCompanyUnifiedNumber||"",clientCompanyName:c.clientCompanyName||v.clientCompanyName||"",buildingName:v.building?.name||"",technicianId:session.id,technician:session.name,elevatorStatus:fd.get("elevatorStatus"),workDone:fd.get("workDone"),issues:fd.get("issues"),parts:fd.get("parts"),recommendations:fd.get("recommendations"),attachments:fd.get("attachments"),description:[fd.get("workDone"),fd.get("issues"),fd.get("parts"),fd.get("recommendations")].filter(Boolean).join("\n"),status:"بانتظار اعتماد العميل",locked:true,createdAt:now,createdAtMs:Date.now()};reports.unshift(r);v.status="تم إصدار التقرير";v.reportId=r.id;write("misadVisitReports",reports);write("misadVisits",visits);logActivity("تقرير","تم إصدار تقرير زيارة",r.id);sendNotification({roles:["owner","company_admin","admin"],type:"visit_report",title:"تقرير زيارة جديد بانتظار المراجعة",body:`${r.id} - ${partyLabel(r)}`,url:"dashboard.html"});fetch("/api/ai/analyze-report",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({reportId:r.id,userId:session.id,role:session.role,autoGenerateQuote:true})}).then(x=>x.json()).then(data=>{if(data.quote){quotes.unshift(data.quote);write("misadQuotes",quotes);sendNotification({roles:["owner","company_admin","admin"],type:"ai_document",title:"عرض سعر تلقائي بانتظار الاعتماد",body:data.quote.title||data.quote.id,url:"dashboard.html"});toast("حلل الذكاء الاصطناعي التقرير وأنشأ عرض سعر بانتظار الاعتماد")}}).catch(()=>{});modalClose("تم إرسال التقرير وبدأ التحليل الذكي");render("visits");return}
+    if(f.dataset.form==="visit-report"){const v=visits.find(x=>x.id===fd.get("visitId"));if(!v||!canWriteReport(v)){toast("لا يمكن إنشاء تقرير لهذه الزيارة");return}const c=contracts.find(x=>x.id===v.contractId)||{};const r={id:`REP-${Date.now()}`,companyOwnerId:v.companyOwnerId||c.companyOwnerId||ownerId(),visitId:v.id,visitType:v.visitType||"",contractId:v.contractId||"",clientId:v.clientId||c.clientId||"",clientName:c.clientName||v.clientName||"",clientCompanyUnifiedNumber:v.clientCompanyUnifiedNumber||c.clientCompanyUnifiedNumber||"",clientCompanyName:c.clientCompanyName||v.clientCompanyName||"",buildingName:v.building?.name||"",technicianId:session.id,technician:session.name,elevatorStatus:fd.get("elevatorStatus"),workDone:fd.get("workDone"),issues:fd.get("issues"),parts:fd.get("parts"),recommendations:fd.get("recommendations"),attachments:fd.get("attachments"),description:[fd.get("workDone"),fd.get("issues"),fd.get("parts"),fd.get("recommendations")].filter(Boolean).join("\n"),status:"بانتظار اعتماد العميل",locked:true,createdAt:now,createdAtMs:Date.now()};reports.unshift(r);v.status="بانتظار الاعتماد";v.reportId=r.id;write("misadVisitReports",reports);write("misadVisits",visits);logActivity("تقرير","تم إصدار تقرير زيارة",r.id);sendNotification({roles:["owner","company_admin","admin"],type:"visit_report",title:"تقرير زيارة جديد بانتظار الاعتماد",body:`${r.id} - ${partyLabel(r)}`,url:"dashboard.html"});if(v.clientId)sendNotification({userId:v.clientId,type:"visit_approval",title:"تقرير الزيارة جاهز للاعتماد",body:`الزيارة ${v.id} بانتظار اعتمادك.`,url:"dashboard.html"});fetch("/api/ai/analyze-report",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({reportId:r.id,userId:session.id,role:session.role,autoGenerateQuote:true})}).then(x=>x.json()).then(data=>{if(data.quote){quotes.unshift(data.quote);write("misadQuotes",quotes);sendNotification({roles:["owner","company_admin","admin"],type:"ai_document",title:"عرض سعر تلقائي بانتظار الاعتماد",body:data.quote.title||data.quote.id,url:"dashboard.html"});toast("حلل الذكاء الاصطناعي التقرير وأنشأ عرض سعر بانتظار الاعتماد")}}).catch(()=>{});modalClose("تم إرسال التقرير وبدأ التحليل الذكي");render("visits");return}
     if(f.dataset.form==="asset"){const a={id:`AST-${Date.now()}`,companyOwnerId:ownerId(),source:"يدوي",client:fd.get("client"),building:fd.get("building"),district:fd.get("district"),brand:fd.get("brand"),count:Number(fd.get("count")||1),age:fd.get("age"),capacity:fd.get("capacity"),usage:fd.get("usage"),status:fd.get("status"),createdAt:now};assets.unshift(a);write("misadElevatorAssets",assets);logActivity("أصل","تمت إضافة أصل مصعد",a.id);modalClose("تم حفظ أصل المصعد");render("assets");return}
     if(f.dataset.form==="part"){const offers=collectPartSuppliers(f),best=offers.slice().sort((a,b)=>a.price-b.price)[0];const p={id:`PRT-${Date.now()}`,companyOwnerId:ownerId(),name:fd.get("name"),sku:fd.get("sku"),category:fd.get("category"),qty:Number(fd.get("qty")||0),minQty:Number(fd.get("minQty")||0),unitCost:Number(fd.get("unitCost")||best?.price||0),supplier:fd.get("supplier")||best?.supplierName||"",suppliers:offers,createdAt:now};parts.unshift(p);write("misadPartsInventory",parts);logActivity("مخزون","تمت إضافة قطعة غيار",p.name);modalClose("تم حفظ قطعة الغيار");render("inventory");return}
     if(f.dataset.form==="supplier"){const s={id:`SUP-${Date.now()}`,companyOwnerId:ownerId(),name:fd.get("name"),phone:fd.get("phone"),email:fd.get("email"),city:fd.get("city"),category:fd.get("category"),rating:fd.get("rating"),notes:fd.get("notes"),createdAt:now};suppliers.unshift(s);write("misadSuppliers",suppliers);logActivity("مورد","تمت إضافة مورد",s.name);modalClose("تم حفظ المورد");render("suppliers");return}
@@ -828,6 +831,87 @@ const unlinkUser=e.target.closest("[data-unlink-user]");if(unlinkUser){const uid
   setInterval(refreshNotificationBadge,15000);
   if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js").catch(()=>{});
   setTimeout(()=>enhanceVoiceInputs(document),0);
+  // ===== Visit Approval & Rating System =====
+  async function approveVisitAsClient(visitId) {
+    try {
+      const r = await fetch("/api/visits/approve-by-client", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({visitId, userId:session.id})});
+      const d = await r.json();
+      if (r.ok && d.ok) { toast("تم اعتماد الزيارة بنجاح"); refresh(); render("visits"); }
+      else toast(d.error || "فشل الاعتماد");
+    } catch { toast("تعذر الاتصال بالخادم"); }
+  }
+  function approveVisitUI(v) {
+    return `<div style="padding:12px"><h3 style="color:#102d2c;margin:0 0 8px">اعتماد الزيارة</h3><p style="color:#60756f;margin:0 0 16px">الزيارة ${v.id} بانتظار اعتمادك.</p><div style="display:flex;gap:12px;flex-wrap:wrap"><button class="btn-primary" onclick="(async()=>{const r=await fetch('/api/visits/approve-by-client',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({visitId:'${v.id}',userId:'${session.id}'})});const d=await r.json();if(r.ok&&d.ok){toast('تم الاعتماد');modalClose('');refresh();render('visits')}else toast(d.error)})()">اعتماد من حسابي</button><button class="btn soft" onclick="modal('إدخال رمز الاعتماد','${esc(enterCodeForm(v.id))}')">لدي رمز سري</button></div></div>`;
+  }
+  function enterCodeForm(visitId) {
+    return `<div style="padding:12px"><h3 style="color:#102d2c;margin:0 0 8px">إدخال رمز الاعتماد</h3><p style="color:#60756f;margin:0 0 16px">أدخل الرمز السري المكون من 10 أرقام الذي استلمه العميل.</p><input id="secretCodeInput" type="text" inputmode="numeric" pattern="[0-9]{10}" maxlength="10" placeholder="أدخل الرمز السري" style="width:100%;padding:12px;border:2px solid #c5d9cf;border-radius:8px;font-size:18px;text-align:center;letter-spacing:4px;font-family:monospace;margin-bottom:12px"><div id="codeError" style="color:#c85c59;font-size:13px;margin-bottom:8px"></div><button class="btn-primary" style="width:100%" onclick="verifyAndApproveCode('${visitId}')">تحقق واعتماد</button></div>`;
+  }
+  async function verifyAndApproveCode(visitId) {
+    const code = document.getElementById("secretCodeInput")?.value?.trim();
+    const err = document.getElementById("codeError");
+    if (!code || code.length !== 10 || !/^\d{10}$/.test(code)) { if(err)err.textContent="الرجاء إدخال 10 أرقام صحيحة"; return; }
+    try {
+      const r = await fetch("/api/visits/approve-by-code", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({visitId, code, userId:session.id})});
+      const d = await r.json();
+      if (r.ok && d.ok) { toast("تم اعتماد الزيارة بنجاح"); modalClose(""); refresh(); render("visits"); }
+      else { if(err)err.textContent=d.error||"الرمز غير صحيح"; }
+    } catch { toast("تعذر الاتصال بالخادم"); }
+  }
+  function rateTechnicianUI(visitId) {
+    let starsHtml = "";
+    for (let i = 1; i <= 5; i++) starsHtml += `<span class="rate-star" data-star="${i}" style="font-size:36px;cursor:pointer;color:#d79a2b;transition:.2s">☆</span>`;
+    return `<div style="padding:12px"><h3 style="color:#102d2c;margin:0 0 8px">تقييم الفني</h3><p style="color:#60756f;margin:0 0 16px">قيم أداء الفني في هذه الزيارة.</p><div id="starRating" style="text-align:center;margin-bottom:12px;direction:ltr">${starsHtml}</div><textarea id="rateNotes" placeholder="ملاحظات إضافية (اختياري)" style="width:100%;padding:10px;border:1px solid #c5d9cf;border-radius:8px;margin-bottom:12px;min-height:60px"></textarea><button class="btn-primary" style="width:100%" onclick="submitRating('${visitId}')">إرسال التقييم</button></div>`;
+  }
+  async function submitRating(visitId) {
+    const starsEls = document.querySelectorAll("#starRating .rate-star");
+    let selected = 0;
+    starsEls.forEach(el => { if(el.classList.contains("selected")) selected = parseInt(el.dataset.star); });
+    if (!selected) { toast("اختر عدد النجوم"); return; }
+    const notes = document.getElementById("rateNotes")?.value || "";
+    try {
+      const r = await fetch("/api/visits/rate", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({visitId, stars:selected, notes, userId:session.id})});
+      const d = await r.json();
+      if (r.ok && d.ok) { toast("تم إرسال التقييم وشكراً"); modalClose(""); refresh(); render("visits"); }
+      else toast(d.error || "فشل إرسال التقييم");
+    } catch { toast("تعذر الاتصال بالخادم"); }
+  }
+  // Initialize star rating interaction
+  document.addEventListener("mouseover", function(e) {
+    const star = e.target.closest(".rate-star");
+    if (!star) return;
+    const container = star.closest("#starRating");
+    if (!container) return;
+    const val = parseInt(star.dataset.star);
+    container.querySelectorAll(".rate-star").forEach(el => {
+      el.textContent = parseInt(el.dataset.star) <= val ? "★" : "☆";
+    });
+  });
+  document.addEventListener("mouseout", function(e) {
+    const container = e.target.closest("#starRating");
+    if (!container) return;
+    container.querySelectorAll(".rate-star").forEach(el => {
+      el.textContent = el.classList.contains("selected") ? "★" : "☆";
+    });
+  });
+  document.addEventListener("click", function(e) {
+    const star = e.target.closest(".rate-star");
+    if (!star) return;
+    const container = star.closest("#starRating");
+    if (!container) return;
+    const val = parseInt(star.dataset.star);
+    container.querySelectorAll(".rate-star").forEach(el => {
+      el.classList.toggle("selected", parseInt(el.dataset.star) <= val);
+      el.textContent = parseInt(el.dataset.star) <= val ? "★" : "☆";
+    });
+  });
+  // Client pending approvals page section
+  function clientPendingApprovals() {
+    if (session.role !== "client") return "";
+    const pending = visits.filter(v => v.status === "بانتظار الاعتماد" && matchClient(v));
+    if (!pending.length) return "";
+    return `<section class="panel" style="border-right:4px solid #d79a2b"><h3>زيارات بانتظار اعتمادك</h3>${table(["الرقم","الموعد","الفني","الإجراء"],pending.map(v=>[v.id,fmtDate(v.scheduledAt),v.assignedName||"",`<button class="btn-primary" onclick="approveVisitAsClient('${v.id}')">اعتماد</button>`]))}</section>`;
+  }
+  // ===== End Visit Approval & Rating System =====
   document.addEventListener("keydown",function(e){var inp=e.target.closest("#aiTextInput");if(inp&&e.key==="Enter"){var btn=document.getElementById("aiSendBtn");if(btn)btn.click()}});
 })();
 
