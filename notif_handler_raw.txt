@@ -1,0 +1,31 @@
+req.url.startsWith("/api/notifications")) {
+    if (req.method === "GET") {
+      const url = new URL(req.url, "http://localhost");
+      const userId = url.searchParams.get("userId") || "";
+      const role = url.searchParams.get("role") || "";
+      const items = notificationList(readStore()).filter(n => !n.userId || n.userId === userId || (n.roles || []).includes(role)).slice(0, 80);
+      return sendJson(res, 200, {notifications: items});
+    }
+    if (req.method === "POST") {
+      let body = "";
+      req.on("data", chunk => body += chunk);
+      req.on("end", () => {
+        try {
+          const input = JSON.parse(body || "{}");
+          const store = readStore();
+          const notifications = notificationList(store);
+          const n = {id: `NTF-${Date.now()}`, title: String(input.title || "إشعار"), body: String(input.body || ""), userId: String(input.userId || ""), roles: Array.isArray(input.roles) ? input.roles : [], url: String(input.url || "/dashboard.html"), createdAt: new Date().toISOString(), readBy: []};
+          notifications.unshift(n);
+          saveNotifications(store, notifications);
+          const tokens = pushTokenList(store).filter(t => !n.userId && !n.roles.length ? true : t.userId === n.userId || n.roles.includes(t.role));
+          sendNativePush(tokens, n);
+          sendJson(res, 200, {ok: true, notification: n});
+        } catch {
+          sendJson(res, 400, {error: "Invalid JSON"});
+        }
+      });
+      return;
+    }
+  }
+
+  

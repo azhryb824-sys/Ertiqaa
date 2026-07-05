@@ -1,0 +1,1 @@
+"><option value="all">الكل</option><option value="unread">غير المقروءة</option><option value="ai">الذكاء الاصطناعي</option><option value="document">المستندات والاعتماد</option><option value="visit">الزيارات</option></select></section><div id="notificationsPanel" class="panel">جاري تحميل الإشعارات...</div>`;fetch(`/api/notifications?userId=${encodeU

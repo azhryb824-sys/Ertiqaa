@@ -3002,6 +3002,65 @@ function sendNativePush(tokens, notification) {
   }).catch(() => {});
 }
 
+// WhatsApp notification sender
+// Supports any REST API provider. Configure via .env:
+//   WHATSAPP_API_URL=https://api.example.com/send-message
+//   WHATSAPP_API_KEY=your_api_key_here
+//   WHATSAPP_SENDER=966XXXXXXXXX (optional sender number/ID)
+// The provider must accept POST with JSON body: {apiKey, to, message, sender?}
+function sendWhatsApp(store, notification) {
+  const apiUrl = process.env.WHATSAPP_API_URL || "";
+  const apiKey = process.env.WHATSAPP_API_KEY || "";
+  if (!apiUrl || !apiKey) return null;
+  // Find the target user to get their phone number
+  let phone = "";
+  const users = parseStoredJson(store, "misadUsers");
+  if (notification.userId) {
+    const user = users.find(u => cleanId(u.id) === cleanId(notification.userId));
+    if (user?.phone) phone = user.phone;
+  }
+  // If no direct user, check client companies for phone
+  if (!phone && notification.userId) {
+    const companies = parseStoredJson(store, "misadClientCompanies");
+    const co = companies.find(c => cleanId(c.ownerId) === cleanId(notification.userId));
+    if (co?.phone) phone = co.phone;
+  }
+  // Check staff phone
+  if (!phone && notification.userId) {
+    const staff = parseStoredJson(store, "misadCompanyStaff");
+    const member = staff.find(s => cleanId(s.identity) === cleanId(notification.userId));
+    if (member?.phone) phone = member.phone;
+  }
+  if (!phone) return null;
+  // Format phone: remove non-digits, ensure it starts with 966
+  phone = phone.replace(/\D/g, "");
+  if (phone.startsWith("05")) phone = "9665" + phone.substring(2);
+  else if (phone.startsWith("5")) phone = "966" + phone;
+  else if (!phone.startsWith("966")) phone = "966" + phone;
+  if (phone.length < 10) return null;
+  const message = `*${notification.title}*\n\n${notification.body}\n\n${notification.url ? "رابط: " + notification.url : ""}`;
+  const payload = {apiKey, to: phone, message};
+  const sender = process.env.WHATSAPP_SENDER;
+  if (sender) payload.sender = sender;
+  fetch(apiUrl, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(payload)
+  }).then(r => r.json().catch(() => ({}))).then(result => {
+    console.log(`[WhatsApp] Sent to ${phone} for "${notification.title}":`, JSON.stringify(result).slice(0, 200));
+    // Track delivery on notification
+    notification.whatsapp = {sent: true, to: phone, result: result.status || "sent", sentAt: new Date().toISOString()};
+    // Update in store
+    const all = notificationList(store);
+    const n = all.find(x => x.id === notification.id);
+    if (n) { n.whatsapp = notification.whatsapp; saveNotifications(store, all); }
+  }).catch(err => {
+    console.log(`[WhatsApp] Failed to send to ${phone}:`, err.message);
+    notification.whatsapp = {sent: false, error: err.message, to: phone};
+  });
+  return {phone, message: message.slice(0, 50)};
+}
+
 function parseStoredJson(store, key) {
   try {
     return JSON.parse(store[key] || "[]");
@@ -4947,6 +5006,43 @@ ${JSON.stringify(rows, null, 2)}
     return;
   }
 
+  // WhatsApp status endpoint
+  if (req.url === "/api/whatsapp/status" && req.method === "GET") {
+    const configured = Boolean(process.env.WHATSAPP_API_KEY && process.env.WHATSAPP_API_URL);
+    return sendJson(res, 200, {
+      configured,
+      message: configured ? "واتساب مُفعّل" : "واتساب غير مُفعّل. أضف WHATSAPP_API_URL و WHATSAPP_API_KEY في .env",
+      provider: configured ? (process.env.WHATSAPP_API_URL || "").replace(/https?:\/\//, "").split("/")[0] : ""
+    });
+  }
+  // Update user phone number
+  if (req.url.startsWith("/api/user/phone") && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => {
+      try {
+        const input = JSON.parse(body || "{}");
+        const userId = cleanId(input.userId || "");
+        const phone = String(input.phone || "").replace(/\D/g, "").slice(0, 15);
+        const whatsappEnabled = input.whatsappEnabled === true;
+        if (!userId) return sendJson(res, 400, {error: "Missing userId"});
+        const store = readStore();
+        const users = parseStoredJson(store, "misadUsers");
+        const user = users.find(u => cleanId(u.id) === cleanId(userId));
+        if (!user) return sendJson(res, 404, {error: "User not found"});
+        user.phone = phone;
+        user.whatsappEnabled = whatsappEnabled;
+        user.updatedAt = new Date().toISOString();
+        store.misadUsers = JSON.stringify(users);
+        writeStore(store);
+        sendJson(res, 200, {ok: true, phone, whatsappEnabled});
+      } catch (err) {
+        sendJson(res, 400, {error: "Failed to update phone: " + (err.message || "")});
+      }
+    });
+    return;
+  }
+
   if (req.url.startsWith("/api/push/register") && req.method === "POST") {
     let body = "";
     req.on("data", chunk => body += chunk);
@@ -4987,6 +5083,17 @@ ${JSON.stringify(rows, null, 2)}
           saveNotifications(store, notifications);
           const tokens = pushTokenList(store).filter(t => !n.userId && !n.roles.length ? true : t.userId === n.userId || n.roles.includes(t.role));
           sendNativePush(tokens, n);
+          // Send WhatsApp if configured
+          if (process.env.WHATSAPP_API_KEY && process.env.WHATSAPP_API_URL) {
+            const wa = sendWhatsApp(store, n);
+            if (wa) {
+              n.whatsapp = {sent: true, to: wa.phone, sentAt: new Date().toISOString()};
+              // Update the notification in store with WhatsApp status
+              const all = notificationList(store);
+              const existing = all.find(x => x.id === n.id);
+              if (existing) { existing.whatsapp = n.whatsapp; saveNotifications(store, all); }
+            }
+          }
           sendJson(res, 200, {ok: true, notification: n});
         } catch {
           sendJson(res, 400, {error: "Invalid JSON"});
