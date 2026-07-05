@@ -476,6 +476,7 @@ function listBackups() {
 
 function escHtml(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
 function cleanId(v){return String(v||"").replace(/[٠-٩]/g,d=>"٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(/[۰-۹]/g,d=>"۰۱۲۳۴۵۶۷۸۹".indexOf(d)).replace(/\D/g,"")}
+const blockedIds=["0000000000","1111111111","3333333333"];function isValidId(v){const c=cleanId(v);return c.length>=6&&!blockedIds.includes(c)&&/^[12]/.test(c)}
 function sendJson(res, status, payload) {
   res.writeHead(status, {
     "Content-Type": "application/json; charset=utf-8",
@@ -4315,7 +4316,7 @@ http.createServer(async (req, res) => {
       const input = JSON.parse(body || "{}");
       const uid = cleanId(input.userId);
       const pwd = String(input.password || "");
-      if (!uid || !pwd) return sendJson(res, 400, {error: "رقم الهوية وكلمة المرور مطلوبان"});
+      if (!uid || !pwd) return sendJson(res, 400, {error: "رقم الهوية وكلمة المرور مطلوبان"});if(!isValidId(uid))return sendJson(res,400,{error:"رقم الهوية غير صالح. يجب أن يبدأ بـ 1 أو 2"})
       const store = readStore();
       const storedUsers = parseStoredJson(store, "misadUsers");
       const user = storedUsers.find(u => cleanId(u.id) === uid && u.password === pwd)
