@@ -6090,7 +6090,7 @@ ${JSON.stringify(rows, null, 2)}
           const now = Date.now();
           const creatorRole = String(input.createdByRole || "");
           const targetRole = String(input.targetRole || "client");
-          const allowed = creatorRole === "admin" ? ["owner", "company_admin", "client"] : creatorRole === "owner" ? ["company_admin", "client"] : creatorRole === "company_admin" ? ["client"] : [];
+          const allowed = creatorRole === "admin" ? ["owner", "company_admin", "technician", "client"] : creatorRole === "owner" ? ["company_admin", "technician", "client"] : creatorRole === "company_admin" ? ["technician", "client"] : [];
           if (!allowed.includes(targetRole)) return sendJson(res, 403, {error: "Role is not allowed to create this invite"});
           const invite = createInvite(input);
           const store = readStore();

@@ -86,7 +86,7 @@
   function head(t,d,b=""){const aiBtn=aiPagePrompt[currentPage]?`<button class="btn-ai" data-ai-page="${currentPage}">ذكي</button>`:"";const allBtns=aiBtn+b;return `<div class="page-head"><div><h1>${t}</h1><p>${d}</p></div>${allBtns||""}</div>`}
   function empty(t,d,b=""){return `<div class="panel empty-state"><h3>${t}</h3><p>${d}</p>${b}</div>`}
   const badge=s=>`<span class="badge ${s==="ساري"||s==="مجدولة"||s==="معتمدة"||s==="مكتملة"?"success":"pending"}">${s||"غير محدد"}</span>`;
-  const inviteAllowedRoles=()=>session.role==="admin"?["owner","company_admin","client"]:session.role==="owner"?["company_admin","client"]:session.role==="company_admin"?["client"]:[];
+  const inviteAllowedRoles=()=>session.role==="admin"?["owner","company_admin","technician","client"]:session.role==="owner"?["company_admin","technician","client"]:session.role==="company_admin"?["technician","client"]:[];
   function inviteStatus(inv){if(inv.revoked)return "ملغي";if(Number(inv.used||0)>=Number(inv.maxUses||1))return "مستخدم";if(Number(inv.expiresAtMs||0)<Date.now())return "منتهي";return "جاهز"}
   async function createInviteLink(targetRole){
     const label=targetRole==="client"?"رابط تسجيل جهاز عميل":targetRole==="owner"?"رابط تسجيل جهاز مالك":"رابط تسجيل جهاز إداري";
@@ -94,7 +94,7 @@
     const inv=await r.json();if(!r.ok||!inv.url)throw new Error(inv.error||"invite");return inv
   }
   function renderEntryLinks(){
-    const allowed=inviteAllowedRoles(),actions=allowed.map(r=>`<button class="btn primary" data-create-entry-link="${r}">${r==="client"?"رابط عميل":r==="owner"?"رابط مالك":"رابط إداري"}</button>`).join(" ");
+    const allowed=inviteAllowedRoles(),actions=allowed.map(r=>`<button class="btn primary" data-create-entry-link="${r}">${r==="client"?"رابط عميل":r==="owner"?"رابط مالك":r==="technician"?"رابط فني":"رابط إداري"}</button>`).join(" ");
     const c=$("#dashboardContent");c.innerHTML=head("روابط التسجيل","توليد ومشاركة روابط تسجيل الأجهزة",actions)+`<div id="entryLinksPanel" class="panel">جاري تحميل الروابط...</div>`;
     fetch("/api/invites",{cache:"no-store"}).then(r=>r.json()).then(data=>{
       const visible=(data.invites||[]).filter(x=>x.createdBy===session.id).slice(0,80);
