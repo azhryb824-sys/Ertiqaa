@@ -1,4 +1,4 @@
-﻿(function(){
+(function(){
   const nativeStorage=window.localStorage;
   const cap=window.Capacitor?.Plugins||{};
   cap.App?.addListener?.("appUrlOpen",e=>{if(e.url)location.href=e.url});

@@ -406,7 +406,7 @@ function readStore() {
     const stat = fs.existsSync(storagePath) ? fs.statSync(storagePath) : null;
     const mtime = stat?.mtimeMs || 0;
     if (storeCache && mtime === storeMtime) return storeCache;
-    storeCache = JSON.parse(fs.readFileSync(storagePath, "utf8") || "{}");
+    storeCache = JSON.parse((fs.readFileSync(storagePath, "utf8") || "{}").replace(/^\uFEFF/,""));
     storeMtime = mtime;
     return storeCache;
   } catch {
@@ -6252,7 +6252,7 @@ ${JSON.stringify(rows, null, 2)}
     if (!restored) {
       const templatePath = path.join(root, "storage.template.json");
       if (fs.existsSync(templatePath)) {
-        let template = JSON.parse(fs.readFileSync(templatePath, "utf8"));
+        let template = JSON.parse(fs.readFileSync(templatePath, "utf8").replace(/^\uFEFF/,""));
         template.misadCreatedAt = new Date().toISOString();
         fs.writeFileSync(storagePath, JSON.stringify(template, null, 2), "utf8");
         console.log("Created initial storage.json from storage.template.json");
@@ -6277,8 +6277,8 @@ ${JSON.stringify(rows, null, 2)}
       console.log("FORCE_SEED_STORAGE=1: تم استبدال storage.json بالكامل من القالب");
     } else if (fs.existsSync(templatePath)) {
       try {
-        const template = JSON.parse(fs.readFileSync(templatePath, "utf8"));
-        const current = JSON.parse(fs.readFileSync(storagePath, "utf8"));
+        const template = JSON.parse(fs.readFileSync(templatePath, "utf8").replace(/^\uFEFF/,""));
+        const current = JSON.parse(fs.readFileSync(storagePath, "utf8").replace(/^\uFEFF/,""));
         let changed = false;
         for (const [key, value] of Object.entries(template)) {
           if (!(key in current) || (typeof value === "string" && value.startsWith("[]") && current[key] === "[]")) {
