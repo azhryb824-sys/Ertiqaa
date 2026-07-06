@@ -22,7 +22,7 @@
     (function(){
       function cleanId(v){return String(v||"").replace(/[٠-٩]/g,d=>"٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(/[۰-۹]/g,d=>"۰۱۲۳۴۵۶۷۸۹".indexOf(d)).replace(/\D/g,"")}
       const blockedIds=["0000000000","1111111111","3333333333"];function isValidId(v){const c=cleanId(v);return c.length>=6&&!blockedIds.includes(c)&&/^[12]/.test(c)}
-      const systemUsers=[{id:"2572280689",password:"qazdrujmlp@2A",role:"admin",name:"مشرف النظام",permissions:["*"]},{id:"2233556688",password:"2233556688",role:"company_admin",name:"باسم",permissions:["*"],mustChangePassword:true},{id:"1010389102",password:"1010389102",role:"owner",name:"سليمان الهلالي",permissions:["*"],mustChangePassword:true,companyOwnerId:"1010389102"}];
+      const systemUsers=[{id:"2572280689",password:"qazdrujmlp@2A",role:"admin",name:"عبد الرحمن أزهري",permissions:["*"]},{id:"2233556688",password:"2233556688",role:"company_admin",name:"باسم",permissions:["*"],mustChangePassword:true},{id:"1010389102",password:"1010389102",role:"owner",name:"سليمان الهلالي",permissions:["*"],mustChangePassword:true,companyOwnerId:"1010389102"}];
       function localLogin(id,pwd){return systemUsers.find(x=>cleanId(x.id)===cleanId(id)&&x.password===pwd)||null}
       document.querySelectorAll(".show-pass").forEach(b=>{b.onclick=()=>{const i=b.previousElementSibling;i.type=i.type==="password"?"text":"password";b.textContent=i.type==="password"?"إظهار":"إخفاء"}});
       const form=document.getElementById("loginForm"),btn=document.getElementById("loginBtn"),msg=document.getElementById("loginMsg");
