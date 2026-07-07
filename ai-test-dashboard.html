@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة اختبار الذكاء الاصطناعي الشامل</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 30px;
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+        
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .test-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 20px;
+            border-radius: 15px;
+            border: 2px solid #ddd;
+            transition: all 0.3s ease;
+        }
+        
+        .test-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+        
+        .test-card h3 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1.3em;
+        }
+        
+        .test-card p {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 15px;
+        }
+        
+        .test-card button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background 0.3s;
+            width: 100%;
+        }
+        
+        .test-card button:hover {
+            background: #764ba2;
+        }
+        
+        .test-card button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 8px;
+            font-weight: bold;
+            text-align: center;
+        }
+        
+        .status.pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .status.running {
+            background: #cce5ff;
+            color: #004085;
+        }
+        
+        .status.pass {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status.fail {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .main-actions {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .main-actions button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1.2em;
+            margin: 0 10px;
+            transition: transform 0.3s;
+        }
+        
+        .main-actions button:hover {
+            transform: scale(1.05);
+        }
+        
+        .main-actions button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .results-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 15px;
+            margin-top: 30px;
+        }
+        
+        .results-section h2 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .summary-card {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .summary-card .number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .summary-card .label {
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .detailed-results {
+            max-height: 400px;
+            overflow-y: auto;
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+        }
+        
+        .result-item {
+            padding: 10px;
+            margin-bottom: 5px;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .result-item.pass {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .result-item.fail {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .result-item.warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #e0e0e0;
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .console-output {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 20px;
+            font-size: 0.9em;
+        }
+        
+        .console-output div {
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧠 لوحة اختبار الذكاء الاصطناعي الشامل</h1>
+        <p class="subtitle">نظام اختبار متكامل لجميع ميزات الذكاء الاصطناعي والإدخال الصوتي</p>
+        
+        <div class="main-actions">
+            <button id="runAllTests" onclick="runAllTests()">🚀 تشغيل جميع الاختبارات</button>
+            <button id="runQuickTest" onclick="runQuickTest()">⚡ اختبار سريع</button>
+            <button id="exportReport" onclick="exportReport()" disabled>📊 تصدير التقرير</button>
+        </div>
+        
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill" style="width: 0%">0%</div>
+        </div>
+        
+        <div class="test-grid">
+            <div class="test-card">
+                <h3>🎤 الأوامر الصوتية الأساسية</h3>
+                <p>اختبار أوامر إنشاء العقود، عروض الأسعار، والزيارات</p>
+                <button onclick="runTest('basic')">تشغيل</button>
+                <div class="status pending" id="basicStatus">في الانتظار</div>
+            </div>
+            
+            <div class="test-card">
+                <h3>🤖 أوامر الذكاء الاصطناعي</h3>
+                <p>اختبار التوصيات، تحسين العروض، وتحليل التقارير</p>
+                <button onclick="runTest('ai')">تشغيل</button>
+                <div class="status pending" id="aiStatus">في الانتظار</div>
+            </div>
+            
+            <div class="test-card">
+                <h3>🧭 أوامر التنقل</h3>
+                <p>اختبار الانتقال بين صفحات النظام المختلفة</p>
+                <button onclick="runTest('navigation')">تشغيل</button>
+                <div class="status pending" id="navigationStatus">في الانتظار</div>
+            </div>
+            
+            <div class="test-card">
+                <h3>👂 التعرف الصوتي</h3>
+                <p>اختبار دقة التعرف الصوتي المحسن</p>
+                <button onclick="runTest('speech')">تشغيل</button>
+                <div class="status pending" id="speechStatus">في الانتظار</div>
+            </div>
+            
+            <div class="test-card">
+                <h3>🔌 تكامل API</h3>
+                <p>اختبار الاتصال بنقاط النهاية الخلفية</p>
+                <button onclick="runTest('api')">تشغيل</button>
+                <div class="status pending" id="apiStatus">في الانتظار</div>
+            </div>
+            
+            <div class="test-card">
+                <h3>🔐 الصلاحيات</h3>
+                <p>اختبار صلاحيات المستخدم والأمان</p>
+                <button onclick="runTest('permissions')">تشغيل</button>
+                <div class="status pending" id="permissionsStatus">في الانتظار</div>
+            </div>
+            
+            <div class="test-card">
+                <h3>⚡ الأداء</h3>
+                <p>اختبار سرعة الاستجابة والأداء</p>
+                <button onclick="runTest('performance')">تشغيل</button>
+                <div class="status pending" id="performanceStatus">في الانتظار</div>
+            </div>
+            
+            <div class="test-card">
+                <h3>⚠️ معالجة الأخطاء</h3>
+                <p>اختبار معالجة الأوامر غير الصالحة</p>
+                <button onclick="runTest('errors')">تشغيل</button>
+                <div class="status pending" id="errorsStatus">في الانتظار</div>
+            </div>
+            
+            <div class="test-card">
+                <h3>🔤 معالجة النص العربي</h3>
+                <p>اختبار معالجة ودقة النص العربي</p>
+                <button onclick="runTest('arabic')">تشغيل</button>
+                <div class="status pending" id="arabicStatus">في الانتظار</div>
+            </div>
+            
+            <div class="test-card">
+                <h3>🔗 التكامل</h3>
+                <p>اختبار التكامل مع الوظائف الموجودة</p>
+                <button onclick="runTest('integration')">تشغيل</button>
+                <div class="status pending" id="integrationStatus">في الانتظار</div>
+            </div>
+        </div>
+        
+        <div class="results-section">
+            <h2>📊 نتائج الاختبار</h2>
+            
+            <div class="summary">
+                <div class="summary-card">
+                    <div class="number" id="totalTests">0</div>
+                    <div class="label">إجمالي الاختبارات</div>
+                </div>
+                <div class="summary-card">
+                    <div class="number" id="passedTests" style="color: #28a745;">0</div>
+                    <div class="label">نجح</div>
+                </div>
+                <div class="summary-card">
+                    <div class="number" id="failedTests" style="color: #dc3545;">0</div>
+                    <div class="label">فشل</div>
+                </div>
+                <div class="summary-card">
+                    <div class="number" id="warningTests" style="color: #ffc107;">0</div>
+                    <div class="label">تحذيرات</div>
+                </div>
+                <div class="summary-card">
+                    <div class="number" id="successRate">0%</div>
+                    <div class="label">نسبة النجاح</div>
+                </div>
+            </div>
+            
+            <div class="detailed-results" id="detailedResults">
+                <p style="text-align: center; color: #666;">لم يتم تشغيل أي اختبار بعد</p>
+            </div>
+        </div>
+        
+        <div class="console-output" id="consoleOutput">
+            <div>جاهز للاختبار...</div>
+        </div>
+    </div>
+
+    <script src="voice-ai-enhancement.js"></script>
+    <script src="ai-comprehensive-test.js"></script>
+    <script>
+        let testResults = [];
+        let currentProgress = 0;
+        
+        function logToConsole(message) {
+            const console = document.getElementById('consoleOutput');
+            const time = new Date().toLocaleTimeString('ar-SA');
+            console.innerHTML += `<div>[${time}] ${message}</div>`;
+            console.scrollTop = console.scrollHeight;
+        }
+        
+        function updateProgress(percent) {
+            currentProgress = percent;
+            document.getElementById('progressFill').style.width = percent + '%';
+            document.getElementById('progressFill').textContent = percent + '%';
+        }
+        
+        function updateTestStatus(testId, status) {
+            const statusEl = document.getElementById(testId + 'Status');
+            statusEl.className = 'status ' + status;
+            statusEl.textContent = status === 'pass' ? 'نجح' : status === 'fail' ? 'فشل' : status === 'running' ? 'جاري التشغيل' : 'في الانتظار';
+        }
+        
+        function updateSummary() {
+            const total = testResults.length;
+            const passed = testResults.filter(r => r.status === 'pass').length;
+            const failed = testResults.filter(r => r.status === 'fail').length;
+            const warnings = testResults.filter(r => r.status === 'warning').length;
+            const successRate = total > 0 ? ((passed / total) * 100).toFixed(1) : 0;
+            
+            document.getElementById('totalTests').textContent = total;
+            document.getElementById('passedTests').textContent = passed;
+            document.getElementById('failedTests').textContent = failed;
+            document.getElementById('warningTests').textContent = warnings;
+            document.getElementById('successRate').textContent = successRate + '%';
+        }
+        
+        function updateDetailedResults() {
+            const container = document.getElementById('detailedResults');
+            
+            if (testResults.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #666;">لم يتم تشغيل أي اختبار بعد</p>';
+                return;
+            }
+            
+            container.innerHTML = testResults.map(result => `
+                <div class="result-item ${result.status}">
+                    <span>${result.test}</span>
+                    <span>${result.details || ''}</span>
+                </div>
+            `).join('');
+        }
+        
+        function runTest(testType) {
+            if (!window.AITestSuite) {
+                alert('مجموعة الاختبارات غير محملة. يرجى تحميل ai-comprehensive-test.js');
+                return;
+            }
+            
+            updateTestStatus(testType, 'running');
+            logToConsole(`بدء اختبار: ${testType}`);
+            
+            const suite = new AITestSuite();
+            suite.init();
+            
+            switch(testType) {
+                case 'basic':
+                    suite.testBasicVoiceCommands();
+                    break;
+                case 'ai':
+                    suite.testAIVoiceCommands();
+                    break;
+                case 'navigation':
+                    suite.testNavigationCommands();
+                    break;
+                case 'speech':
+                    suite.testSpeechRecognition();
+                    break;
+                case 'api':
+                    suite.testBackendAPI();
+                    break;
+                case 'permissions':
+                    suite.testPermissions();
+                    break;
+                case 'performance':
+                    suite.testPerformance();
+                    break;
+                case 'errors':
+                    suite.testErrorHandling();
+                    break;
+                case 'arabic':
+                    suite.testArabicProcessing();
+                    break;
+                case 'integration':
+                    suite.testIntegration();
+                    break;
+            }
+            
+            setTimeout(() => {
+                testResults = testResults.concat(suite.results);
+                updateTestStatus(testType, suite.results.some(r => r.status === 'fail') ? 'fail' : 'pass');
+                updateSummary();
+                updateDetailedResults();
+                logToConsole(`اكتمل اختبار: ${testType}`);
+            }, 2000);
+        }
+        
+        function runAllTests() {
+            if (!window.AITestSuite) {
+                alert('مجموعة الاختبارات غير محملة. يرجى تحميل ai-comprehensive-test.js');
+                return;
+            }
+            
+            document.getElementById('runAllTests').disabled = true;
+            logToConsole('بدء تشغيل جميع الاختبارات...');
+            
+            const tests = ['basic', 'ai', 'navigation', 'speech', 'api', 'permissions', 'performance', 'errors', 'arabic', 'integration'];
+            let currentTest = 0;
+            
+            function runNext() {
+                if (currentTest < tests.length) {
+                    const testType = tests[currentTest];
+                    updateProgress(((currentTest + 1) / tests.length) * 100);
+                    runTest(testType);
+                    currentTest++;
+                    setTimeout(runNext, 2500);
+                } else {
+                    document.getElementById('runAllTests').disabled = false;
+                    document.getElementById('exportReport').disabled = false;
+                    logToConsole('اكتملت جميع الاختبارات!');
+                    alert('اكتملت جميع الاختبارات بنجاح!');
+                }
+            }
+            
+            runNext();
+        }
+        
+        function runQuickTest() {
+            logToConsole('بدء الاختبار السريع...');
+            const quickTests = ['basic', 'speech', 'permissions'];
+            quickTests.forEach((test, index) => {
+                setTimeout(() => runTest(test), index * 2000);
+            });
+        }
+        
+        function exportReport() {
+            const report = {
+                timestamp: new Date().toISOString(),
+                summary: {
+                    total: testResults.length,
+                    passed: testResults.filter(r => r.status === 'pass').length,
+                    failed: testResults.filter(r => r.status === 'fail').length,
+                    warnings: testResults.filter(r => r.status === 'warning').length,
+                    successRate: ((testResults.filter(r => r.status === 'pass').length / testResults.length) * 100).toFixed(1) + '%'
+                },
+                results: testResults
+            };
+            
+            const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `ai-test-report-${Date.now()}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            logToConsole('تم تصدير التقرير بنجاح');
+        }
+        
+        // Initialize
+        logToConsole('تم تحميل لوحة الاختبار');
+    </script>
+</body>
+</html>

@@ -12,7 +12,12 @@
     "cap:build:ios": "npx cap sync ios && npx cap open ios",
     "cap:release:ios": "npx cap sync ios && cd ios && fastlane beta",
     "cap:doctor:ios": "npx cap doctor ios",
-    "cap:copy:ios": "npx cap copy ios"
+    "cap:copy:ios": "npx cap copy ios",
+    "test": "node src/pdf/test-pdf.js",
+    "test-enhanced": "node src/pdf/test-pdf-enhanced.js",
+    "generate": "node src/pdf/generate-examples.js",
+    "server": "node src/pdf/pdf-server.js",
+    "train-ai": "node src/ai/train-models.js"
   },
   "dependencies": {
     "@capacitor/android": "^7.4.0",
@@ -20,14 +25,17 @@
     "@capacitor/core": "^7.6.7",
     "@capacitor/ios": "^7.4.0",
     "@capacitor/push-notifications": "^7.0.1",
-    "dotenv": "^17.4.2"
+    "dotenv": "^17.4.2",
+    "express": "^4.22.2",
+    "puppeteer": "^21.11.0",
+    "@tensorflow/tfjs-node": "^4.15.0"
   },
   "devDependencies": {
     "@capacitor/cli": "^7.6.7"
   },
   "main": "app.bundle.js",
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": ""
+  "keywords": ["pdf", "arabic", "rtl", "generator", "contracts", "quotes", "reports", "elevator", "management"],
+  "author": "Ertiqaa",
+  "license": "MIT",
+  "description": "Professional Arabic PDF generation system for elevator management"
 }

@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>اختبار الإدخال الصوتي المحسن</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 5px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .log {
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 5px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>اختبار الإدخال الصوتي المحسن</h1>
+        
+        <div class="test-section">
+            <h3>1. تحميل ملف التحسينات</h3>
+            <button onclick="loadEnhancement()">تحميل voice-ai-enhancement.js</button>
+            <div id="loadStatus"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>2. اختبار دالة handleAiActionEnhanced</h3>
+            <textarea id="testInput" placeholder="اكتب أمراً للاختبار (مثال: أنشئ عقد صيانة)"></textarea>
+            <button onclick="testAiAction()">اختبار الأمر</button>
+            <div id="testResult"></div>
+            <div style="margin-top: 10px;">
+                <small>أوامر سريعة للاختبار:</small><br>
+                <button onclick="quickTest('أنشئ عقد صيانة')">عقد صيانة</button>
+                <button onclick="quickTest('إنشاء عرض سعر')">عرض سعر</button>
+                <button onclick="quickTest('اذهب إلى العقود')">الانتقال للعقود</button>
+                <button onclick="quickTest('ابحث عن محمد')">بحث</button>
+                <button onclick="quickTest('حالة النظام')">حالة النظام</button>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h3>3. اختبار التعرف الصوتي المحسن</h3>
+            <button onclick="testSpeechRecognition()">بدء التعرف الصوتي</button>
+            <button onclick="testEnhancedSpeechRecognition()">بدء التعرف الصوتي المحسن</button>
+            <div id="speechStatus"></div>
+            <div id="speechResult"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>4. سجل الاختبارات</h3>
+            <div id="log" class="log"></div>
+        </div>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const time = new Date().toLocaleTimeString('ar-SA');
+            const className = type === 'success' ? 'success' : type === 'error' ? 'error' : 'info';
+            logDiv.innerHTML += `<div class="${className}">[${time}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function loadEnhancement() {
+            const statusDiv = document.getElementById('loadStatus');
+            statusDiv.innerHTML = 'جاري التحميل...';
+            
+            const script = document.createElement('script');
+            script.src = 'voice-ai-enhancement.js';
+            script.onload = () => {
+                statusDiv.innerHTML = '<span class="success">✓ تم تحميل الملف بنجاح</span>';
+                log('تم تحميل voice-ai-enhancement.js بنجاح', 'success');
+                
+                if (window.handleAiActionEnhanced) {
+                    log('دالة handleAiActionEnhanced متاحة', 'success');
+                } else {
+                    log('دالة handleAiActionEnhanced غير متاحة', 'error');
+                }
+            };
+            script.onerror = () => {
+                statusDiv.innerHTML = '<span class="error">✗ فشل تحميل الملف</span>';
+                log('فشل تحميل voice-ai-enhancement.js', 'error');
+            };
+            document.head.appendChild(script);
+        }
+
+        function testAiAction() {
+            const input = document.getElementById('testInput').value;
+            const resultDiv = document.getElementById('testResult');
+            
+            if (!input) {
+                resultDiv.innerHTML = '<span class="error">الرجاء إدخال أمر للاختبار</span>';
+                return;
+            }
+            
+            if (!window.handleAiActionEnhanced) {
+                resultDiv.innerHTML = '<span class="error">ملف التحسينات غير محمل. قم بتحميله أولاً.</span>';
+                log('محاولة اختبار بدون تحميل الملف', 'error');
+                return;
+            }
+            
+            resultDiv.innerHTML = 'جاري المعالجة...';
+            log(`اختبار الأمر: ${input}`, 'info');
+            
+            window.handleAiActionEnhanced(input)
+                .then(result => {
+                    resultDiv.innerHTML = `<span class="success">النتيجة: ${result || 'لا يوجد إجراء محلي'}</span>`;
+                    log(`نتيجة الأمر: ${result || 'لا يوجد إجراء محلي'}`, 'success');
+                })
+                .catch(error => {
+                    resultDiv.innerHTML = `<span class="error">خطأ: ${error.message}</span>`;
+                    log(`خطأ: ${error.message}`, 'error');
+                });
+        }
+
+        function quickTest(command) {
+            document.getElementById('testInput').value = command;
+            testAiAction();
+        }
+
+        function testSpeechRecognition() {
+            const statusDiv = document.getElementById('speechStatus');
+            const resultDiv = document.getElementById('speechResult');
+            
+            if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                statusDiv.innerHTML = '<span class="error">المتصفح لا يدعم التعرف الصوتي</span>';
+                log('المتصفح لا يدعم التعرف الصوتي', 'error');
+                return;
+            }
+            
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            const recognition = new SpeechRecognition();
+            
+            recognition.lang = 'ar-SA';
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            
+            recognition.onstart = () => {
+                statusDiv.innerHTML = 'جاري الاستماع...';
+                log('بدء التعرف الصوتي العادي', 'info');
+            };
+            
+            recognition.onresult = (event) => {
+                const text = event.results[0][0].transcript;
+                resultDiv.innerHTML = `<span class="success">النص المسموع: ${text}</span>`;
+                log(`النص المسموع: ${text}`, 'success');
+                document.getElementById('testInput').value = text;
+            };
+            
+            recognition.onerror = (event) => {
+                statusDiv.innerHTML = `<span class="error">خطأ: ${event.error}</span>`;
+                log(`خطأ في التعرف الصوتي: ${event.error}`, 'error');
+            };
+            
+            recognition.onend = () => {
+                statusDiv.innerHTML = 'انتهى الاستماع';
+                log('انتهى التعرف الصوتي العادي', 'info');
+            };
+            
+            recognition.start();
+        }
+
+        function testEnhancedSpeechRecognition() {
+            const statusDiv = document.getElementById('speechStatus');
+            const resultDiv = document.getElementById('speechResult');
+            
+            if (!window.enhancedListenArabic) {
+                statusDiv.innerHTML = '<span class="error">الدالة المحسنة غير متاحة. قم بتحميل ملف التحسينات أولاً.</span>';
+                log('الدالة المحسنة غير متاحة', 'error');
+                return;
+            }
+            
+            log('بدء التعرف الصوتي المحسن', 'info');
+            
+            window.enhancedListenArabic(
+                text => {
+                    resultDiv.innerHTML = `<span class="success">النص المسموع (محسن): ${text}</span>`;
+                    log(`النص المسموع (محسن): ${text}`, 'success');
+                    document.getElementById('testInput').value = text;
+                },
+                status => {
+                    statusDiv.innerHTML = status;
+                    log(`حالة التعرف: ${status}`, 'info');
+                }
+            );
+        }
+
+        log('صفحة الاختبار جاهزة', 'info');
+    </script>
+</body>
+</html>

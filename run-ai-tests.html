@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تشغيل اختبارات الذكاء الاصطناعي تلقائياً</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 { color: #333; text-align: center; }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            background: #e0e0e0;
+        }
+        .status.running { background: #cce5ff; color: #004085; }
+        .status.completed { background: #d4edda; color: #155724; }
+        .status.error { background: #f8d7da; color: #721c24; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .log {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        .log div { margin-bottom: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧠 تشغيل اختبارات الذكاء الاصطناعي تلقائياً</h1>
+        
+        <div class="status" id="status">جاهز للتشغيل</div>
+        
+        <button id="runBtn" onclick="runTests()">🚀 تشغيل جميع الاختبارات</button>
+        <button id="exportBtn" onclick="exportReport()" disabled>📊 تصدير التقرير</button>
+        
+        <div class="log" id="log">
+            <div>جاهز...</div>
+        </div>
+    </div>
+
+    <script src="voice-ai-enhancement.js"></script>
+    <script src="ai-comprehensive-test.js"></script>
+    <script>
+        let testReport = null;
+        
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const time = new Date().toLocaleTimeString('ar-SA');
+            logDiv.innerHTML += `<div>[${time}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        function setStatus(status, message) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = 'status ' + status;
+            statusDiv.textContent = message;
+        }
+        
+        async function runTests() {
+            if (!window.AITestSuite) {
+                setStatus('error', 'مجموعة الاختبارات غير محملة');
+                log('خطأ: مجموعة الاختبارات غير محملة');
+                return;
+            }
+            
+            document.getElementById('runBtn').disabled = true;
+            setStatus('running', 'جاري تشغيل الاختبارات...');
+            log('بدء تشغيل الاختبارات الشاملة');
+            
+            const suite = new AITestSuite();
+            suite.init();
+            
+            // Run all tests sequentially
+            log('اختبار الأوامر الصوتية الأساسية...');
+            suite.testBasicVoiceCommands();
+            await sleep(2000);
+            
+            log('اختبار أوامر الذكاء الاصطناعي...');
+            suite.testAIVoiceCommands();
+            await sleep(2000);
+            
+            log('اختبار أوامر التنقل...');
+            suite.testNavigationCommands();
+            await sleep(2000);
+            
+            log('اختبار التعرف الصوتي...');
+            suite.testSpeechRecognition();
+            await sleep(2000);
+            
+            log('اختبار تكامل API...');
+            suite.testBackendAPI();
+            await sleep(2000);
+            
+            log('اختبار الصلاحيات...');
+            suite.testPermissions();
+            await sleep(2000);
+            
+            log('اختبار الأداء...');
+            suite.testPerformance();
+            await sleep(2000);
+            
+            log('اختبار معالجة الأخطاء...');
+            suite.testErrorHandling();
+            await sleep(2000);
+            
+            log('اختبار معالجة النص العربي...');
+            suite.testArabicProcessing();
+            await sleep(2000);
+            
+            log('اختبار التكامل...');
+            suite.testIntegration();
+            await sleep(2000);
+            
+            // Generate report
+            log('توليد التقرير...');
+            testReport = suite.generateReport();
+            
+            // Display summary
+            log(`═══════════════════════════════════════`);
+            log(`تقرير الاختبار الشامل`);
+            log(`═══════════════════════════════════════`);
+            log(`المدة: ${testReport.summary.duration}`);
+            log(`إجمالي الاختبارات: ${testReport.summary.total}`);
+            log(`نجح: ${testReport.summary.passed}`);
+            log(`فشل: ${testReport.summary.failed}`);
+            log(`تحذيرات: ${testReport.summary.warnings}`);
+            log(`نسبة النجاح: ${testReport.summary.successRate}`);
+            log(`═══════════════════════════════════════`);
+            
+            setStatus('completed', 'اكتملت الاختبارات بنجاح');
+            document.getElementById('runBtn').disabled = false;
+            document.getElementById('exportBtn').disabled = false;
+            
+            log('اكتملت جميع الاختبارات!');
+        }
+        
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+        
+        function exportReport() {
+            if (!testReport) {
+                alert('لا يوجد تقرير لتصديره');
+                return;
+            }
+            
+            const blob = new Blob([JSON.stringify(testReport, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `ai-test-report-${Date.now()}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            log('تم تصدير التقرير بنجاح');
+        }
+        
+        // Auto-run on load
+        window.onload = function() {
+            log('تم تحميل صفحة الاختبار');
+            setTimeout(runTests, 1000);
+        };
+    </script>
+</body>
+</html>
