@@ -2,43 +2,6 @@
   "use strict";
   var A = window.__appBridge || {};
   var pdfmakeReady = typeof pdfMake !== 'undefined' && pdfMake.fonts && pdfMake.fonts.Cairo;
-  var bidiReady = typeof bidi_js !== 'undefined';
-  var USE_BIDI = true; // toggle: false = logical order, true = bidi-js visual order
-
-  function shapeArabic(text){
-    if (!bidiReady || !text || typeof text !== 'string') return text;
-    if (!USE_BIDI) return text; // send logical order, let PDF viewer handle bidi
-    var bidi = bidi_js();
-    var levels = bidi.getEmbeddingLevels(text, 'rtl');
-    var reordered = bidi.getReorderedString(text, levels);
-    console.log('PDFGEN bidi reorder:', JSON.stringify(text), '->', JSON.stringify(reordered));
-    return reordered;
-  }
-
-  function preprocessText(obj){
-    if (Array.isArray(obj)) {
-      for (var i = 0; i < obj.length; i++) {
-        if (typeof obj[i] === 'string') obj[i] = shapeArabic(obj[i]);
-        else preprocessText(obj[i]);
-      }
-    } else if (obj && typeof obj === 'object') {
-      if (obj.text !== undefined) {
-        if (typeof obj.text === 'string') obj.text = shapeArabic(obj.text);
-        else if (Array.isArray(obj.text)) preprocessText(obj.text);
-      }
-      ['stack', 'columns', 'content', 'header', 'footer', 'head', 'body', 'table'].forEach(function(k){
-        if (obj[k]) preprocessText(obj[k]);
-      });
-      if (obj.table && obj.table.body) {
-        obj.table.body.forEach(function(row){
-          for (var ci = 0; ci < row.length; ci++) {
-            if (typeof row[ci] === 'string') row[ci] = shapeArabic(row[ci]);
-            else if (typeof row[ci] === 'object') preprocessText(row[ci]);
-          }
-        });
-      }
-    }
-  }
 
   function loadLogo(){
     return new Promise(function(resolve){
@@ -91,28 +54,6 @@
       if (co && co.name) return co.name;
     }
     return "شموس";
-  }
-
-  function forceRTL(obj){
-    if (Array.isArray(obj)) {
-      for (var i = 0; i < obj.length; i++) forceRTL(obj[i]);
-    } else if (obj && typeof obj === 'object') {
-      if (obj.text !== undefined && obj.alignment === undefined) {
-        obj.alignment = 'right';
-      }
-      ['stack', 'columns', 'content', 'header', 'footer', 'head', 'body', 'table'].forEach(function(k){
-        if (obj[k]) forceRTL(obj[k]);
-      });
-      if (obj.table && obj.table.body) {
-        obj.table.body.forEach(function(row){
-          row.forEach(function(cell){
-            if (typeof cell === 'object' && cell.alignment === undefined) {
-              cell.alignment = 'right';
-            }
-          });
-        });
-      }
-    }
   }
 
   function buildHeader(logoData){
@@ -292,12 +233,13 @@
   }
 
   var _sharedDd = {
+    rtl: true,
     styles: {
-      sectionTitle: { fontSize: 12, bold: true, color: '#102d2c', margin: [0, 0, 0, 2], alignment: 'right' },
-      summaryLabel: { fontSize: 8, color: '#60756f', bold: true, alignment: 'right' },
-      summaryValue: { fontSize: 11, color: '#102d2c', bold: true, alignment: 'right' }
+      sectionTitle: { fontSize: 12, bold: true, color: '#102d2c', margin: [0, 0, 0, 2] },
+      summaryLabel: { fontSize: 8, color: '#60756f', bold: true },
+      summaryValue: { fontSize: 11, color: '#102d2c', bold: true }
     },
-    defaultStyle: { font: 'Cairo', fontSize: 10, alignment: 'right', lineHeight: 1.5 },
+    defaultStyle: { font: 'Cairo', fontSize: 10, lineHeight: 1.5 },
     pageSize: 'A4',
     pageMargins: [28, 36, 28, 36],
     header: function(){
@@ -322,20 +264,8 @@
       return typeof v === 'function' ? undefined : v;
     }));
     dd.content = content;
-    dd.header = function(){
-      var h = _sharedDd.header();
-      forceRTL(h);
-      preprocessText(h);
-      return h;
-    };
-    dd.footer = function(cp, pc){
-      var f = _sharedDd.footer(cp, pc, cleanFooter);
-      forceRTL(f);
-      preprocessText(f);
-      return f;
-    };
-    forceRTL(dd);
-    preprocessText(dd);
+    dd.header = function(){ return _sharedDd.header(); };
+    dd.footer = function(cp, pc){ return _sharedDd.footer(cp, pc, cleanFooter); };
     return dd;
   }
 
