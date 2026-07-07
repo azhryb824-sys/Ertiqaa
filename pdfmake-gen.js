@@ -416,5 +416,5 @@
     }
   }, true);
 
-  console.log("PDFGEN", "pdfmake-gen loaded, ready:", pdfmakeReady);
+  console.log("PDFGEN", "pdfmake-gen loaded, pdfmakeReady:", pdfmakeReady, "pdfMake exists:", typeof pdfMake !== 'undefined', "fonts defined:", !!(pdfMake && pdfMake.fonts));
 })();
