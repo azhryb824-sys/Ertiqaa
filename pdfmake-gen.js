@@ -3,7 +3,7 @@
   var A = window.__appBridge || {};
   var pdfmakeReady = typeof pdfMake !== 'undefined' && pdfMake.fonts && pdfMake.fonts.Cairo;
   var bidiReady = typeof bidi_js !== 'undefined';
-  var USE_BIDI = false; // toggle: false = logical order, true = bidi-js visual order
+  var USE_BIDI = true; // toggle: false = logical order, true = bidi-js visual order
 
   function shapeArabic(text){
     if (!bidiReady || !text || typeof text !== 'string') return text;
