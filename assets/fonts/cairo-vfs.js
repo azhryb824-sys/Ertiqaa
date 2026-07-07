@@ -4,12 +4,11 @@
   if (typeof pdfMake === 'undefined') window.pdfMake = {};
   if (!pdfMake.vfs) pdfMake.vfs = {};
   Object.assign(pdfMake.vfs, vfs);
-  pdfMake.fonts = {
-    Cairo: {
-      normal: 'Cairo-Regular.ttf',
-      bold: 'Cairo-Bold.ttf',
-      italics: 'Cairo-Regular.ttf',
-      bolditalics: 'Cairo-Bold.ttf'
-    }
+  if (!pdfMake.fonts) pdfMake.fonts = {};
+  pdfMake.fonts.Cairo = {
+    normal: 'Cairo-Regular.ttf',
+    bold: 'Cairo-Bold.ttf',
+    italics: 'Cairo-Regular.ttf',
+    bolditalics: 'Cairo-Bold.ttf'
   };
 })();
