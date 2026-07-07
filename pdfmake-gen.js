@@ -2,6 +2,37 @@
   "use strict";
   var A = window.__appBridge || {};
   var pdfmakeReady = typeof pdfMake !== 'undefined' && pdfMake.fonts && pdfMake.fonts.Cairo;
+  var bidiReady = typeof bidi_js !== 'undefined';
+
+  function shapeArabic(text){
+    if (!bidiReady || !text || typeof text !== 'string') return text;
+    try {
+      var bidi = bidi_js();
+      var levels = bidi.getEmbeddingLevels(text, 'rtl');
+      return bidi.getReorderedString(text, levels);
+    } catch(e){ return text; }
+  }
+
+  function preprocessText(obj){
+    if (Array.isArray(obj)) {
+      for (var i = 0; i < obj.length; i++) preprocessText(obj[i]);
+    } else if (obj && typeof obj === 'object') {
+      if (obj.text !== undefined) {
+        if (typeof obj.text === 'string') obj.text = shapeArabic(obj.text);
+        else if (Array.isArray(obj.text)) preprocessText(obj.text);
+      }
+      ['stack', 'columns', 'content', 'header', 'footer'].forEach(function(k){
+        if (obj[k]) preprocessText(obj[k]);
+      });
+      if (obj.table && obj.table.body) {
+        obj.table.body.forEach(function(row){
+          row.forEach(function(cell){
+            if (typeof cell === 'object') preprocessText(cell);
+          });
+        });
+      }
+    }
+  }
 
   function loadLogo(){
     return new Promise(function(resolve){
@@ -56,32 +87,24 @@
     return "شموس";
   }
 
-  // Force rtl direction on every text node recursively
   function forceRTL(obj){
     if (Array.isArray(obj)) {
       for (var i = 0; i < obj.length; i++) forceRTL(obj[i]);
     } else if (obj && typeof obj === 'object') {
-      // Add rtl:true to any element with a text property
-      if (obj.text !== undefined) {
-        obj.rtl = true;
-        if (obj.alignment === undefined) obj.alignment = 'right';
+      if (obj.text !== undefined && obj.alignment === undefined) {
+        obj.alignment = 'right';
       }
-      // Recurse into common container properties
-      var containers = ['stack', 'columns', 'content', 'header', 'footer', 'head', 'body', 'table'];
-      for (var c = 0; c < containers.length; c++) {
-        if (obj[containers[c]]) forceRTL(obj[containers[c]]);
-      }
-      // Recurse into table body array
+      ['stack', 'columns', 'content', 'header', 'footer', 'head', 'body', 'table'].forEach(function(k){
+        if (obj[k]) forceRTL(obj[k]);
+      });
       if (obj.table && obj.table.body) {
-        for (var r = 0; r < obj.table.body.length; r++) {
-          for (var cc = 0; cc < obj.table.body[r].length; cc++) {
-            var cell = obj.table.body[r][cc];
-            if (typeof cell === 'object') {
-              cell.rtl = true;
-              if (cell.alignment === undefined) cell.alignment = 'right';
+        obj.table.body.forEach(function(row){
+          row.forEach(function(cell){
+            if (typeof cell === 'object' && cell.alignment === undefined) {
+              cell.alignment = 'right';
             }
-          }
-        }
+          });
+        });
       }
     }
   }
@@ -268,7 +291,7 @@
       summaryLabel: { fontSize: 8, color: '#60756f', bold: true, alignment: 'right' },
       summaryValue: { fontSize: 11, color: '#102d2c', bold: true, alignment: 'right' }
     },
-    defaultStyle: { font: 'Cairo', fontSize: 10, alignment: 'right', lineHeight: 1.5, rtl: true },
+    defaultStyle: { font: 'Cairo', fontSize: 10, alignment: 'right', lineHeight: 1.5 },
     pageSize: 'A4',
     pageMargins: [28, 36, 28, 36],
     header: function(){
@@ -292,8 +315,8 @@
     var dd = JSON.parse(JSON.stringify(_sharedDd));
     dd.content = content;
     dd.footer = function(cp, pc){ return _sharedDd.footer(cp, pc, cleanFooter); };
-    // Force RTL on all text nodes
     forceRTL(dd);
+    preprocessText(dd);
     return dd;
   }
 
