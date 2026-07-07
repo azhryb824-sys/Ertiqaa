@@ -3,27 +3,14 @@
   var A = window.__appBridge || {};
   var pdfmakeReady = typeof pdfMake !== 'undefined' && pdfMake.fonts && pdfMake.fonts.Cairo;
   var bidiReady = typeof bidi_js !== 'undefined';
-  var reshaperReady = typeof ArabicReshaper !== 'undefined';
-
-  function reshapeArabic(text){
-    if (!reshaperReady || !text || typeof text !== 'string') return text;
-    try { return ArabicReshaper.convertArabic(text); } catch(e){ return text; }
-  }
-
-  function reorderArabic(text){
-    if (!bidiReady || !text || typeof text !== 'string') return text;
-    try {
-      var bidi = bidi_js();
-      var levels = bidi.getEmbeddingLevels(text, 'rtl');
-      return bidi.getReorderedString(text, levels);
-    } catch(e){ return text; }
-  }
 
   function shapeArabic(text){
-    if (!text || typeof text !== 'string') return text;
-    text = reshapeArabic(text);
-    text = reorderArabic(text);
-    return text;
+    if (!bidiReady || !text || typeof text !== 'string') return text;
+    var bidi = bidi_js();
+    var levels = bidi.getEmbeddingLevels(text, 'rtl');
+    var reordered = bidi.getReorderedString(text, levels);
+    if (reordered !== text) console.log('PDFGEN reorder:', text, '->', reordered);
+    return reordered;
   }
 
   function preprocessText(obj){
