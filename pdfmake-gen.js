@@ -3,13 +3,15 @@
   var A = window.__appBridge || {};
   var pdfmakeReady = typeof pdfMake !== 'undefined' && pdfMake.fonts && pdfMake.fonts.Cairo;
   var bidiReady = typeof bidi_js !== 'undefined';
+  var USE_BIDI = false; // toggle: false = logical order, true = bidi-js visual order
 
   function shapeArabic(text){
     if (!bidiReady || !text || typeof text !== 'string') return text;
+    if (!USE_BIDI) return text; // send logical order, let PDF viewer handle bidi
     var bidi = bidi_js();
     var levels = bidi.getEmbeddingLevels(text, 'rtl');
     var reordered = bidi.getReorderedString(text, levels);
-    if (reordered !== text) console.log('PDFGEN reorder:', text, '->', reordered);
+    console.log('PDFGEN bidi reorder:', JSON.stringify(text), '->', JSON.stringify(reordered));
     return reordered;
   }
 
