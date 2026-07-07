@@ -56,19 +56,43 @@
     return "شموس";
   }
 
-  function objName(obj){
-    if (!obj) return '';
-    return obj.name || '';
+  // Force rtl direction on every text node recursively
+  function forceRTL(obj){
+    if (Array.isArray(obj)) {
+      for (var i = 0; i < obj.length; i++) forceRTL(obj[i]);
+    } else if (obj && typeof obj === 'object') {
+      // Add rtl:true to any element with a text property
+      if (obj.text !== undefined) {
+        obj.rtl = true;
+        if (obj.alignment === undefined) obj.alignment = 'right';
+      }
+      // Recurse into common container properties
+      var containers = ['stack', 'columns', 'content', 'header', 'footer', 'head', 'body', 'table'];
+      for (var c = 0; c < containers.length; c++) {
+        if (obj[containers[c]]) forceRTL(obj[containers[c]]);
+      }
+      // Recurse into table body array
+      if (obj.table && obj.table.body) {
+        for (var r = 0; r < obj.table.body.length; r++) {
+          for (var cc = 0; cc < obj.table.body[r].length; cc++) {
+            var cell = obj.table.body[r][cc];
+            if (typeof cell === 'object') {
+              cell.rtl = true;
+              if (cell.alignment === undefined) cell.alignment = 'right';
+            }
+          }
+        }
+      }
+    }
   }
 
-  // Shared header content
   function buildHeader(logoData){
     var parts = [];
     if (logoData) parts.push({ image: logoData, width: 28, height: 28, alignment: 'left' });
     parts.push({
       stack: [
-        { text: 'نظام شموس لإدارة المصاعد', fontSize: 14, bold: true, color: '#102d2c', alignment: 'center' },
-        { text: 'Shumoos Elevators Management System', fontSize: 8, color: '#6b7f7a', alignment: 'center' }
+        { text: 'نظام شموس لإدارة المصاعد', fontSize: 14, bold: true, color: '#102d2c' },
+        { text: 'Shumoos Elevators Management System', fontSize: 8, color: '#6b7f7a' }
       ],
       alignment: 'center', width: '*'
     });
@@ -103,10 +127,9 @@
     ];
   }
 
-  // Shared summary table helper
   function summaryTable(rows){
-    var header = rows.map(function(r){ return { text: r.label, style: 'summaryLabel' }; });
-    var values = rows.map(function(r){ return { text: r.value || 'غير محدد', style: 'summaryValue' }; });
+    var header = rows.map(function(r){ return { text: r.label, bold: true, alignment: 'right' }; });
+    var values = rows.map(function(r){ return { text: r.value || 'غير محدد', bold: true, alignment: 'right' }; });
     return {
       table: {
         widths: rows.map(function(){ return '*'; }),
@@ -137,7 +160,6 @@
     return { text: status, fontSize: 10, color: '#fff', background: color, alignment: 'center', margin: [0, 2, 0, 2], width: 90 };
   }
 
-  // Elevator info table
   function elevatorTable(ei){
     if (!ei || typeof ei !== 'object' || typeof ei.type === 'undefined') return null;
     var data = [
@@ -150,7 +172,7 @@
     ].filter(function(r){ return r.value; });
     if (!data.length) return null;
     return [
-      { text: 'بيانات المصعد', style: 'sectionTitle', margin: [0, 0, 0, 4] },
+      { text: 'بيانات المصعد', fontSize: 12, bold: true, color: '#102d2c', margin: [0, 0, 0, 4] },
       {
         table: {
           widths: [120, '*'],
@@ -159,8 +181,8 @@
             { text: 'القيمة', bold: true, color: '#fff', fillColor: '#102d2c', alignment: 'right' }
           ]].concat(data.map(function(r){
             return [
-              { text: r.label, bold: true, fillColor: '#eef5f1', fontSize: 9 },
-              { text: r.value, fontSize: 9 }
+              { text: r.label, bold: true, fillColor: '#eef5f1', fontSize: 9, alignment: 'right' },
+              { text: r.value, fontSize: 9, alignment: 'right' }
             ];
           }))
         },
@@ -179,7 +201,6 @@
     ];
   }
 
-  // Maintenance checklist table
   function maintenanceTable(checklist){
     if (!checklist || !checklist.length) return null;
     var items = [];
@@ -192,12 +213,12 @@
       var desc = (typeof item === 'object' && item) ? (item.description || item.desc || '') : '';
       items.push([
         { text: String(idx + 1), alignment: 'center', color: '#d79a2b', bold: true, fontSize: 9 },
-        { text: label, fontSize: 9 },
-        { text: desc, fontSize: 8, color: '#60756f' }
+        { text: label, fontSize: 9, alignment: 'right' },
+        { text: desc, fontSize: 8, color: '#60756f', alignment: 'right' }
       ]);
     });
     return [
-      { text: 'بنود الصيانة الدورية', style: 'sectionTitle', margin: [0, 0, 0, 4] },
+      { text: 'بنود الصيانة الدورية', fontSize: 12, bold: true, color: '#102d2c', margin: [0, 0, 0, 4] },
       {
         table: {
           headerRows: 1,
@@ -224,10 +245,9 @@
     ];
   }
 
-  // Terms/items renderer
   function renderItems(arr, title){
     if (!arr || !arr.length) return null;
-    var out = [{ text: title, style: 'sectionTitle', margin: [0, 0, 0, 4] }];
+    var out = [{ text: title, fontSize: 12, bold: true, color: '#102d2c', margin: [0, 0, 0, 4] }];
     arr.forEach(function(item){
       var t = '', d = '';
       if (typeof item === 'string') { t = item; }
@@ -235,8 +255,8 @@
       else if (item && item.title) { t = item.title; d = item.description || ''; }
       else if (item && item.name) { t = item.name; d = item.description || item.desc || ''; }
       else { try { t = JSON.stringify(item); } catch(e){} }
-      out.push({ text: t, bold: true, fontSize: 9, color: '#17413e', margin: [0, 0, 0, 1] });
-      if (d) out.push({ text: d, fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 4] });
+      out.push({ text: t, bold: true, fontSize: 9, color: '#17413e', margin: [0, 0, 0, 1], alignment: 'right' });
+      if (d) out.push({ text: d, fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 4], alignment: 'right' });
     });
     out.push({ text: '', margin: [0, 0, 0, 4] });
     return out;
@@ -244,11 +264,11 @@
 
   var _sharedDd = {
     styles: {
-      sectionTitle: { fontSize: 12, bold: true, color: '#102d2c', margin: [0, 0, 0, 2], direction: 'rtl' },
-      summaryLabel: { fontSize: 8, color: '#60756f', bold: true, direction: 'rtl' },
-      summaryValue: { fontSize: 11, color: '#102d2c', bold: true, direction: 'rtl' }
+      sectionTitle: { fontSize: 12, bold: true, color: '#102d2c', margin: [0, 0, 0, 2], alignment: 'right' },
+      summaryLabel: { fontSize: 8, color: '#60756f', bold: true, alignment: 'right' },
+      summaryValue: { fontSize: 11, color: '#102d2c', bold: true, alignment: 'right' }
     },
-    defaultStyle: { font: 'Cairo', fontSize: 10, alignment: 'right', lineHeight: 1.5, direction: 'rtl' },
+    defaultStyle: { font: 'Cairo', fontSize: 10, alignment: 'right', lineHeight: 1.5, rtl: true },
     pageSize: 'A4',
     pageMargins: [28, 36, 28, 36],
     header: function(){
@@ -263,10 +283,19 @@
       var f = [];
       f.push({ canvas: [{ type: 'line', x1: 28, y1: 0, x2: 568, y2: 0, lineWidth: 0.3, lineColor: '#d79a2b' }], margin: [0, 0, 0, 2] });
       if (cleanFooter) f.push({ text: cleanFooter, fontSize: 7, color: '#6b7f7a', alignment: 'center', margin: [0, 0, 0, 1] });
-      f.push({ text: currentPage + ' / ' + pageCount, fontSize: 7, color: '#8b9f99', alignment: 'center' });
+      f.push({ text: '' + currentPage + ' / ' + pageCount, fontSize: 7, color: '#8b9f99', alignment: 'center' });
       return { stack: f, margin: [28, 0, 28, 6] };
     }
   };
+
+  function makeDd(content, cleanFooter){
+    var dd = JSON.parse(JSON.stringify(_sharedDd));
+    dd.content = content;
+    dd.footer = function(cp, pc){ return _sharedDd.footer(cp, pc, cleanFooter); };
+    // Force RTL on all text nodes
+    forceRTL(dd);
+    return dd;
+  }
 
   // ==================== CONTRACT ====================
   function contractPdfDefinition(c, logoData){
@@ -275,11 +304,10 @@
     var content = [];
     Array.prototype.push.apply(content, buildHeader(logoData));
 
-    var st = c.status || '';
     content.push({
       columns: [
         { text: 'عقد ' + (c.type || ''), bold: true, fontSize: 16, color: '#102d2c' },
-        statusBadge(st)
+        statusBadge(c.status || '')
       ],
       margin: [0, 0, 0, 6]
     });
@@ -302,7 +330,7 @@
     });
     content.push({
       stack: [
-        { text: 'الطرف الثاني', style: 'sectionTitle' },
+        { text: 'الطرف الثاني', fontSize: 12, bold: true, color: '#102d2c', margin: [0, 0, 0, 2] },
         { text: safeLabel(c), bold: true, fontSize: 14, color: '#102d2c', margin: [0, 2, 0, 4] }
       ],
       margin: [0, 0, 0, 8]
@@ -319,15 +347,14 @@
     var mt = maintenanceTable(c.maintenanceChecklist);
     if (mt) Array.prototype.push.apply(content, mt);
 
-    // Buildings
     var buildings = c.buildings || [];
     if (buildings.length > 0) {
-      content.push({ text: 'المباني والمواقع', style: 'sectionTitle', margin: [0, 0, 0, 4] });
+      content.push({ text: 'المباني والمواقع', fontSize: 12, bold: true, color: '#102d2c', margin: [0, 0, 0, 4] });
       buildings.forEach(function(b){
         content.push({
           stack: [
-            { text: b.name || 'غير محدد', bold: true, fontSize: 11, color: '#17413e', margin: [0, 0, 0, 2] },
-            { text: [b.district, b.mapUrl].filter(Boolean).join(' - ') || '', fontSize: 9, color: '#60756f', margin: [0, 0, 0, 4] }
+            { text: b.name || 'غير محدد', bold: true, fontSize: 11, color: '#17413e', margin: [0, 0, 0, 2], alignment: 'right' },
+            { text: [b.district, b.mapUrl].filter(Boolean).join(' - ') || '', fontSize: 9, color: '#60756f', margin: [0, 0, 0, 4], alignment: 'right' }
           ],
           margin: [0, 0, 0, 4]
         });
@@ -341,16 +368,12 @@
     if (ci) Array.prototype.push.apply(content, ci);
 
     if (c.details) {
-      content.push({ text: 'نطاق العمل', style: 'sectionTitle', margin: [0, 0, 0, 4] });
-      content.push({ text: c.details, fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 10] });
+      content.push({ text: 'نطاق العمل', fontSize: 12, bold: true, color: '#102d2c', margin: [0, 0, 0, 4] });
+      content.push({ text: c.details, fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 10], alignment: 'right' });
     }
 
     Array.prototype.push.apply(content, buildSignature(companyName, safeLabel(c)));
-
-    var dd = JSON.parse(JSON.stringify(_sharedDd));
-    dd.content = content;
-    dd.footer = function(cp, pc){ return _sharedDd.footer(cp, pc, cf); };
-    return dd;
+    return makeDd(content, cf);
   }
 
   // ==================== QUOTE ====================
@@ -389,8 +412,8 @@
     });
     content.push({
       stack: [
-        { text: 'الطرف الموجه إليه عرض السعر', style: 'sectionTitle' },
-        { text: party, bold: true, fontSize: 14, color: '#102d2c', margin: [0, 2, 0, 4] }
+        { text: 'الطرف الموجه إليه عرض السعر', fontSize: 12, bold: true, color: '#102d2c', margin: [0, 0, 0, 2] },
+        { text: party, bold: true, fontSize: 14, color: '#102d2c', margin: [0, 2, 0, 4], alignment: 'right' }
       ],
       margin: [0, 0, 0, 8]
     });
@@ -403,7 +426,6 @@
     var et = elevatorTable(q.elevatorInfo);
     if (et) Array.prototype.push.apply(content, et);
 
-    // Payment plan for installation quotes
     if (isInstall) {
       var plan = (q.paymentPlan && q.paymentPlan.length) ? q.paymentPlan : [];
       if (plan.length) {
@@ -418,8 +440,8 @@
           var pct = p.percent > 1 ? p.percent / 100 : (p.percent || (Array.isArray(p) ? p[2] : 0));
           var amount = total * pct;
           planRows.push([
-            { text: label, fontSize: 9 },
-            { text: desc, fontSize: 8, color: '#60756f' },
+            { text: label, fontSize: 9, alignment: 'right' },
+            { text: desc, fontSize: 8, color: '#60756f', alignment: 'right' },
             { text: safeMoney(amount), alignment: 'center', fontSize: 9, bold: true }
           ]);
         });
@@ -428,7 +450,7 @@
           {},
           { text: safeMoney(total), alignment: 'center', bold: true, fontSize: 10, color: '#8b601f' }
         ]);
-        content.push({ text: 'جدول الدفعات', style: 'sectionTitle', margin: [0, 0, 0, 4] });
+        content.push({ text: 'جدول الدفعات', fontSize: 12, bold: true, color: '#102d2c', margin: [0, 0, 0, 4] });
         content.push({
           table: { headerRows: 1, widths: ['*', '*', 80], body: planRows },
           layout: {
@@ -447,7 +469,6 @@
       }
     }
 
-    // Maintenance checklist for maintenance quotes
     if (!isInstall) {
       var mt = maintenanceTable(q.maintenanceChecklist);
       if (mt) Array.prototype.push.apply(content, mt);
@@ -461,16 +482,12 @@
     if (ci) Array.prototype.push.apply(content, ci);
 
     if (q.details) {
-      content.push({ text: 'التفاصيل', style: 'sectionTitle', margin: [0, 0, 0, 4] });
-      content.push({ text: q.details, fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 10] });
+      content.push({ text: 'التفاصيل', fontSize: 12, bold: true, color: '#102d2c', margin: [0, 0, 0, 4] });
+      content.push({ text: q.details, fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 10], alignment: 'right' });
     }
 
     Array.prototype.push.apply(content, buildSignature(companyName, party));
-
-    var dd = JSON.parse(JSON.stringify(_sharedDd));
-    dd.content = content;
-    dd.footer = function(cp, pc){ return _sharedDd.footer(cp, pc, cf); };
-    return dd;
+    return makeDd(content, cf);
   }
 
   // ==================== REPORT ====================
@@ -503,7 +520,7 @@
     content.push(summaryTable([
       { label: 'العقد', value: r.contractId || 'زيارة كشفية' },
       { label: 'الطرف الثاني', value: r.clientName || r.clientCompanyName || safeLabel(r) },
-      { label: 'الموقع', value: r.buildingName || objName(r.building) || 'غير محدد' },
+      { label: 'الموقع', value: r.buildingName || 'غير محدد' },
       { label: 'موعد الزيارة', value: r.scheduledAt || 'غير محدد' },
       { label: 'تاريخ التقرير', value: r.createdAt },
       { label: 'حالة المصعد', value: r.elevatorStatus || 'غير محدد' }
@@ -512,8 +529,8 @@
     function section(title, text){
       if (!text) return null;
       return [
-        { text: title, style: 'sectionTitle', margin: [0, 0, 0, 4] },
-        { text: text, fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 10] }
+        { text: title, fontSize: 12, bold: true, color: '#102d2c', margin: [0, 0, 0, 4], alignment: 'right' },
+        { text: text, fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 10], alignment: 'right' }
       ];
     }
 
@@ -523,20 +540,16 @@
     if (s2) Array.prototype.push.apply(content, s2);
 
     if (r.parts || r.recommendations) {
-      content.push({ text: 'قطع الغيار المطلوبة / المستخدمة والتوصيات', style: 'sectionTitle', margin: [0, 0, 0, 4] });
-      if (r.parts) content.push({ text: r.parts, fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 4] });
-      if (r.recommendations) content.push({ text: r.recommendations, fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 10] });
+      content.push({ text: 'قطع الغيار المطلوبة / المستخدمة والتوصيات', fontSize: 12, bold: true, color: '#102d2c', margin: [0, 0, 0, 4], alignment: 'right' });
+      if (r.parts) content.push({ text: r.parts, fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 4], alignment: 'right' });
+      if (r.recommendations) content.push({ text: r.recommendations, fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 10], alignment: 'right' });
     }
 
     var s3 = section('صور أو روابط مرفقة', r.attachments);
     if (s3) Array.prototype.push.apply(content, s3);
 
     Array.prototype.push.apply(content, buildSignature(companyName, r.clientName || r.clientCompanyName || 'العميل'));
-
-    var dd = JSON.parse(JSON.stringify(_sharedDd));
-    dd.content = content;
-    dd.footer = function(cp, pc){ return _sharedDd.footer(cp, pc, cf); };
-    return dd;
+    return makeDd(content, cf);
   }
 
   // ==================== TICKET ====================
@@ -555,15 +568,15 @@
     });
     content.push({
       stack: [
-        { text: t.title, bold: true, fontSize: 14, color: '#102d2c', margin: [0, 0, 0, 2] },
-        { text: t.description || '', fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 6] }
+        { text: t.title, bold: true, fontSize: 14, color: '#102d2c', margin: [0, 0, 0, 2], alignment: 'right' },
+        { text: t.description || '', fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 6], alignment: 'right' }
       ],
       margin: [0, 0, 0, 8]
     });
     content.push(summaryTable([
       { label: 'العميل / المنشأة', value: t.clientCompanyName || t.clientName || 'غير محدد' },
       { label: 'العقد', value: t.contractId || 'غير مرتبط' },
-      { label: 'الموقع', value: [objName(t.building), t.building && t.building.district].filter(Boolean).join(' - ') || 'غير محدد' },
+      { label: 'الموقع', value: (t.building && t.building.name) || 'غير محدد' },
       { label: 'المسند إليه', value: t.assignedTo || 'غير مسند' },
       { label: 'تاريخ الإنشاء', value: t.createdAt }
     ]));
@@ -571,13 +584,8 @@
     var et = elevatorTable(t.elevatorInfo);
     if (et) Array.prototype.push.apply(content, et);
 
-    var party2 = t.clientCompanyName || t.clientName || 'العميل';
-    Array.prototype.push.apply(content, buildSignature(companyName, party2));
-
-    var dd = JSON.parse(JSON.stringify(_sharedDd));
-    dd.content = content;
-    dd.footer = function(cp, pc){ return _sharedDd.footer(cp, pc, cf); };
-    return dd;
+    Array.prototype.push.apply(content, buildSignature(companyName, t.clientCompanyName || t.clientName || 'العميل'));
+    return makeDd(content, cf);
   }
 
   // ==================== CLAIM ====================
@@ -618,19 +626,14 @@
       { label: 'تاريخ الإنشاء', value: cl.createdAt }
     ]));
 
-    content.push({ text: 'بيان المستخلص', style: 'sectionTitle', margin: [0, 0, 0, 4] });
+    content.push({ text: 'بيان المستخلص', fontSize: 12, bold: true, color: '#102d2c', margin: [0, 0, 0, 4], alignment: 'right' });
     content.push({
       text: 'مستخلص عن الفترة الموضحة أعلاه بمبلغ إجمالي ' + safeMoney(cl.value) + ' وفق بيانات العقد والخدمات المسجلة في النظام.',
-      fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 10]
+      fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 10], alignment: 'right'
     });
 
-    var party2 = cl.clientName || safeLabel(cl) || 'الطرف الثاني';
-    Array.prototype.push.apply(content, buildSignature(companyName, party2));
-
-    var dd = JSON.parse(JSON.stringify(_sharedDd));
-    dd.content = content;
-    dd.footer = function(cp, pc){ return _sharedDd.footer(cp, pc, cf); };
-    return dd;
+    Array.prototype.push.apply(content, buildSignature(companyName, cl.clientName || safeLabel(cl) || 'الطرف الثاني'));
+    return makeDd(content, cf);
   }
 
   // ==================== MAIN ENTRY ====================
@@ -685,9 +688,7 @@
 
       } else if (type === 'claim') {
         var claims;
-        try {
-          claims = A._read ? A._read('misadClaims') : JSON.parse(localStorage.getItem('misadClaims') || '[]');
-        } catch(e){ claims = null; }
+        try { claims = A._read ? A._read('misadClaims') : JSON.parse(localStorage.getItem('misadClaims') || '[]'); } catch(e){ claims = null; }
         if (!claims || !claims.length) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
         var claim = claims.filter(function(c){ return A.sameCompany ? A.sameCompany(c) : true; }).find(function(x){ return x.id === id; });
         if (!claim) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
@@ -710,7 +711,6 @@
     }
   };
 
-  // Patch click handlers
   document.addEventListener('click', function(e){
     var btn = e.target.closest('[data-pdf-doc]');
     if (btn) {
