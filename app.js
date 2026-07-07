@@ -972,7 +972,8 @@ const unlinkUser=e.target.closest("[data-unlink-user]");if(unlinkUser){const uid
     matchClient: matchClient,
     sameCompany: sameCompany,
     contractDetails: contractDetails,
-    installationContractDetails: installationContractDetails
+    installationContractDetails: installationContractDetails,
+    _read: read
   };
 })();
 

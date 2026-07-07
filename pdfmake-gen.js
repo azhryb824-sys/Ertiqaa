@@ -30,9 +30,9 @@
     });
   }
 
-  function safeLabel(c){
-    if (A.contractLabel) return A.contractLabel(c);
-    return c.clientName || c.clientId || "غير محدد";
+  function safeLabel(obj){
+    if (A.contractLabel) return A.contractLabel(obj);
+    return obj.clientName || obj.clientId || "غير محدد";
   }
 
   function safeMoney(v){
@@ -48,8 +48,7 @@
     return '';
   }
 
-  function safeCompanyName(c){
-    if (c && c.company && c.company.name) return c.company.name;
+  function activeCompanyName(){
     if (A.activeOwnerCompany) {
       var co = A.activeOwnerCompany();
       if (co && co.name) return co.name;
@@ -57,47 +56,233 @@
     return "شموس";
   }
 
-  function contractPdfDefinition(c, logoData){
-    var companyName = safeCompanyName(c);
-    var cleanFooter = safeFooter();
-    var content = [];
+  function objName(obj){
+    if (!obj) return '';
+    return obj.name || '';
+  }
 
-    // --- HEADER ---
-    var headerParts = [];
-    if (logoData) {
-      headerParts.push({ image: logoData, width: 28, height: 28, alignment: 'left' });
-    }
-    headerParts.push({
+  // Shared header content
+  function buildHeader(logoData){
+    var parts = [];
+    if (logoData) parts.push({ image: logoData, width: 28, height: 28, alignment: 'left' });
+    parts.push({
       stack: [
-        { text: 'نظام شموس لإدارة المصاعد', style: 'headerTitle' },
-        { text: 'Shumoos Elevators Management System', style: 'headerSub' }
+        { text: 'نظام شموس لإدارة المصاعد', fontSize: 14, bold: true, color: '#102d2c', alignment: 'center' },
+        { text: 'Shumoos Elevators Management System', fontSize: 8, color: '#6b7f7a', alignment: 'center' }
       ],
-      alignment: 'center',
-      width: '*'
+      alignment: 'center', width: '*'
     });
-    content.push({ columns: headerParts, margin: [0, 0, 0, 4] });
+    return [
+      { columns: parts, margin: [0, 0, 0, 4] },
+      { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 1.5, lineColor: '#d79a2b' }], margin: [0, 0, 0, 6] }
+    ];
+  }
 
-    // Gold line
-    content.push({
-      canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 1.5, lineColor: '#d79a2b' }],
-      margin: [0, 0, 0, 6]
+  function buildSignature(side1, side2){
+    return [
+      { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.5, lineColor: '#c5d9cf' }], margin: [0, 0, 0, 6] },
+      {
+        columns: [
+          {
+            stack: [
+              { text: 'الطرف الأول', bold: true, fontSize: 10, color: '#60756f', alignment: 'center' },
+              { text: side1, fontSize: 9, color: '#102d2c', alignment: 'center', margin: [0, 2, 0, 2] },
+              { text: 'التوقيع: ........................', fontSize: 8, color: '#8b9f99', alignment: 'center' }
+            ]
+          },
+          {
+            stack: [
+              { text: 'الطرف الثاني', bold: true, fontSize: 10, color: '#60756f', alignment: 'center' },
+              { text: side2, fontSize: 9, color: '#102d2c', alignment: 'center', margin: [0, 2, 0, 2] },
+              { text: 'التوقيع: ........................', fontSize: 8, color: '#8b9f99', alignment: 'center' }
+            ]
+          }
+        ],
+        margin: [0, 0, 0, 10]
+      }
+    ];
+  }
+
+  // Shared summary table helper
+  function summaryTable(rows){
+    var header = rows.map(function(r){ return { text: r.label, style: 'summaryLabel' }; });
+    var values = rows.map(function(r){ return { text: r.value || 'غير محدد', style: 'summaryValue' }; });
+    return {
+      table: {
+        widths: rows.map(function(){ return '*'; }),
+        body: [header, values]
+      },
+      layout: {
+        hLineWidth: function(i){ return i === 0 ? 0 : 0.5; },
+        vLineWidth: function(){ return 0.5; },
+        hLineColor: function(){ return '#dfe8e4'; },
+        vLineColor: function(){ return '#dfe8e4'; },
+        paddingLeft: function(){ return 8; },
+        paddingRight: function(){ return 8; },
+        paddingTop: function(){ return 6; },
+        paddingBottom: function(){ return 6; },
+        fillColor: function(i){ return i === 0 ? '#f0f6f3' : '#f8fbf9'; }
+      },
+      margin: [0, 0, 0, 10]
+    };
+  }
+
+  function statusBadge(status){
+    var color = '#0d6b4f';
+    if (!status) { status = ''; color = '#666'; }
+    if (status.indexOf('بانتظار') >= 0) color = '#8b601f';
+    if (status.indexOf('ملغي') >= 0 || status.indexOf('ملغى') >= 0) color = '#b33a3a';
+    if (status.indexOf('منته') >= 0) color = '#666';
+    if (status.indexOf('مغلق') >= 0) color = '#666';
+    return { text: status, fontSize: 10, color: '#fff', background: color, alignment: 'center', margin: [0, 2, 0, 2], width: 90 };
+  }
+
+  // Elevator info table
+  function elevatorTable(ei){
+    if (!ei || typeof ei !== 'object' || typeof ei.type === 'undefined') return null;
+    var data = [
+      { label: 'نوع المصعد', value: ei.type },
+      { label: 'السعة', value: ei.capacity },
+      { label: 'السرعة', value: ei.speed },
+      { label: 'عدد التوقفات', value: ei.stops },
+      { label: 'رقم المصعد', value: ei.elevatorId },
+      { label: 'الموقع', value: ei.location }
+    ].filter(function(r){ return r.value; });
+    if (!data.length) return null;
+    return [
+      { text: 'بيانات المصعد', style: 'sectionTitle', margin: [0, 0, 0, 4] },
+      {
+        table: {
+          widths: [120, '*'],
+          body: [[
+            { text: 'البيان', bold: true, color: '#fff', fillColor: '#102d2c', alignment: 'right' },
+            { text: 'القيمة', bold: true, color: '#fff', fillColor: '#102d2c', alignment: 'right' }
+          ]].concat(data.map(function(r){
+            return [
+              { text: r.label, bold: true, fillColor: '#eef5f1', fontSize: 9 },
+              { text: r.value, fontSize: 9 }
+            ];
+          }))
+        },
+        layout: {
+          hLineWidth: function(){ return 0.5; },
+          vLineWidth: function(){ return 0.5; },
+          hLineColor: function(){ return '#c5d9cf'; },
+          vLineColor: function(){ return '#c5d9cf'; },
+          paddingLeft: function(){ return 8; },
+          paddingRight: function(){ return 8; },
+          paddingTop: function(){ return 5; },
+          paddingBottom: function(){ return 5; }
+        },
+        margin: [0, 0, 0, 10]
+      }
+    ];
+  }
+
+  // Maintenance checklist table
+  function maintenanceTable(checklist){
+    if (!checklist || !checklist.length) return null;
+    var items = [];
+    checklist.forEach(function(item, idx){
+      var label = '';
+      if (typeof item === 'string') label = item;
+      else if (item && item.label) label = item.label;
+      else if (item && item.name) label = item.name;
+      else if (item && item.title) label = item.title;
+      var desc = (typeof item === 'object' && item) ? (item.description || item.desc || '') : '';
+      items.push([
+        { text: String(idx + 1), alignment: 'center', color: '#d79a2b', bold: true, fontSize: 9 },
+        { text: label, fontSize: 9 },
+        { text: desc, fontSize: 8, color: '#60756f' }
+      ]);
     });
+    return [
+      { text: 'بنود الصيانة الدورية', style: 'sectionTitle', margin: [0, 0, 0, 4] },
+      {
+        table: {
+          headerRows: 1,
+          widths: [25, 130, '*'],
+          body: [[
+            { text: '#', bold: true, color: '#fff', fillColor: '#102d2c', alignment: 'center' },
+            { text: 'البند', bold: true, color: '#fff', fillColor: '#102d2c', alignment: 'right' },
+            { text: 'البيان', bold: true, color: '#fff', fillColor: '#102d2c', alignment: 'right' }
+          ]].concat(items)
+        },
+        layout: {
+          hLineWidth: function(){ return 0.5; },
+          vLineWidth: function(){ return 0.5; },
+          hLineColor: function(){ return '#c5d9cf'; },
+          vLineColor: function(){ return '#c5d9cf'; },
+          paddingLeft: function(){ return 6; },
+          paddingRight: function(){ return 6; },
+          paddingTop: function(){ return 4; },
+          paddingBottom: function(){ return 4; },
+          fillColor: function(i){ return i % 2 === 0 ? null : '#f4f9f6'; }
+        },
+        margin: [0, 0, 0, 10]
+      }
+    ];
+  }
 
-    // --- CONTRACT TYPE & STATUS ---
-    var statusColor = '#0d6b4f';
-    if (c.status === 'بانتظار موافقة العميل' || c.status === 'بانتظار') statusColor = '#8b601f';
-    if (c.status === 'ملغي' || c.status === 'ملغى') statusColor = '#b33a3a';
-    if (c.status === 'منتهي' || c.status === 'منتهيا') statusColor = '#666';
+  // Terms/items renderer
+  function renderItems(arr, title){
+    if (!arr || !arr.length) return null;
+    var out = [{ text: title, style: 'sectionTitle', margin: [0, 0, 0, 4] }];
+    arr.forEach(function(item){
+      var t = '', d = '';
+      if (typeof item === 'string') { t = item; }
+      else if (item && item.section) { t = item.section; d = item.description || item.title || ''; }
+      else if (item && item.title) { t = item.title; d = item.description || ''; }
+      else if (item && item.name) { t = item.name; d = item.description || item.desc || ''; }
+      else { try { t = JSON.stringify(item); } catch(e){} }
+      out.push({ text: t, bold: true, fontSize: 9, color: '#17413e', margin: [0, 0, 0, 1] });
+      if (d) out.push({ text: d, fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 4] });
+    });
+    out.push({ text: '', margin: [0, 0, 0, 4] });
+    return out;
+  }
 
+  var _sharedDd = {
+    styles: {
+      sectionTitle: { fontSize: 12, bold: true, color: '#102d2c', margin: [0, 0, 0, 2] },
+      summaryLabel: { fontSize: 8, color: '#60756f', bold: true },
+      summaryValue: { fontSize: 11, color: '#102d2c', bold: true }
+    },
+    defaultStyle: { font: 'Cairo', fontSize: 10, alignment: 'right', lineHeight: 1.5 },
+    pageSize: 'A4',
+    pageMargins: [28, 36, 28, 36],
+    header: function(){
+      return {
+        stack: [
+          { text: 'نظام شموس', fontSize: 7, color: '#8b9f99', alignment: 'center', margin: [0, 6, 0, 0] },
+          { canvas: [{ type: 'line', x1: 28, y1: 0, x2: 568, y2: 0, lineWidth: 0.3, lineColor: '#d79a2b' }] }
+        ]
+      };
+    },
+    footer: function(currentPage, pageCount, cleanFooter){
+      var f = [];
+      f.push({ canvas: [{ type: 'line', x1: 28, y1: 0, x2: 568, y2: 0, lineWidth: 0.3, lineColor: '#d79a2b' }], margin: [0, 0, 0, 2] });
+      if (cleanFooter) f.push({ text: cleanFooter, fontSize: 7, color: '#6b7f7a', alignment: 'center', margin: [0, 0, 0, 1] });
+      f.push({ text: currentPage + ' / ' + pageCount, fontSize: 7, color: '#8b9f99', alignment: 'center' });
+      return { stack: f, margin: [28, 0, 28, 6] };
+    }
+  };
+
+  // ==================== CONTRACT ====================
+  function contractPdfDefinition(c, logoData){
+    var companyName = (c.company && c.company.name) || activeCompanyName();
+    var cf = safeFooter();
+    var content = [];
+    Array.prototype.push.apply(content, buildHeader(logoData));
+
+    var st = c.status || '';
     content.push({
       columns: [
         { text: 'عقد ' + (c.type || ''), bold: true, fontSize: 16, color: '#102d2c' },
-        { text: c.status || '', fontSize: 10, color: '#fff', background: statusColor, alignment: 'center', margin: [0, 2, 0, 2], width: 90 }
+        statusBadge(st)
       ],
       margin: [0, 0, 0, 6]
     });
-
-    // --- CONTRACT NUMBER & VALUE ---
     content.push({
       table: {
         widths: ['*', 'auto'],
@@ -115,8 +300,6 @@
       layout: 'noBorders',
       margin: [0, 0, 0, 8]
     });
-
-    // --- PARTY ---
     content.push({
       stack: [
         { text: 'الطرف الثاني', style: 'sectionTitle' },
@@ -124,128 +307,19 @@
       ],
       margin: [0, 0, 0, 8]
     });
+    content.push(summaryTable([
+      { label: 'بداية العقد', value: c.startDate },
+      { label: 'نهاية العقد', value: c.endDate },
+      { label: 'منشأة الإصدار', value: companyName }
+    ]));
 
-    // --- SUMMARY ---
-    content.push({
-      table: {
-        widths: ['*', '*', '*'],
-        body: [
-          [
-            { text: 'بداية العقد', style: 'summaryLabel' },
-            { text: 'نهاية العقد', style: 'summaryLabel' },
-            { text: 'منشأة الإصدار', style: 'summaryLabel' }
-          ],
-          [
-            { text: c.startDate || 'غير محدد', style: 'summaryValue' },
-            { text: c.endDate || 'غير محدد', style: 'summaryValue' },
-            { text: companyName, style: 'summaryValue' }
-          ]
-        ]
-      },
-      layout: {
-        hLineWidth: function(i){ return i === 0 ? 0 : 0.5; },
-        vLineWidth: function(){ return 0.5; },
-        hLineColor: function(){ return '#dfe8e4'; },
-        vLineColor: function(){ return '#dfe8e4'; },
-        paddingLeft: function(){ return 8; },
-        paddingRight: function(){ return 8; },
-        paddingTop: function(){ return 6; },
-        paddingBottom: function(){ return 6; },
-        fillColor: function(i){ return i === 0 ? '#f0f6f3' : '#f8fbf9'; }
-      },
-      margin: [0, 0, 0, 10]
-    });
+    var et = elevatorTable(c.elevatorInfo);
+    if (et) Array.prototype.push.apply(content, et);
 
-    // --- ELEVATOR INFO ---
-    var ei = c.elevatorInfo;
-    if (ei && typeof ei === 'object' && typeof ei.type !== 'undefined') {
-      content.push({ text: 'بيانات المصعد', style: 'sectionTitle', margin: [0, 0, 0, 4] });
-      var elevData = [
-        { label: 'نوع المصعد', value: ei.type },
-        { label: 'السعة', value: ei.capacity },
-        { label: 'السرعة', value: ei.speed },
-        { label: 'عدد التوقفات', value: ei.stops },
-        { label: 'رقم المصعد', value: ei.elevatorId },
-        { label: 'الموقع', value: ei.location }
-      ].filter(function(r){ return r.value; });
+    var mt = maintenanceTable(c.maintenanceChecklist);
+    if (mt) Array.prototype.push.apply(content, mt);
 
-      if (elevData.length > 0) {
-        var eHeader = [
-          { text: 'البيان', bold: true, color: '#fff', fillColor: '#102d2c', alignment: 'right' },
-          { text: 'القيمة', bold: true, color: '#fff', fillColor: '#102d2c', alignment: 'right' }
-        ];
-        var eRows = elevData.map(function(r){
-          return [
-            { text: r.label, bold: true, fillColor: '#eef5f1', fontSize: 9 },
-            { text: r.value, fontSize: 9 }
-          ];
-        });
-        content.push({
-          table: { widths: [120, '*'], body: [eHeader].concat(eRows) },
-          layout: {
-            hLineWidth: function(){ return 0.5; },
-            vLineWidth: function(){ return 0.5; },
-            hLineColor: function(){ return '#c5d9cf'; },
-            vLineColor: function(){ return '#c5d9cf'; },
-            paddingLeft: function(){ return 8; },
-            paddingRight: function(){ return 8; },
-            paddingTop: function(){ return 5; },
-            paddingBottom: function(){ return 5; }
-          },
-          margin: [0, 0, 0, 10]
-        });
-      }
-    }
-
-    // --- MAINTENANCE CHECKLIST ---
-    var checklist = c.maintenanceChecklist || [];
-    if (checklist.length > 0) {
-      content.push({ text: 'بنود الصيانة الدورية', style: 'sectionTitle', margin: [0, 0, 0, 4] });
-
-      var chkHeader = [
-        { text: '#', bold: true, color: '#fff', fillColor: '#102d2c', alignment: 'center', width: 25 },
-        { text: 'البند', bold: true, color: '#fff', fillColor: '#102d2c', alignment: 'right' },
-        { text: 'البيان', bold: true, color: '#fff', fillColor: '#102d2c', alignment: 'right' }
-      ];
-
-      var chkRows = checklist.map(function(item, idx){
-        var label = '';
-        if (typeof item === 'string') label = item;
-        else if (item && item.label) label = item.label;
-        else if (item && item.name) label = item.name;
-        else if (item && item.title) label = item.title;
-        else label = '';
-        var desc = '';
-        if (typeof item === 'object' && item) desc = item.description || item.desc || '';
-        return [
-          { text: String(idx + 1), alignment: 'center', color: '#d79a2b', bold: true, fontSize: 9 },
-          { text: label, fontSize: 9 },
-          { text: desc, fontSize: 8, color: '#60756f' }
-        ];
-      });
-
-      content.push({
-        table: {
-          headerRows: 1,
-          widths: [25, 130, '*'],
-          body: [chkHeader].concat(chkRows)
-        },
-        layout: {
-          hLineWidth: function(){ return 0.5; },
-          vLineWidth: function(){ return 0.5; },
-          hLineColor: function(){ return '#c5d9cf'; },
-          vLineColor: function(){ return '#c5d9cf'; },
-          paddingLeft: function(){ return 6; },
-          paddingRight: function(){ return 6; },
-          paddingTop: function(){ return 4; },
-          paddingBottom: function(){ return 4; },
-          fillColor: function(i){ return i % 2 === 0 ? null : '#f4f9f6'; }
-        },
-        margin: [0, 0, 0, 10]
-      });
-    }
-
-    // --- BUILDINGS ---
+    // Buildings
     var buildings = c.buildings || [];
     if (buildings.length > 0) {
       content.push({ text: 'المباني والمواقع', style: 'sectionTitle', margin: [0, 0, 0, 4] });
@@ -261,104 +335,313 @@
       content.push({ text: '', margin: [0, 0, 0, 4] });
     }
 
-    // --- TERMS (items) ---
-    function renderTermItems(arr, title){
-      if (!arr || arr.length === 0) return;
-      content.push({ text: title, style: 'sectionTitle', margin: [0, 0, 0, 4] });
-      arr.forEach(function(item){
-        var t = '', d = '';
-        if (typeof item === 'string') { t = item; }
-        else if (item && item.section) { t = item.section; d = item.description || item.title || ''; }
-        else if (item && item.title) { t = item.title; d = item.description || ''; }
-        else if (item && item.name) { t = item.name; d = item.description || item.desc || ''; }
-        else { try { t = JSON.stringify(item); } catch(e){} }
-        content.push({ text: t, bold: true, fontSize: 9, color: '#17413e', margin: [0, 0, 0, 1] });
-        if (d) content.push({ text: d, fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 4] });
-      });
-      content.push({ text: '', margin: [0, 0, 0, 4] });
-    }
+    var ti = renderItems(c.items, 'البنود الافتراضية');
+    if (ti) Array.prototype.push.apply(content, ti);
+    var ci = renderItems(c.customItems, 'البنود الإضافية');
+    if (ci) Array.prototype.push.apply(content, ci);
 
-    renderTermItems(c.items, 'البنود الافتراضية');
-    renderTermItems(c.customItems, 'البنود الإضافية');
-
-    // --- DETAILS ---
     if (c.details) {
       content.push({ text: 'نطاق العمل', style: 'sectionTitle', margin: [0, 0, 0, 4] });
       content.push({ text: c.details, fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 10] });
     }
 
-    // --- SIGNATURE ---
+    Array.prototype.push.apply(content, buildSignature(companyName, safeLabel(c)));
+
+    var dd = JSON.parse(JSON.stringify(_sharedDd));
+    dd.content = content;
+    dd.footer = function(cp, pc){ return _sharedDd.footer(cp, pc, cf); };
+    return dd;
+  }
+
+  // ==================== QUOTE ====================
+  function quotePdfDefinition(q, logoData){
+    var total = Number(q.totalWithTax != null ? q.totalWithTax : (q.subtotal != null ? q.subtotal : (q.value || 0)));
+    var party = q.client || q.clientCompanyName || q.clientName || "غير محدد";
+    var isInstall = q.type === "تركيب";
+    var companyName = activeCompanyName();
+    var cf = safeFooter();
+    var content = [];
+    Array.prototype.push.apply(content, buildHeader(logoData));
+
     content.push({
-      canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.5, lineColor: '#c5d9cf' }],
+      columns: [
+        { text: 'عرض سعر' + (q.type ? ' - ' + q.type : ''), bold: true, fontSize: 16, color: '#102d2c' },
+        statusBadge(q.status || 'بانتظار الرد')
+      ],
       margin: [0, 0, 0, 6]
     });
     content.push({
-      columns: [
-        {
-          stack: [
-            { text: 'الطرف الأول', bold: true, fontSize: 10, color: '#60756f', alignment: 'center' },
-            { text: companyName, fontSize: 9, color: '#102d2c', alignment: 'center', margin: [0, 2, 0, 2] },
-            { text: 'التوقيع: ........................', fontSize: 8, color: '#8b9f99', alignment: 'center' }
+      table: {
+        widths: ['*', 'auto'],
+        body: [
+          [
+            { text: 'رقم عرض السعر: ' + q.id, bold: true, fontSize: 14, color: '#d79a2b', alignment: 'right' },
+            { text: 'الإجمالي', fontSize: 10, color: '#60756f', alignment: 'center' }
+          ],
+          [
+            { text: '', border: [false, false, false, false] },
+            { text: safeMoney(total), bold: true, fontSize: 18, color: '#d79a2b', alignment: 'center' }
           ]
-        },
-        {
-          stack: [
-            { text: 'الطرف الثاني', bold: true, fontSize: 10, color: '#60756f', alignment: 'center' },
-            { text: safeLabel(c), fontSize: 9, color: '#102d2c', alignment: 'center', margin: [0, 2, 0, 2] },
-            { text: 'التوقيع: ........................', fontSize: 8, color: '#8b9f99', alignment: 'center' }
-          ]
-        }
-      ],
-      margin: [0, 0, 0, 10]
+        ]
+      },
+      layout: 'noBorders',
+      margin: [0, 0, 0, 8]
     });
+    content.push({
+      stack: [
+        { text: 'الطرف الموجه إليه عرض السعر', style: 'sectionTitle' },
+        { text: party, bold: true, fontSize: 14, color: '#102d2c', margin: [0, 2, 0, 4] }
+      ],
+      margin: [0, 0, 0, 8]
+    });
+    content.push(summaryTable([
+      { label: 'العنوان', value: q.title || 'عرض سعر' },
+      { label: 'تاريخ الإصدار', value: q.createdAt },
+      { label: 'مرجع الكشف', value: q.reportId || '?' }
+    ]));
 
-    return {
-      content: content,
-      styles: {
-        headerTitle: { fontSize: 14, bold: true, color: '#102d2c', alignment: 'center' },
-        headerSub: { fontSize: 8, color: '#6b7f7a', alignment: 'center' },
-        sectionTitle: { fontSize: 12, bold: true, color: '#102d2c', margin: [0, 0, 0, 2] },
-        summaryLabel: { fontSize: 8, color: '#60756f', bold: true },
-        summaryValue: { fontSize: 11, color: '#102d2c', bold: true }
-      },
-      defaultStyle: {
-        font: 'Cairo',
-        fontSize: 10,
-        alignment: 'right',
-        lineHeight: 1.5
-      },
-      pageSize: 'A4',
-      pageMargins: [28, 40, 28, 40],
-      header: function(){
-        return {
-          stack: [
-            { text: 'نظام شموس', fontSize: 7, color: '#8b9f99', alignment: 'center', margin: [0, 8, 0, 0] },
-            { canvas: [{ type: 'line', x1: 28, y1: 0, x2: 568, y2: 0, lineWidth: 0.3, lineColor: '#d79a2b' }] }
-          ]
-        };
-      },
-      footer: function(currentPage, pageCount){
-        var f = [];
-        f.push({ canvas: [{ type: 'line', x1: 28, y1: 0, x2: 568, y2: 0, lineWidth: 0.3, lineColor: '#d79a2b' }], margin: [0, 0, 0, 2] });
-        if (cleanFooter) f.push({ text: cleanFooter, fontSize: 7, color: '#6b7f7a', alignment: 'center', margin: [0, 0, 0, 1] });
-        f.push({ text: currentPage + ' / ' + pageCount, fontSize: 7, color: '#8b9f99', alignment: 'center' });
-        return { stack: f, margin: [28, 0, 28, 8] };
+    var et = elevatorTable(q.elevatorInfo);
+    if (et) Array.prototype.push.apply(content, et);
+
+    // Payment plan for installation quotes
+    if (isInstall) {
+      var plan = (q.paymentPlan && q.paymentPlan.length) ? q.paymentPlan : [];
+      if (plan.length) {
+        var planRows = [[
+          { text: 'الدفعة', bold: true, color: '#fff', fillColor: '#102d2c', alignment: 'right' },
+          { text: 'البيان', bold: true, color: '#fff', fillColor: '#102d2c', alignment: 'right' },
+          { text: 'القيمة', bold: true, color: '#fff', fillColor: '#102d2c', alignment: 'center' }
+        ]];
+        plan.forEach(function(p){
+          var label = p.label || (Array.isArray(p) ? p[0] : 'دفعة');
+          var desc = p.description || (Array.isArray(p) ? p[1] : '');
+          var pct = p.percent > 1 ? p.percent / 100 : (p.percent || (Array.isArray(p) ? p[2] : 0));
+          var amount = total * pct;
+          planRows.push([
+            { text: label, fontSize: 9 },
+            { text: desc, fontSize: 8, color: '#60756f' },
+            { text: safeMoney(amount), alignment: 'center', fontSize: 9, bold: true }
+          ]);
+        });
+        planRows.push([
+          { text: 'الإجمالي', colSpan: 2, alignment: 'left', bold: true, fontSize: 10, color: '#8b601f' },
+          {},
+          { text: safeMoney(total), alignment: 'center', bold: true, fontSize: 10, color: '#8b601f' }
+        ]);
+        content.push({ text: 'جدول الدفعات', style: 'sectionTitle', margin: [0, 0, 0, 4] });
+        content.push({
+          table: { headerRows: 1, widths: ['*', '*', 80], body: planRows },
+          layout: {
+            hLineWidth: function(){ return 0.5; },
+            vLineWidth: function(){ return 0.5; },
+            hLineColor: function(){ return '#c5d9cf'; },
+            vLineColor: function(){ return '#c5d9cf'; },
+            paddingLeft: function(){ return 6; },
+            paddingRight: function(){ return 6; },
+            paddingTop: function(){ return 4; },
+            paddingBottom: function(){ return 4; },
+            fillColor: function(i){ return i === 0 ? null : (i % 2 === 0 ? null : '#f4f9f6'); }
+          },
+          margin: [0, 0, 0, 10]
+        });
       }
-    };
+    }
+
+    // Maintenance checklist for maintenance quotes
+    if (!isInstall) {
+      var mt = maintenanceTable(q.maintenanceChecklist);
+      if (mt) Array.prototype.push.apply(content, mt);
+    }
+
+    var pi = renderItems(q.partsItems, 'قطع الغيار بأقل أسعار الموردين');
+    if (pi) Array.prototype.push.apply(content, pi);
+    var ti = renderItems(q.items, 'البنود الافتراضية');
+    if (ti) Array.prototype.push.apply(content, ti);
+    var ci = renderItems(q.customItems, 'البنود الإضافية');
+    if (ci) Array.prototype.push.apply(content, ci);
+
+    if (q.details) {
+      content.push({ text: 'التفاصيل', style: 'sectionTitle', margin: [0, 0, 0, 4] });
+      content.push({ text: q.details, fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 10] });
+    }
+
+    Array.prototype.push.apply(content, buildSignature(companyName, party));
+
+    var dd = JSON.parse(JSON.stringify(_sharedDd));
+    dd.content = content;
+    dd.footer = function(cp, pc){ return _sharedDd.footer(cp, pc, cf); };
+    return dd;
   }
 
-  // Show a toast/console message about PDF generation status
+  // ==================== REPORT ====================
+  function reportPdfDefinition(r, logoData){
+    var companyName = activeCompanyName();
+    var cf = safeFooter();
+    var content = [];
+    Array.prototype.push.apply(content, buildHeader(logoData));
+
+    content.push({
+      columns: [
+        { text: 'تقرير زيارة فنية', bold: true, fontSize: 16, color: '#102d2c' },
+        statusBadge(r.status || 'بانتظار اعتماد العميل')
+      ],
+      margin: [0, 0, 0, 6]
+    });
+    content.push({
+      table: {
+        widths: ['*', 'auto'],
+        body: [
+          [
+            { text: 'رقم التقرير: ' + r.id, bold: true, fontSize: 14, color: '#d79a2b', alignment: 'right' },
+            { text: r.technician || r.technicianId || 'الفني', fontSize: 10, color: '#60756f', alignment: 'center' }
+          ]
+        ]
+      },
+      layout: 'noBorders',
+      margin: [0, 0, 0, 8]
+    });
+    content.push(summaryTable([
+      { label: 'العقد', value: r.contractId || 'زيارة كشفية' },
+      { label: 'الطرف الثاني', value: r.clientName || r.clientCompanyName || safeLabel(r) },
+      { label: 'الموقع', value: r.buildingName || objName(r.building) || 'غير محدد' },
+      { label: 'موعد الزيارة', value: r.scheduledAt || 'غير محدد' },
+      { label: 'تاريخ التقرير', value: r.createdAt },
+      { label: 'حالة المصعد', value: r.elevatorStatus || 'غير محدد' }
+    ]));
+
+    function section(title, text){
+      if (!text) return null;
+      return [
+        { text: title, style: 'sectionTitle', margin: [0, 0, 0, 4] },
+        { text: text, fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 10] }
+      ];
+    }
+
+    var s1 = section('الأعمال المنفذة', r.workDone);
+    if (s1) Array.prototype.push.apply(content, s1);
+    var s2 = section('الأعطال والملاحظات الفنية', r.issues);
+    if (s2) Array.prototype.push.apply(content, s2);
+
+    if (r.parts || r.recommendations) {
+      content.push({ text: 'قطع الغيار المطلوبة / المستخدمة والتوصيات', style: 'sectionTitle', margin: [0, 0, 0, 4] });
+      if (r.parts) content.push({ text: r.parts, fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 4] });
+      if (r.recommendations) content.push({ text: r.recommendations, fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 10] });
+    }
+
+    var s3 = section('صور أو روابط مرفقة', r.attachments);
+    if (s3) Array.prototype.push.apply(content, s3);
+
+    Array.prototype.push.apply(content, buildSignature(companyName, r.clientName || r.clientCompanyName || 'العميل'));
+
+    var dd = JSON.parse(JSON.stringify(_sharedDd));
+    dd.content = content;
+    dd.footer = function(cp, pc){ return _sharedDd.footer(cp, pc, cf); };
+    return dd;
+  }
+
+  // ==================== TICKET ====================
+  function ticketPdfDefinition(t, logoData){
+    var companyName = activeCompanyName();
+    var cf = safeFooter();
+    var content = [];
+    Array.prototype.push.apply(content, buildHeader(logoData));
+
+    content.push({
+      columns: [
+        { text: 'بلاغ - ' + t.id, bold: true, fontSize: 16, color: '#102d2c' },
+        statusBadge(t.status)
+      ],
+      margin: [0, 0, 0, 6]
+    });
+    content.push({
+      stack: [
+        { text: t.title, bold: true, fontSize: 14, color: '#102d2c', margin: [0, 0, 0, 2] },
+        { text: t.description || '', fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 6] }
+      ],
+      margin: [0, 0, 0, 8]
+    });
+    content.push(summaryTable([
+      { label: 'العميل / المنشأة', value: t.clientCompanyName || t.clientName || 'غير محدد' },
+      { label: 'العقد', value: t.contractId || 'غير مرتبط' },
+      { label: 'الموقع', value: [objName(t.building), t.building && t.building.district].filter(Boolean).join(' - ') || 'غير محدد' },
+      { label: 'المسند إليه', value: t.assignedTo || 'غير مسند' },
+      { label: 'تاريخ الإنشاء', value: t.createdAt }
+    ]));
+
+    var et = elevatorTable(t.elevatorInfo);
+    if (et) Array.prototype.push.apply(content, et);
+
+    var party2 = t.clientCompanyName || t.clientName || 'العميل';
+    Array.prototype.push.apply(content, buildSignature(companyName, party2));
+
+    var dd = JSON.parse(JSON.stringify(_sharedDd));
+    dd.content = content;
+    dd.footer = function(cp, pc){ return _sharedDd.footer(cp, pc, cf); };
+    return dd;
+  }
+
+  // ==================== CLAIM ====================
+  function claimPdfDefinition(cl, logoData){
+    var companyName = activeCompanyName();
+    var cf = safeFooter();
+    var content = [];
+    Array.prototype.push.apply(content, buildHeader(logoData));
+
+    content.push({
+      columns: [
+        { text: 'مستخلص مالي', bold: true, fontSize: 16, color: '#102d2c' },
+        statusBadge(cl.status || 'قيد المراجعة')
+      ],
+      margin: [0, 0, 0, 6]
+    });
+    content.push({
+      table: {
+        widths: ['*', 'auto'],
+        body: [
+          [
+            { text: 'رقم المستخلص: ' + cl.id, bold: true, fontSize: 14, color: '#d79a2b', alignment: 'right' },
+            { text: 'قيمة المستخلص', fontSize: 10, color: '#60756f', alignment: 'center' }
+          ],
+          [
+            { text: '', border: [false, false, false, false] },
+            { text: safeMoney(cl.value), bold: true, fontSize: 18, color: '#d79a2b', alignment: 'center' }
+          ]
+        ]
+      },
+      layout: 'noBorders',
+      margin: [0, 0, 0, 8]
+    });
+    content.push(summaryTable([
+      { label: 'العقد', value: cl.contractId || 'غير محدد' },
+      { label: 'الطرف الثاني', value: cl.clientName || safeLabel(cl) },
+      { label: 'الفترة', value: cl.period || 'غير محددة' },
+      { label: 'تاريخ الإنشاء', value: cl.createdAt }
+    ]));
+
+    content.push({ text: 'بيان المستخلص', style: 'sectionTitle', margin: [0, 0, 0, 4] });
+    content.push({
+      text: 'مستخلص عن الفترة الموضحة أعلاه بمبلغ إجمالي ' + safeMoney(cl.value) + ' وفق بيانات العقد والخدمات المسجلة في النظام.',
+      fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 10]
+    });
+
+    var party2 = cl.clientName || safeLabel(cl) || 'الطرف الثاني';
+    Array.prototype.push.apply(content, buildSignature(companyName, party2));
+
+    var dd = JSON.parse(JSON.stringify(_sharedDd));
+    dd.content = content;
+    dd.footer = function(cp, pc){ return _sharedDd.footer(cp, pc, cf); };
+    return dd;
+  }
+
+  // ==================== MAIN ENTRY ====================
   function pdfLog(msg){ console.log("PDFGEN", msg); if (A.toast) A.toast(msg); }
 
   window.generatePdf = async function(type, id){
     console.log("PDFGEN", "pdfmake attempt", type, id, "ready:", pdfmakeReady);
     if (!pdfmakeReady) {
       console.warn("PDFGEN", "pdfmake not ready — trying old method");
-      if (A.downloadPdf) {
-        A.downloadPdf(type, id);
-      } else {
-        pdfLog("PDF غير متاح حالياً");
-      }
+      if (A.downloadPdf) { A.downloadPdf(type, id); return; }
+      pdfLog("PDF غير متاح حالياً");
       return;
     }
 
@@ -374,32 +657,48 @@
 
       if (type === 'contract') {
         var contract;
-        if (A.visibleContracts) {
-          contract = A.visibleContracts().find(function(x){ return x.id === id; });
-        }
-        if (!contract) {
-          if (A.downloadPdf) A.downloadPdf(type, id);
-          return;
-        }
+        if (A.visibleContracts) contract = A.visibleContracts().find(function(x){ return x.id === id; });
+        if (!contract) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
         dd = contractPdfDefinition(contract, logoData);
+
       } else if (type === 'quote') {
-        // For now, fall back for quotes
-        if (A.downloadPdf) A.downloadPdf(type, id);
-        return;
+        var quote;
+        if (A.quotes && A.quotes.length) {
+          quote = A.quotes.filter(function(q){ return A.sameCompany ? A.sameCompany(q) : true; }).find(function(x){ return x.id === id; });
+        }
+        if (!quote) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
+        dd = quotePdfDefinition(quote, logoData);
+
       } else if (type === 'report') {
-        // For now, fall back for reports
-        if (A.downloadPdf) A.downloadPdf(type, id);
-        return;
+        var report;
+        if (A.reports && A.reports.length) {
+          report = A.reports.filter(function(r){ return A.sameCompany ? A.sameCompany(r) : true; }).find(function(x){ return x.id === id; });
+        }
+        if (!report) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
+        dd = reportPdfDefinition(report, logoData);
+
+      } else if (type === 'ticket') {
+        var ticket;
+        if (A.visibleTickets) ticket = A.visibleTickets().find(function(x){ return x.id === id; });
+        if (!ticket) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
+        dd = ticketPdfDefinition(ticket, logoData);
+
+      } else if (type === 'claim') {
+        var claims;
+        try {
+          claims = A._read ? A._read('misadClaims') : JSON.parse(localStorage.getItem('misadClaims') || '[]');
+        } catch(e){ claims = null; }
+        if (!claims || !claims.length) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
+        var claim = claims.filter(function(c){ return A.sameCompany ? A.sameCompany(c) : true; }).find(function(x){ return x.id === id; });
+        if (!claim) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
+        dd = claimPdfDefinition(claim, logoData);
+
       } else {
-        // Fall back for other types
         if (A.downloadPdf) A.downloadPdf(type, id);
         return;
       }
 
-      if (!dd) {
-        if (A.downloadPdf) A.downloadPdf(type, id);
-        return;
-      }
+      if (!dd) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
 
       pdfMake.createPdf(dd).download(p.title + '.pdf');
       pdfLog('تم تحميل PDF بنجاح');
@@ -411,15 +710,13 @@
     }
   };
 
-  // Patch click handlers to intercept PDF download requests
+  // Patch click handlers
   document.addEventListener('click', function(e){
     var btn = e.target.closest('[data-pdf-doc]');
     if (btn) {
       e.preventDefault();
       e.stopPropagation();
-      var type = btn.dataset.pdfDoc;
-      var id = btn.dataset.pdfId;
-      window.generatePdf(type, id);
+      window.generatePdf(btn.dataset.pdfDoc, btn.dataset.pdfId);
     }
   }, true);
 
