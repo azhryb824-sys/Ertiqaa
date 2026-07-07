@@ -36,8 +36,8 @@
   }
 
   function safeMoney(v){
-    if (A.money) return A.money(v);
-    return String(v || 0);
+    var n = Number(v || 0);
+    return n.toLocaleString("en-US") + ' ر.س';
   }
 
   function safeFooter(){
