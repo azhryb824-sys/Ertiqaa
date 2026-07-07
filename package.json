@@ -5,7 +5,10 @@
   "main": "src/pdf/html-pdf-generator.js",
   "scripts": {
     "test": "node src/pdf/test-pdf.js",
-    "generate": "node src/pdf/generate-examples.js"
+    "test-enhanced": "node src/pdf/test-pdf-enhanced.js",
+    "generate": "node src/pdf/generate-examples.js",
+    "server": "node src/pdf/pdf-server.js",
+    "train-ai": "node src/ai/train-models.js"
   },
   "keywords": [
     "pdf",
@@ -19,6 +22,8 @@
   "author": "Ertiqaa",
   "license": "MIT",
   "dependencies": {
-    "puppeteer": "^21.11.0"
+    "express": "^4.22.2",
+    "puppeteer": "^21.11.0",
+    "@tensorflow/tfjs-node": "^4.15.0"
   }
 }
