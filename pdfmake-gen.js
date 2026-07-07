@@ -347,11 +347,18 @@
     };
   }
 
+  // Show a toast/console message about PDF generation status
+  function pdfLog(msg){ console.log("PDFGEN", msg); if (A.toast) A.toast(msg); }
+
   window.generatePdf = async function(type, id){
-    console.log("PDFGEN", "pdfmake attempt", type, id);
+    console.log("PDFGEN", "pdfmake attempt", type, id, "ready:", pdfmakeReady);
     if (!pdfmakeReady) {
-      console.warn("PDFGEN", "pdfmake not ready, fallback to old method");
-      if (A.downloadPdf) A.downloadPdf(type, id);
+      console.warn("PDFGEN", "pdfmake not ready — trying old method");
+      if (A.downloadPdf) {
+        A.downloadPdf(type, id);
+      } else {
+        pdfLog("PDF غير متاح حالياً");
+      }
       return;
     }
 
@@ -395,11 +402,11 @@
       }
 
       pdfMake.createPdf(dd).download(p.title + '.pdf');
-      console.log("PDFGEN", "pdfmake success");
-      if (A.toast) A.toast('تم تحميل PDF');
+      pdfLog('تم تحميل PDF بنجاح');
 
     } catch(err) {
       console.error("PDFGEN", "pdfmake error:", err);
+      pdfLog('PDF — خطأ في التوليد، تجربة الطريقة القديمة');
       if (A.downloadPdf) A.downloadPdf(type, id);
     }
   };
