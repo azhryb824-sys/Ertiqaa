@@ -3,8 +3,14 @@
   var A = window.__appBridge || {};
   var pdfmakeReady = typeof pdfMake !== 'undefined' && pdfMake.fonts && pdfMake.fonts.Cairo;
   var bidiReady = typeof bidi_js !== 'undefined';
+  var reshaperReady = typeof ArabicReshaper !== 'undefined';
 
-  function shapeArabic(text){
+  function reshapeArabic(text){
+    if (!reshaperReady || !text || typeof text !== 'string') return text;
+    try { return ArabicReshaper.convertArabic(text); } catch(e){ return text; }
+  }
+
+  function reorderArabic(text){
     if (!bidiReady || !text || typeof text !== 'string') return text;
     try {
       var bidi = bidi_js();
@@ -13,22 +19,33 @@
     } catch(e){ return text; }
   }
 
+  function shapeArabic(text){
+    if (!text || typeof text !== 'string') return text;
+    text = reshapeArabic(text);
+    text = reorderArabic(text);
+    return text;
+  }
+
   function preprocessText(obj){
     if (Array.isArray(obj)) {
-      for (var i = 0; i < obj.length; i++) preprocessText(obj[i]);
+      for (var i = 0; i < obj.length; i++) {
+        if (typeof obj[i] === 'string') obj[i] = shapeArabic(obj[i]);
+        else preprocessText(obj[i]);
+      }
     } else if (obj && typeof obj === 'object') {
       if (obj.text !== undefined) {
         if (typeof obj.text === 'string') obj.text = shapeArabic(obj.text);
         else if (Array.isArray(obj.text)) preprocessText(obj.text);
       }
-      ['stack', 'columns', 'content', 'header', 'footer'].forEach(function(k){
+      ['stack', 'columns', 'content', 'header', 'footer', 'head', 'body', 'table'].forEach(function(k){
         if (obj[k]) preprocessText(obj[k]);
       });
       if (obj.table && obj.table.body) {
         obj.table.body.forEach(function(row){
-          row.forEach(function(cell){
-            if (typeof cell === 'object') preprocessText(cell);
-          });
+          for (var ci = 0; ci < row.length; ci++) {
+            if (typeof row[ci] === 'string') row[ci] = shapeArabic(row[ci]);
+            else if (typeof row[ci] === 'object') preprocessText(row[ci]);
+          }
         });
       }
     }
@@ -312,9 +329,22 @@
   };
 
   function makeDd(content, cleanFooter){
-    var dd = JSON.parse(JSON.stringify(_sharedDd));
+    var dd = JSON.parse(JSON.stringify(_sharedDd, function(k, v){
+      return typeof v === 'function' ? undefined : v;
+    }));
     dd.content = content;
-    dd.footer = function(cp, pc){ return _sharedDd.footer(cp, pc, cleanFooter); };
+    dd.header = function(){
+      var h = _sharedDd.header();
+      forceRTL(h);
+      preprocessText(h);
+      return h;
+    };
+    dd.footer = function(cp, pc){
+      var f = _sharedDd.footer(cp, pc, cleanFooter);
+      forceRTL(f);
+      preprocessText(f);
+      return f;
+    };
     forceRTL(dd);
     preprocessText(dd);
     return dd;
