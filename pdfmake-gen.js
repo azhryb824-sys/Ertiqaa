@@ -5,10 +5,33 @@
   var bidiReady = typeof bidi_js !== 'undefined';
 
   function shapeArabic(text){
-    return text;
+    if (!bidiReady || !text || typeof text !== 'string') return text;
+    try {
+      var bidi = bidi_js();
+      var levels = bidi.getEmbeddingLevels(text, 'rtl');
+      return bidi.getReorderedString(text, levels);
+    } catch(e){ return text; }
   }
 
   function preprocessText(obj){
+    if (Array.isArray(obj)) {
+      for (var i = 0; i < obj.length; i++) preprocessText(obj[i]);
+    } else if (obj && typeof obj === 'object') {
+      if (obj.text !== undefined) {
+        if (typeof obj.text === 'string') obj.text = shapeArabic(obj.text);
+        else if (Array.isArray(obj.text)) preprocessText(obj.text);
+      }
+      ['stack', 'columns', 'content', 'header', 'footer'].forEach(function(k){
+        if (obj[k]) preprocessText(obj[k]);
+      });
+      if (obj.table && obj.table.body) {
+        obj.table.body.forEach(function(row){
+          row.forEach(function(cell){
+            if (typeof cell === 'object') preprocessText(cell);
+          });
+        });
+      }
+    }
   }
 
   function loadLogo(){
