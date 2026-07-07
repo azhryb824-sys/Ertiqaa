@@ -955,6 +955,25 @@ const unlinkUser=e.target.closest("[data-unlink-user]");if(unlinkUser){const uid
   };
   // ===== End Visit Approval & Rating System =====
   document.addEventListener("keydown",function(e){var inp=e.target.closest("#aiTextInput");if(inp&&e.key==="Enter"){var btn=document.getElementById("aiSendBtn");if(btn)btn.click()}});
+
+  // Export bridge for pdfmake-gen.js
+  window.__appBridge = {
+    docPayload: docPayload,
+    downloadPdf: downloadPdf,
+    visibleContracts: visibleContracts,
+    visibleTickets: visibleTickets,
+    contractLabel: contractLabel,
+    money: money,
+    fixedPdfFooter: fixedPdfFooter,
+    activeOwnerCompany: activeOwnerCompany,
+    reports: reports,
+    quotes: quotes,
+    toast: toast,
+    matchClient: matchClient,
+    sameCompany: sameCompany,
+    contractDetails: contractDetails,
+    installationContractDetails: installationContractDetails
+  };
 })();
 
 
