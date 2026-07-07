@@ -1,0 +1,24 @@
+{
+  "name": "elevator-management-pdf",
+  "version": "1.0.0",
+  "description": "Professional Arabic PDF generation system for elevator management",
+  "main": "src/pdf/html-pdf-generator.js",
+  "scripts": {
+    "test": "node src/pdf/test-pdf.js",
+    "generate": "node src/pdf/generate-examples.js"
+  },
+  "keywords": [
+    "pdf",
+    "arabic",
+    "rtl",
+    "generator",
+    "contracts",
+    "quotes",
+    "reports"
+  ],
+  "author": "Ertiqaa",
+  "license": "MIT",
+  "dependencies": {
+    "puppeteer": "^21.11.0"
+  }
+}
