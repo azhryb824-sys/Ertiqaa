@@ -244,11 +244,11 @@
 
   var _sharedDd = {
     styles: {
-      sectionTitle: { fontSize: 12, bold: true, color: '#102d2c', margin: [0, 0, 0, 2] },
-      summaryLabel: { fontSize: 8, color: '#60756f', bold: true },
-      summaryValue: { fontSize: 11, color: '#102d2c', bold: true }
+      sectionTitle: { fontSize: 12, bold: true, color: '#102d2c', margin: [0, 0, 0, 2], direction: 'rtl' },
+      summaryLabel: { fontSize: 8, color: '#60756f', bold: true, direction: 'rtl' },
+      summaryValue: { fontSize: 11, color: '#102d2c', bold: true, direction: 'rtl' }
     },
-    defaultStyle: { font: 'Cairo', fontSize: 10, alignment: 'right', lineHeight: 1.5 },
+    defaultStyle: { font: 'Cairo', fontSize: 10, alignment: 'right', lineHeight: 1.5, direction: 'rtl' },
     pageSize: 'A4',
     pageMargins: [28, 36, 28, 36],
     header: function(){
