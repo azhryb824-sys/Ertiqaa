@@ -18,6 +18,25 @@ class ArabicPDFGenerator {
       },
       ...options
     };
+    this.fontsCss = this._loadFonts();
+  }
+
+  _loadFonts(){
+    var base = path.join(__dirname, '../../assets/fonts');
+    var fonts = [
+      { name: 'Cairo', style: 'normal', weight: '400', file: 'Cairo-Regular.ttf' },
+      { name: 'Cairo', style: 'normal', weight: '600', file: 'Cairo-SemiBold.ttf' },
+      { name: 'Cairo', style: 'normal', weight: '700', file: 'Cairo-Bold.ttf' }
+    ];
+    var css = '';
+    fonts.forEach(function(f){
+      try {
+        var data = fs.readFileSync(path.join(base, f.file));
+        var b64 = data.toString('base64');
+        css += '@font-face{font-family:"' + f.name + '";font-style:' + f.style + ';font-weight:' + f.weight + ';src:url(data:font/truetype;base64,' + b64 + ');}\n';
+      } catch(e){}
+    });
+    return css;
   }
 
   // Generate PDF from HTML
@@ -32,7 +51,7 @@ class ArabicPDFGenerator {
       const page = await browser.newPage();
       
       await page.setContent(html, {
-        waitUntil: 'networkidle0'
+        waitUntil: 'domcontentloaded'
       });
       
       await page.pdf({
@@ -80,7 +99,7 @@ class ArabicPDFGenerator {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>عقد صيانة - ${data.contractNumber}</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Cairo:wght@400;600;700&display=swap');
+        ${this.fontsCss}
         
         @page {
             size: A4;
@@ -94,7 +113,7 @@ class ArabicPDFGenerator {
         }
         
         body {
-            font-family: 'Cairo', 'Amiri', Arial, sans-serif;
+            font-family: 'Cairo', Arial, sans-serif;
             direction: rtl;
             line-height: 1.8;
             color: #333;
@@ -324,7 +343,7 @@ class ArabicPDFGenerator {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>عرض سعر - ${data.quoteNumber}</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Cairo:wght@400;600;700&display=swap');
+        ${this.fontsCss}
         
         @page {
             size: A4;
@@ -334,7 +353,7 @@ class ArabicPDFGenerator {
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
         body {
-            font-family: 'Cairo', 'Amiri', Arial, sans-serif;
+            font-family: 'Cairo', Arial, sans-serif;
             direction: rtl;
             line-height: 1.8;
             color: #333;
@@ -545,7 +564,7 @@ class ArabicPDFGenerator {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${data.title}</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Cairo:wght@400;600;700&display=swap');
+        ${this.fontsCss}
         
         @page {
             size: A4;
@@ -555,7 +574,7 @@ class ArabicPDFGenerator {
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
         body {
-            font-family: 'Cairo', 'Amiri', Arial, sans-serif;
+            font-family: 'Cairo', Arial, sans-serif;
             direction: rtl;
             line-height: 1.8;
             color: #333;
