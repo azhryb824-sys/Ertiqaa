@@ -430,6 +430,43 @@
     }
   ];
 
+  function maintenanceSpecTable(info, overallTitle){
+    if (!info || typeof info !== 'object') return null;
+    var rows = [];
+    specGroups[0].fields.forEach(function(f){
+      var val = info[f[0]];
+      if (val && val !== '') {
+        rows.push([
+          { text: f[1], bold: true, fontSize: 9, fillColor: '#eef5f1', alignment: 'right', color: '#102d2c' },
+          { text: val, fontSize: 9, alignment: 'right' }
+        ]);
+      }
+    });
+    if (!rows.length) return null;
+    var out = [];
+    if (overallTitle) out.push(sectionTitle(overallTitle, [0, 0, 0, 4]));
+    out.push({
+      table: {
+        headerRows: 0,
+        widths: [100, '*'],
+        body: rows
+      },
+      layout: {
+        hLineWidth: function(){ return 0.5; },
+        vLineWidth: function(){ return 0.5; },
+        hLineColor: function(){ return '#e2e8e5'; },
+        vLineColor: function(){ return '#e2e8e5'; },
+        paddingLeft: function(){ return 8; },
+        paddingRight: function(){ return 8; },
+        paddingTop: function(){ return 5; },
+        paddingBottom: function(){ return 5; },
+        fillColor: function(i){ return i % 2 === 0 ? null : '#f4f9f6'; }
+      },
+      margin: [0, 0, 0, 8]
+    });
+    return out;
+  }
+
   function specTable(info, overallTitle){
     if (!info || typeof info !== 'object') return null;
     var out = [];
@@ -614,7 +651,7 @@
       var scopeDefault = 'يشمل العقد أعمال الصيانة الدورية للمصعد (المصاعد) وفق بنود الصيانة والشروط والمواصفات الواردة في هذا العقد، للحفاظ على سلامة وأداء المصعد طوال مدة العقد.';
       Array.prototype.push.apply(content, sectionBlock('أولاً', 'نطاق الصيانة', scopeText(c.details, scopeDefault)));
 
-      var st = specTable(c.elevatorInfo, 'البند ثانياً: المواصفات الفنية للمصعد');
+      var st = maintenanceSpecTable(c.elevatorInfo, 'البند ثانياً: المواصفات الفنية للمصعد');
       if (st) Array.prototype.push.apply(content, st);
 
       var mt = maintenanceTable(c.maintenanceChecklist);
