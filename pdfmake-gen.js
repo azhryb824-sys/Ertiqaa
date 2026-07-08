@@ -182,9 +182,9 @@
       else if (item && item.title) label = item.title;
       var desc = (typeof item === 'object' && item) ? (item.description || item.desc || '') : '';
       items.push([
-        { text: String(idx + 1), alignment: 'center', color: '#c9964b', bold: true, fontSize: 9 },
-        { text: label, fontSize: 9, alignment: 'right' },
-        { text: desc, fontSize: 8, color: '#748481', alignment: 'right' }
+        { text: String(idx + 1), alignment: 'center', color: '#c9964b', bold: true, fontSize: 10 },
+        { text: label, fontSize: 10, alignment: 'right' },
+        { text: desc, fontSize: 9, color: '#748481', alignment: 'right' }
       ]);
     });
     return [
@@ -192,7 +192,7 @@
       {
         table: {
           headerRows: 1,
-          widths: [25, 130, '*'],
+          widths: [22, '*', 70],
           body: [[
             { text: '#', bold: true, color: '#fff', fillColor: '#102d2c', alignment: 'center' },
             { text: 'البند', bold: true, color: '#fff', fillColor: '#102d2c', alignment: 'right' },
