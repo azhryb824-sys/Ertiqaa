@@ -523,14 +523,6 @@
       });
     }
 
-    content.push({
-      stack: [
-        { text: 'الطرف الثاني', fontSize: 12, bold: true, color: '#102d2c', margin: [0, 0, 0, 2] },
-        { text: safeLabel(c), bold: true, fontSize: 14, color: '#102d2c', margin: [0, 2, 0, 4] }
-      ],
-      margin: [0, 0, 0, 8]
-    });
-
     content.push(summaryTable([
       { label: 'بداية العقد', value: c.startDate },
       { label: 'نهاية العقد', value: c.endDate },
