@@ -75,24 +75,24 @@
   function buildSignature(side1, side2){
     var stamp = (A.companyStamp && A.companyStamp()) || '';
     var sig1 = stamp
-      ? { image: stamp, width: 100, height: 75, alignment: 'center', margin: [0, 4, 0, 0] }
-      : { text: 'التوقيع: ........................', fontSize: 8, color: '#8b9f99', alignment: 'center' };
+      ? { image: stamp, width: 120, height: 90, alignment: 'center', margin: [0, 4, 0, 0] }
+      : { text: 'التوقيع: ........................', fontSize: 10, color: '#8b9f99', alignment: 'center' };
     return [
       { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.5, lineColor: '#e2e8e5' }], margin: [0, 0, 0, 6] },
       {
         columns: [
           {
             stack: [
-              { text: 'الطرف الأول', bold: true, fontSize: 10, color: '#748481', alignment: 'center' },
-              { text: side1, fontSize: 9, color: '#102d2c', alignment: 'center', margin: [0, 2, 0, 2] },
+              { text: 'الطرف الأول', bold: true, fontSize: 12, color: '#748481', alignment: 'center' },
+              { text: side1, fontSize: 11, color: '#102d2c', alignment: 'center', margin: [0, 2, 0, 2] },
               sig1
             ]
           },
           {
             stack: [
-              { text: 'الطرف الثاني', bold: true, fontSize: 10, color: '#748481', alignment: 'center' },
-              { text: side2, fontSize: 9, color: '#102d2c', alignment: 'center', margin: [0, 2, 0, 2] },
-              { text: 'التوقيع: ........................', fontSize: 8, color: '#8b9f99', alignment: 'center' }
+              { text: 'الطرف الثاني', bold: true, fontSize: 12, color: '#748481', alignment: 'center' },
+              { text: side2, fontSize: 11, color: '#102d2c', alignment: 'center', margin: [0, 2, 0, 2] },
+              { text: 'التوقيع: ........................', fontSize: 10, color: '#8b9f99', alignment: 'center' }
             ]
           }
         ],
@@ -286,11 +286,11 @@
   var _sharedDd = {
     rtl: true,
     styles: {
-      sectionTitle: { fontSize: 12, bold: true, color: '#102d2c', margin: [0, 0, 0, 2] },
-      summaryLabel: { fontSize: 8, color: '#748481', bold: true },
-      summaryValue: { fontSize: 11, color: '#102d2c', bold: true }
+      sectionTitle: { fontSize: 14, bold: true, color: '#102d2c', margin: [0, 0, 0, 2] },
+      summaryLabel: { fontSize: 9, color: '#748481', bold: true },
+      summaryValue: { fontSize: 12, color: '#102d2c', bold: true }
     },
-    defaultStyle: { font: 'Cairo', fontSize: 10, lineHeight: 1.5 },
+    defaultStyle: { font: 'Cairo', fontSize: 11, lineHeight: 1.6 },
     pageSize: 'A4',
     pageMargins: [28, 36, 28, 36],
     header: function(){
@@ -359,11 +359,11 @@
   }
 
   function sectionTitle(text, margin){
-    return { text: text, fontSize: 12, bold: true, color: '#102d2c', margin: margin || [0, 0, 0, 4], alignment: 'right' };
+    return { text: text, fontSize: 14, bold: true, color: '#102d2c', margin: margin || [0, 0, 0, 4], alignment: 'right' };
   }
 
   function scopeText(text, fallback){
-    return { text: text || fallback, fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 10], alignment: 'right', lineHeight: 1.8 };
+    return { text: text || fallback, fontSize: 10, color: '#3b564f', margin: [0, 0, 0, 10], alignment: 'right', lineHeight: 1.8 };
   }
 
   var specGroups = [
