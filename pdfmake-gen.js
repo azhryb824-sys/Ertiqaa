@@ -61,7 +61,7 @@
     if (logoData) parts.push({ image: logoData, width: 28, height: 28, alignment: 'left' });
     parts.push({
       stack: [
-        { text: 'نظام شموس لإدارة المصاعد', fontSize: 14, bold: true, color: '#102d2c' },
+        { text: 'نظام شموس لإدارة المصاعد', fontSize: 14, bold: true, color: '#0d312f' },
         { text: 'Shumoos Elevators Management System', fontSize: 8, color: '#748481' }
       ],
       alignment: 'center', width: '*'
@@ -84,14 +84,14 @@
           {
             stack: [
               { text: 'الطرف الأول', bold: true, fontSize: 12, color: '#748481', alignment: 'center' },
-              { text: side1, fontSize: 11, color: '#102d2c', alignment: 'center', margin: [0, 2, 0, 2] },
+              { text: side1, fontSize: 11, color: '#0d312f', alignment: 'center', margin: [0, 2, 0, 2] },
               sig1
             ]
           },
           {
             stack: [
               { text: 'الطرف الثاني', bold: true, fontSize: 12, color: '#748481', alignment: 'center' },
-              { text: side2, fontSize: 11, color: '#102d2c', alignment: 'center', margin: [0, 2, 0, 2] },
+              { text: side2, fontSize: 11, color: '#0d312f', alignment: 'center', margin: [0, 2, 0, 2] },
               { text: 'التوقيع: ........................', fontSize: 10, color: '#8b9f99', alignment: 'center' }
             ]
           }
@@ -102,8 +102,8 @@
   }
 
   function summaryTable(rows){
-    var header = rows.map(function(r){ return { text: r.label, bold: true, alignment: 'right', color: '#fff', fillColor: '#102d2c' }; });
-    var values = rows.map(function(r){ return { text: r.value || 'غير محدد', bold: true, alignment: 'right', color: '#102d2c' }; });
+    var header = rows.map(function(r){ return { text: r.label, bold: true, alignment: 'right', color: '#fff', fillColor: '#0d312f' }; });
+    var values = rows.map(function(r){ return { text: r.value || 'غير محدد', bold: true, alignment: 'right', color: '#0d312f' }; });
     return {
       table: {
         widths: rows.map(function(){ return '*'; }),
@@ -112,13 +112,13 @@
       layout: {
         hLineWidth: function(i){ return i === 0 ? 0 : 0.5; },
         vLineWidth: function(){ return 0.5; },
-        hLineColor: function(){ return '#dfe8e4'; },
-        vLineColor: function(){ return '#dfe8e4'; },
+        hLineColor: function(){ return '#dce5e1'; },
+        vLineColor: function(){ return '#dce5e1'; },
         paddingLeft: function(){ return 8; },
         paddingRight: function(){ return 8; },
         paddingTop: function(){ return 6; },
         paddingBottom: function(){ return 6; },
-        fillColor: function(i){ return i === 0 ? null : '#f8fbf9'; }
+        fillColor: function(i){ return i === 0 ? null : '#f7faf9'; }
       },
       margin: [0, 0, 0, 10]
     };
@@ -146,25 +146,25 @@
     ].filter(function(r){ return r.value; });
     if (!data.length) return null;
     return [
-      { text: 'بيانات المصعد', fontSize: 12, bold: true, color: '#102d2c', margin: [0, 0, 0, 4] },
+      { text: 'بيانات المصعد', fontSize: 12, bold: true, color: '#0d312f', margin: [0, 0, 0, 4] },
       {
         table: {
           widths: [120, '*'],
           body: [[
-            { text: 'البيان', bold: true, color: '#fff', fillColor: '#102d2c', alignment: 'right' },
-            { text: 'القيمة', bold: true, color: '#fff', fillColor: '#102d2c', alignment: 'right' }
+            { text: 'البيان', bold: true, color: '#fff', fillColor: '#0d312f', alignment: 'right' },
+            { text: 'القيمة', bold: true, color: '#fff', fillColor: '#0d312f', alignment: 'right' }
           ]].concat(data.map(function(r){
             return [
-              { text: r.label, bold: true, fillColor: '#eef5f1', fontSize: 9, alignment: 'right' },
-              { text: r.value, fontSize: 9, alignment: 'right' }
+              { text: r.label, bold: true, fillColor: '#eef5f1', fontSize: 9, alignment: 'right', color: '#0d312f' },
+              { text: r.value, fontSize: 9, alignment: 'right', color: '#1a2e2b' }
             ];
           }))
         },
         layout: {
           hLineWidth: function(){ return 0.5; },
           vLineWidth: function(){ return 0.5; },
-          hLineColor: function(){ return '#e2e8e5'; },
-          vLineColor: function(){ return '#e2e8e5'; },
+          hLineColor: function(){ return '#dce5e1'; },
+          vLineColor: function(){ return '#dce5e1'; },
           paddingLeft: function(){ return 8; },
           paddingRight: function(){ return 8; },
           paddingTop: function(){ return 5; },
@@ -187,8 +187,8 @@
       else if (item && item.title) label = item.title;
       var desc = (typeof item === 'object' && item) ? (item.description || item.desc || '') : '';
       items.push([
-        { text: String(idx + 1), alignment: 'center', color: '#c9964b', bold: true, fontSize: 10 },
-        { text: label, fontSize: 10, alignment: 'right' },
+        { text: String(idx + 1), alignment: 'center', color: '#d4a24e', bold: true, fontSize: 10 },
+        { text: label, fontSize: 10, alignment: 'right', color: '#1a2e2b' },
         { text: desc, fontSize: 9, color: '#748481', alignment: 'right' }
       ]);
     });
@@ -199,16 +199,16 @@
           headerRows: 1,
           widths: [22, '*', 70],
           body: [[
-            { text: '#', bold: true, color: '#fff', fillColor: '#102d2c', alignment: 'center' },
-            { text: 'البند', bold: true, color: '#fff', fillColor: '#102d2c', alignment: 'right' },
-            { text: 'البيان', bold: true, color: '#fff', fillColor: '#102d2c', alignment: 'right' }
+            { text: '#', bold: true, color: '#fff', fillColor: '#0d312f', alignment: 'center' },
+            { text: 'البند', bold: true, color: '#fff', fillColor: '#0d312f', alignment: 'right' },
+            { text: 'البيان', bold: true, color: '#fff', fillColor: '#0d312f', alignment: 'right' }
           ]].concat(items)
         },
         layout: {
           hLineWidth: function(){ return 0.5; },
           vLineWidth: function(){ return 0.5; },
-          hLineColor: function(){ return '#e2e8e5'; },
-          vLineColor: function(){ return '#e2e8e5'; },
+          hLineColor: function(){ return '#dce5e1'; },
+          vLineColor: function(){ return '#dce5e1'; },
           paddingLeft: function(){ return 6; },
           paddingRight: function(){ return 6; },
           paddingTop: function(){ return 4; },
@@ -228,18 +228,18 @@
       { label: 'دفعة ثالثة', desc: 'عند الانتهاء من الاستلام النهائي والتشغيل', pct: 0.15 }
     ];
     var body = [[
-      { text: 'الدفعة', bold: true, color: '#fff', fillColor: '#102d2c', alignment: 'right' },
-      { text: 'البيان', bold: true, color: '#fff', fillColor: '#102d2c', alignment: 'right' },
-      { text: 'النسبة', bold: true, color: '#fff', fillColor: '#102d2c', alignment: 'center' },
-      { text: 'المبلغ', bold: true, color: '#fff', fillColor: '#102d2c', alignment: 'center' }
+      { text: 'الدفعة', bold: true, color: '#fff', fillColor: '#0d312f', alignment: 'right' },
+      { text: 'البيان', bold: true, color: '#fff', fillColor: '#0d312f', alignment: 'right' },
+      { text: 'النسبة', bold: true, color: '#fff', fillColor: '#0d312f', alignment: 'center' },
+      { text: 'المبلغ', bold: true, color: '#fff', fillColor: '#0d312f', alignment: 'center' }
     ]];
     plan.forEach(function(p){
       var amount = total * p.pct;
       body.push([
-        { text: p.label, fontSize: 9, bold: true, alignment: 'right' },
+        { text: p.label, fontSize: 9, bold: true, alignment: 'right', color: '#0d312f' },
         { text: p.desc, fontSize: 8, color: '#748481', alignment: 'right' },
-        { text: Math.round(p.pct * 100) + '%', fontSize: 9, alignment: 'center' },
-        { text: safeMoney(amount), fontSize: 9, bold: true, color: '#c9964b', alignment: 'center' }
+        { text: Math.round(p.pct * 100) + '%', fontSize: 9, alignment: 'center', color: '#0d312f' },
+        { text: safeMoney(amount), fontSize: 9, bold: true, color: '#d4a24e', alignment: 'center' }
       ]);
     });
     return [
@@ -253,8 +253,8 @@
         layout: {
           hLineWidth: function(){ return 0.5; },
           vLineWidth: function(){ return 0.5; },
-          hLineColor: function(){ return '#e2e8e5'; },
-          vLineColor: function(){ return '#e2e8e5'; },
+          hLineColor: function(){ return '#dce5e1'; },
+          vLineColor: function(){ return '#dce5e1'; },
           paddingLeft: function(){ return 6; },
           paddingRight: function(){ return 6; },
           paddingTop: function(){ return 4; },
@@ -268,7 +268,7 @@
 
   function renderItems(arr, title){
     if (!arr || !arr.length) return null;
-    var out = [{ text: title, fontSize: 12, bold: true, color: '#102d2c', margin: [0, 0, 0, 4] }];
+    var out = [{ text: title, fontSize: 12, bold: true, color: '#0d312f', margin: [0, 0, 0, 4] }];
     arr.forEach(function(item){
       var t = '', d = '';
       if (typeof item === 'string') { t = item; }
@@ -286,24 +286,24 @@
   var _sharedDd = {
     rtl: true,
     styles: {
-      sectionTitle: { fontSize: 14, bold: true, color: '#102d2c', margin: [0, 0, 0, 2] },
+      sectionTitle: { fontSize: 14, bold: true, color: '#0d312f', margin: [0, 0, 0, 2] },
       summaryLabel: { fontSize: 9, color: '#748481', bold: true },
-      summaryValue: { fontSize: 12, color: '#102d2c', bold: true }
+      summaryValue: { fontSize: 12, color: '#0d312f', bold: true }
     },
-    defaultStyle: { font: 'Cairo', fontSize: 11, lineHeight: 1.6 },
+    defaultStyle: { font: 'Cairo', fontSize: 11, lineHeight: 1.6, color: '#1a2e2b' },
     pageSize: 'A4',
     pageMargins: [28, 36, 28, 36],
     header: function(){
       return {
         stack: [
           { text: 'نظام شموس', fontSize: 7, color: '#8b9f99', alignment: 'center', margin: [0, 6, 0, 0] },
-          { canvas: [{ type: 'line', x1: 28, y1: 0, x2: 568, y2: 0, lineWidth: 0.3, lineColor: '#c9964b' }] }
+          { canvas: [{ type: 'line', x1: 28, y1: 0, x2: 568, y2: 0, lineWidth: 0.3, lineColor: '#d4a24e' }] }
         ]
       };
     },
     footer: function(currentPage, pageCount, cleanFooter){
       var f = [];
-      f.push({ canvas: [{ type: 'line', x1: 28, y1: 0, x2: 568, y2: 0, lineWidth: 0.3, lineColor: '#c9964b' }], margin: [0, 0, 0, 2] });
+      f.push({ canvas: [{ type: 'line', x1: 28, y1: 0, x2: 568, y2: 0, lineWidth: 0.3, lineColor: '#d4a24e' }], margin: [0, 0, 0, 2] });
       if (cleanFooter) f.push({ text: cleanFooter, fontSize: 7, color: '#748481', alignment: 'center', margin: [0, 0, 0, 1] });
       f.push({ text: '' + currentPage + ' / ' + pageCount, fontSize: 7, color: '#8b9f99', alignment: 'center' });
       return { stack: f, margin: [28, 0, 28, 6] };
@@ -351,15 +351,15 @@
     return [
       { text: 'إنه في يوم ' + datePart + ' تم الاتفاق بين:', fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 4], alignment: 'right' },
       { stack: [
-          { text: [{ text: 'الطرف الأول: ', bold: true, fontSize: 9, color: '#102d2c' }, { text: p1, fontSize: 9, color: '#3b564f' }], margin: [0, 2, 0, 1], alignment: 'right' },
-          { text: [{ text: 'الطرف الثاني: ', bold: true, fontSize: 9, color: '#102d2c' }, { text: p2, fontSize: 9, color: '#3b564f' }], margin: [0, 0, 0, 4], alignment: 'right' }
+          { text: [{ text: 'الطرف الأول: ', bold: true, fontSize: 9, color: '#0d312f' }, { text: p1, fontSize: 9, color: '#3b564f' }], margin: [0, 2, 0, 1], alignment: 'right' },
+          { text: [{ text: 'الطرف الثاني: ', bold: true, fontSize: 9, color: '#0d312f' }, { text: p2, fontSize: 9, color: '#3b564f' }], margin: [0, 0, 0, 4], alignment: 'right' }
         ], margin: [0, 0, 0, 4] },
-      { text: actionText, fontSize: 9, bold: true, color: '#102d2c', margin: [0, 0, 0, 10], alignment: 'right' }
+      { text: actionText, fontSize: 9, bold: true, color: '#0d312f', margin: [0, 0, 0, 10], alignment: 'right' }
     ];
   }
 
   function sectionTitle(text, margin){
-    return { text: text, fontSize: 14, bold: true, color: '#102d2c', margin: margin || [0, 0, 0, 4], alignment: 'right' };
+    return { text: text, fontSize: 14, bold: true, color: '#0d312f', margin: margin || [0, 0, 0, 4], alignment: 'right' };
   }
 
   function scopeText(text, fallback){
@@ -432,38 +432,78 @@
 
   function maintenanceSpecTable(info, overallTitle){
     if (!info || typeof info !== 'object') return null;
+    var out = [];
+    if (overallTitle) out.push(sectionTitle(overallTitle, [0, 0, 0, 4]));
+
+    var basicFields = [
+      ['count', 'عدد المصاعد'], ['brand', 'الماركة'], ['age', 'العمر'],
+      ['capacity', 'السعة'], ['doorType', 'نوع الأبواب'], ['usage', 'الاستخدام']
+    ];
+    var basicRows = [];
+    basicFields.forEach(function(f){
+      var val = info[f[0]];
+      if (val && val !== '') {
+        basicRows.push([
+          { text: f[1], bold: true, fontSize: 9, fillColor: '#eef5f1', alignment: 'right', color: '#0d312f' },
+          { text: val, fontSize: 9, alignment: 'right', color: '#0d312f' }
+        ]);
+      }
+    });
+    if (basicRows.length) {
+      out.push({
+        table: {
+          headerRows: 0,
+          widths: [80, '*'],
+          body: basicRows
+        },
+        layout: {
+          hLineWidth: function(){ return 0.5; },
+          vLineWidth: function(){ return 0.5; },
+          hLineColor: function(){ return '#dce5e1'; },
+          vLineColor: function(){ return '#dce5e1'; },
+          paddingLeft: function(){ return 8; },
+          paddingRight: function(){ return 8; },
+          paddingTop: function(){ return 4; },
+          paddingBottom: function(){ return 4; },
+          fillColor: function(i){ return i % 2 === 0 ? null : '#f4f9f6'; }
+        },
+        margin: [0, 0, 0, 6]
+      });
+    }
+
     var rows = [];
     specGroups[0].fields.forEach(function(f){
       var val = info[f[0]];
       if (val && val !== '') {
         rows.push([
-          { text: f[1], bold: true, fontSize: 9, fillColor: '#eef5f1', alignment: 'right', color: '#102d2c' },
-          { text: val, fontSize: 9, alignment: 'right' }
+          { text: f[1], bold: true, fontSize: 9, fillColor: '#eef5f1', alignment: 'right', color: '#0d312f' },
+          { text: val, fontSize: 9, alignment: 'right', color: '#1a2e2b' }
         ]);
       }
     });
-    if (!rows.length) return null;
-    var out = [];
-    if (overallTitle) out.push(sectionTitle(overallTitle, [0, 0, 0, 4]));
-    out.push({
-      table: {
-        headerRows: 0,
-        widths: [100, '*'],
-        body: rows
-      },
-      layout: {
-        hLineWidth: function(){ return 0.5; },
-        vLineWidth: function(){ return 0.5; },
-        hLineColor: function(){ return '#e2e8e5'; },
-        vLineColor: function(){ return '#e2e8e5'; },
-        paddingLeft: function(){ return 8; },
-        paddingRight: function(){ return 8; },
-        paddingTop: function(){ return 5; },
-        paddingBottom: function(){ return 5; },
-        fillColor: function(i){ return i % 2 === 0 ? null : '#f4f9f6'; }
-      },
-      margin: [0, 0, 0, 8]
-    });
+    if (rows.length) {
+      out.push({
+        table: {
+          headerRows: 0,
+          widths: [100, '*'],
+          body: rows
+        },
+        layout: {
+          hLineWidth: function(){ return 0.5; },
+          vLineWidth: function(){ return 0.5; },
+          hLineColor: function(){ return '#dce5e1'; },
+          vLineColor: function(){ return '#dce5e1'; },
+          paddingLeft: function(){ return 8; },
+          paddingRight: function(){ return 8; },
+          paddingTop: function(){ return 5; },
+          paddingBottom: function(){ return 5; },
+          fillColor: function(i){ return i % 2 === 0 ? null : '#f4f9f6'; }
+        },
+        margin: [0, 0, 0, 8]
+      });
+    }
+
+    if (!basicRows.length && !rows.length) return null;
     return out;
   }
 
@@ -476,8 +516,8 @@
         var val = info[f[0]];
         if (val && val !== '') {
           rows.push([
-            { text: f[1], bold: true, fontSize: 9, fillColor: '#eef5f1', alignment: 'right', color: '#102d2c' },
-            { text: val, fontSize: 9, alignment: 'right' }
+            { text: f[1], bold: true, fontSize: 9, fillColor: '#eef5f1', alignment: 'right', color: '#0d312f' },
+            { text: val, fontSize: 9, alignment: 'right', color: '#1a2e2b' }
           ]);
         }
       });
@@ -485,7 +525,7 @@
         if (overallTitle && !out.length) {
           out.push(sectionTitle(overallTitle, [0, 0, 0, 4]));
         }
-        out.push({ text: group.tab, fontSize: 10, bold: true, color: '#c9964b', margin: [0, 0, 0, 2], alignment: 'right' });
+        out.push({ text: group.tab, fontSize: 10, bold: true, color: '#d4a24e', margin: [0, 0, 0, 2], alignment: 'right' });
         out.push({
           table: {
             headerRows: 0,
@@ -495,8 +535,8 @@
           layout: {
             hLineWidth: function(){ return 0.5; },
             vLineWidth: function(){ return 0.5; },
-            hLineColor: function(){ return '#e2e8e5'; },
-            vLineColor: function(){ return '#e2e8e5'; },
+            hLineColor: function(){ return '#dce5e1'; },
+            vLineColor: function(){ return '#dce5e1'; },
             paddingLeft: function(){ return 8; },
             paddingRight: function(){ return 8; },
             paddingTop: function(){ return 5; },
@@ -525,33 +565,33 @@
 
   function maintenancePdfClauses(){
     return [
-      { text: 'البند خامساً: الضمان على أعمال الصيانة', fontSize: 12, bold: true, color: '#102d2c', margin: [0, 0, 0, 4], alignment: 'right' },
+      { text: 'البند خامساً: الضمان على أعمال الصيانة', fontSize: 12, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
       { text: 'تتحمل الشركة المصنعة أو الموردة أو الشركة المنفذة لأعمال الصيانة (الطرف الأول) مسؤولية ضمان أعمال الصيانة التي تقوم بها وتكون مسؤولة عن أي عيوب أو أخطاء في تلك الأعمال.', fontSize: 9, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] },
       { text: 'يكون الضمان ساري المفعول لمدة عام من تاريخ بداية العقد على الأجزاء التي تمت صيانتها أو استبدالها في حالة الصيانة الناتجة عن سوء التركيب أو التصنيع أو عدم سلامة التصنيع.', fontSize: 9, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] },
       { text: 'مدة الضمان لعملية الصيانة تكون عاماً من تاريخ التنفيذ، وفي حال وجود أي عيوب في أعمال الصيانة يجب على الطرف الأول إعادة الصيانة أو إصلاح العيوب خلال مدة لا تتجاوز خمسة عشر يوماً من تاريخ الإشعار وبما لا يخل بضمان أعمال الصيانة.', fontSize: 9, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] },
       { text: 'في حالة وجود أي عيوب أو أخطاء في الصيانة من وجهة نظر الطرف الثاني، عليه إخطار الطرف الأول بذلك ويجب أن يتضمن الإخطار وصفاً كاملاً للعيوب أو الأخطاء.', fontSize: 9, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 8] },
-      { text: 'البند سادساً: التزامات الطرف الثاني', fontSize: 12, bold: true, color: '#102d2c', margin: [0, 0, 0, 4], alignment: 'right' },
+      { text: 'البند سادساً: التزامات الطرف الثاني', fontSize: 12, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
       { text: 'يلتزم الطرف الثاني بتوفير متطلبات السلامة لحماية العاملين في الموقع، وتوفير مساحة عمل آمنة ومناسبة لفريق الصيانة، مع توفير الإضاءة والطاقة الكهربائية اللازمة لتنفيذ أعمالهم بأمان وسلامة.', fontSize: 9, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] },
       { text: 'إخلاء مسؤولية الطرف الأول عن أي حوادث أو إصابات أو أضرار تلحق بالغير أو بالعاملين في الموقع نتيجة إهمال الطرف الثاني أو عدم توفير بيئة عمل آمنة.', fontSize: 9, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] },
       { text: 'يلتزم الطرف الثاني بإبلاغ الطرف الأول فوراً في حال حدوث أي عطل مفاجئ في المصعد.', fontSize: 9, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] },
       { text: 'في حال عدم قيام الطرف الثاني بالتزاماته، يحق للطرف الأول تعليق الخدمة حتى يتم الالتزام.', fontSize: 9, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 8] },
-      { text: 'البند سابعاً: المسؤولية والسلامة', fontSize: 12, bold: true, color: '#102d2c', margin: [0, 0, 0, 4], alignment: 'right' },
+      { text: 'البند سابعاً: المسؤولية والسلامة', fontSize: 12, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
       { text: 'يكون الطرف الأول مسؤولاً عن سلامة تنفيذ أعمال الصيانة وفقاً لأصول المهنة والشروط المتفق عليها.', fontSize: 9, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] },
       { text: 'يكون الطرف الثاني مسؤولاً عن سلامة الموقع وتوفير بيئة عمل آمنة وفقاً للوائح وأنظمة السلامة المهنية.', fontSize: 9, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] },
       { text: 'يكون الطرف الأول مسؤولاً عن سلامة وأداء المصعد (المصاعد) بعد الصيانة.', fontSize: 9, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 8] },
-      { text: 'البند ثامناً: التأخير أو التقصير', fontSize: 12, bold: true, color: '#102d2c', margin: [0, 0, 0, 4], alignment: 'right' },
+      { text: 'البند ثامناً: التأخير أو التقصير', fontSize: 12, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
       { text: [{ text: 'التأخير أو التقصير: ', bold: true, fontSize: 9, color: '#17413e' }, { text: 'في حال تقصير أو تأخير الطرف الأول في تنفيذ أعمال الصيانة الدورية، يجب عليه إخطار الطرف الثاني بأسباب التأخير.', fontSize: 9, color: '#3b564f' }], alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] },
       { text: [{ text: 'الإخلال بالالتزامات: ', bold: true, fontSize: 9, color: '#17413e' }, { text: 'في حال إخلال الطرف الأول بالتزاماته الجوهرية، يحق للطرف الثاني تعليق استحقاق الدفعات المستحقة للطرف الأول.', fontSize: 9, color: '#3b564f' }], alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] },
       { text: [{ text: 'حدود المسؤولية: ', bold: true, fontSize: 9, color: '#17413e' }, { text: 'لا يتحمل الطرف الأول المسؤولية عن الأضرار غير المباشرة (سواء كانت مادية أو معنوية) مثل فقدان الأرباح أو توقف العمل أو غيرها، وتكون المسؤولية في جميع الأحوال محصورة بقيمة العقد المدفوعة من الطرف الثاني للطرف الأول.', fontSize: 9, color: '#3b564f' }], alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] },
       { text: [{ text: 'إيقاف العقد: ', bold: true, fontSize: 9, color: '#17413e' }, { text: 'يحق للطرف الأول إيقاف العقد في حال عدم قيام الطرف الثاني بدفع الدفعات المستحقة في مواعيدها، على أن يكون الإيقاف بعد إنذار خطي لمدة لا تقل عن 7 أيام.', fontSize: 9, color: '#3b564f' }], alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 8] },
-      { text: 'البند تاسعاً: فسخ العقد', fontSize: 12, bold: true, color: '#102d2c', margin: [0, 0, 0, 4], alignment: 'right' },
+      { text: 'البند تاسعاً: فسخ العقد', fontSize: 12, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
       { text: 'يحق لأي من الطرفين فسخ العقد في حال إخلال الطرف الآخر بالتزاماته الجوهرية مع إنذار خطي لمدة لا تقل عن 30 يوماً.', fontSize: 9, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] },
       { text: 'في حال فسخ العقد، يستحق الطرف الأول قيمة الأعمال التي تم تنفيذها فعلاً.', fontSize: 9, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] },
       { text: 'لا يحق للطرف الثاني فسخ العقد بسبب ظروفه المادية أو الإدارية أو تغير موقفه المالي، أو لأي سبب غير مبرر، وإلا أعتبر ذلك إخلالاً بالتزاماته.', fontSize: 9, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 8] },
-      { text: 'البند عاشراً: المسؤولية عن الأعطال التي تتطلب قطع غيار', fontSize: 12, bold: true, color: '#102d2c', margin: [0, 0, 0, 4], alignment: 'right' },
+      { text: 'البند عاشراً: المسؤولية عن الأعطال التي تتطلب قطع غيار', fontSize: 12, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
       { text: [{ text: 'الأعطال التي تتطلب قطع غيار: ', bold: true, fontSize: 9, color: '#17413e' }, { text: 'في حال وجود عطل بالمصعد يتطلب تغيير قطعة غيار، تتحمل الطرف الثاني قيمة القطعة وتكاليف الشحن والتركيب والنقل والخدمات اللوجستية، على أن تقوم الطرف الأول بتوفير القطعة وتنفيذ أعمال الاستبدال بأسرع وقت ممكن، ويتم وضع خطة لتفادي توقف المصعد لفترات طويلة.', fontSize: 9, color: '#3b564f' }], alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] },
       { text: [{ text: 'الأعطال غير المشمولة: ', bold: true, fontSize: 9, color: '#17413e' }, { text: 'أما الأعطال الناتجة عن سوء الاستخدام أو التعديلات غير المصرح بها من قبل الطرف الثاني أو الغير، أو الأعطال الناتجة عن سوء التركيب أو التصنيع من قبل الغير والشركات المنفذة للتركيب أو التصنيع، أو ظروف قاهرة مثل كوارث طبيعية أو حرائق أو فيضانات أو سرقات وتخريب، أو انقطاع التيار الكهربائي أو عدم استقرار الجهد الكهربائي، أو عدم تنفيذ الصيانة الوقائية الدورية المتفق عليها في العقد، أو وجود أي تعديلات هيكلية في المبنى تؤثر على سلامة المصعد، فلا تكون الطرف الأول مسؤولة عنها وتتحمل الطرف الثاني أي تكاليف إضافية لإعادة التأهيل والصيانة.', fontSize: 9, color: '#3b564f' }], alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 8] },
-      { text: 'نسخ العقد', fontSize: 12, bold: true, color: '#102d2c', margin: [0, 0, 0, 4], alignment: 'right' },
+      { text: 'نسخ العقد', fontSize: 12, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
       { text: 'تم تحرير هذا العقد من نسختين (2) بيد كل طرف نسخة واحدة، وتعتبر جميعها نسخاً أصلية، وتسري أحكام هذا العقد اعتباراً من تاريخ توقيعه من الطرفين.', fontSize: 9, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] }
     ];
   }
@@ -572,8 +612,8 @@
         widths: ['*', 'auto'],
         body: [
           [
-            { text: 'عقد ' + (c.type || ''), bold: true, fontSize: 16, color: '#102d2c', alignment: 'right' },
-            { text: 'رقم العقد: ' + c.id, bold: true, fontSize: 10, color: '#fff', fillColor: '#102d2c', alignment: 'center', margin: [4, 2, 4, 2] }
+            { text: 'عقد ' + (c.type || ''), bold: true, fontSize: 16, color: '#0d312f', alignment: 'right' },
+            { text: 'رقم العقد: ' + c.id, bold: true, fontSize: 10, color: '#fff', fillColor: '#0d312f', alignment: 'center', margin: [4, 2, 4, 2] }
           ]
         ]
       },
@@ -592,7 +632,7 @@
       content.push({
         stack: [
           { text: 'بسم الله الرحمن الرحيم', fontSize: 10, color: '#8b9f99', alignment: 'center', margin: [0, 0, 0, 2] },
-          { text: 'عقد تركيب مصعد', fontSize: 14, bold: true, color: '#102d2c', alignment: 'center', margin: [0, 0, 0, 4] },
+          { text: 'عقد تركيب مصعد', fontSize: 14, bold: true, color: '#0d312f', alignment: 'center', margin: [0, 0, 0, 4] },
           { text: 'يسعدنا نحن ' + companyName + ' أن نتقدم لسعادتكم بهذا العقد لتوريد وتركيب مصعد في موقعكم الموضح أدناه، وفق المواصفات الفنية والبنود العامة المعتمدة.', fontSize: 9, color: '#3b564f', alignment: 'right', margin: [0, 0, 0, 6], lineHeight: 1.8 }
         ],
         margin: [0, 0, 0, 6]
@@ -703,7 +743,7 @@
 
     content.push({
       columns: [
-        { text: 'عرض سعر' + (q.type ? ' - ' + q.type : ''), bold: true, fontSize: 16, color: '#102d2c' },
+        { text: 'عرض سعر' + (q.type ? ' - ' + q.type : ''), bold: true, fontSize: 16, color: '#0d312f' },
         statusBadge(q.status || 'بانتظار الرد')
       ],
       margin: [0, 0, 0, 6]
@@ -713,12 +753,12 @@
         widths: ['*', 'auto'],
         body: [
           [
-            { text: 'رقم عرض السعر: ' + q.id, bold: true, fontSize: 14, color: '#c9964b', alignment: 'right' },
+            { text: 'رقم عرض السعر: ' + q.id, bold: true, fontSize: 14, color: '#d4a24e', alignment: 'right' },
             { text: 'الإجمالي', fontSize: 10, color: '#748481', alignment: 'center' }
           ],
           [
             { text: '', border: [false, false, false, false] },
-            { text: safeMoney(total), bold: true, fontSize: 18, color: '#c9964b', alignment: 'center' }
+            { text: safeMoney(total), bold: true, fontSize: 18, color: '#d4a24e', alignment: 'center' }
           ]
         ]
       },
@@ -727,8 +767,8 @@
     });
     content.push({
       stack: [
-        { text: 'الطرف الموجه إليه عرض السعر', fontSize: 12, bold: true, color: '#102d2c', margin: [0, 0, 0, 2] },
-        { text: party, bold: true, fontSize: 14, color: '#102d2c', margin: [0, 2, 0, 4], alignment: 'right' }
+        { text: 'الطرف الموجه إليه عرض السعر', fontSize: 12, bold: true, color: '#0d312f', margin: [0, 0, 0, 2] },
+        { text: party, bold: true, fontSize: 14, color: '#0d312f', margin: [0, 2, 0, 4], alignment: 'right' }
       ],
       margin: [0, 0, 0, 8]
     });
@@ -745,9 +785,9 @@
       var plan = (q.paymentPlan && q.paymentPlan.length) ? q.paymentPlan : [];
       if (plan.length) {
         var planRows = [[
-          { text: 'الدفعة', bold: true, color: '#fff', fillColor: '#102d2c', alignment: 'right' },
-          { text: 'البيان', bold: true, color: '#fff', fillColor: '#102d2c', alignment: 'right' },
-          { text: 'القيمة', bold: true, color: '#fff', fillColor: '#102d2c', alignment: 'center' }
+          { text: 'الدفعة', bold: true, color: '#fff', fillColor: '#0d312f', alignment: 'right' },
+          { text: 'البيان', bold: true, color: '#fff', fillColor: '#0d312f', alignment: 'right' },
+          { text: 'القيمة', bold: true, color: '#fff', fillColor: '#0d312f', alignment: 'center' }
         ]];
         plan.forEach(function(p){
           var label = p.label || (Array.isArray(p) ? p[0] : 'دفعة');
@@ -765,7 +805,7 @@
           {},
           { text: safeMoney(total), alignment: 'center', bold: true, fontSize: 10, color: '#8b601f' }
         ]);
-        content.push({ text: 'جدول الدفعات', fontSize: 12, bold: true, color: '#102d2c', margin: [0, 0, 0, 4] });
+        content.push({ text: 'جدول الدفعات', fontSize: 12, bold: true, color: '#0d312f', margin: [0, 0, 0, 4] });
         content.push({
           table: { headerRows: 1, widths: ['*', '*', 80], body: planRows },
           layout: {
@@ -797,7 +837,7 @@
     if (ci) Array.prototype.push.apply(content, ci);
 
     if (q.details) {
-      content.push({ text: 'التفاصيل', fontSize: 12, bold: true, color: '#102d2c', margin: [0, 0, 0, 4] });
+      content.push({ text: 'التفاصيل', fontSize: 12, bold: true, color: '#0d312f', margin: [0, 0, 0, 4] });
       content.push({ text: q.details, fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 10], alignment: 'right' });
     }
 
@@ -817,7 +857,7 @@
 
     content.push({
       columns: [
-        { text: 'تقرير زيارة فنية', bold: true, fontSize: 16, color: '#102d2c' },
+        { text: 'تقرير زيارة فنية', bold: true, fontSize: 16, color: '#0d312f' },
         statusBadge(r.status || 'بانتظار اعتماد العميل')
       ],
       margin: [0, 0, 0, 6]
@@ -827,7 +867,7 @@
         widths: ['*', 'auto'],
         body: [
           [
-            { text: 'رقم التقرير: ' + r.id, bold: true, fontSize: 14, color: '#c9964b', alignment: 'right' },
+            { text: 'رقم التقرير: ' + r.id, bold: true, fontSize: 14, color: '#d4a24e', alignment: 'right' },
             { text: r.technician || r.technicianId || 'الفني', fontSize: 10, color: '#748481', alignment: 'center' }
           ]
         ]
@@ -847,7 +887,7 @@
     function section(title, text){
       if (!text) return null;
       return [
-        { text: title, fontSize: 12, bold: true, color: '#102d2c', margin: [0, 0, 0, 4], alignment: 'right' },
+        { text: title, fontSize: 12, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
         { text: text, fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 10], alignment: 'right' }
       ];
     }
@@ -858,7 +898,7 @@
     if (s2) Array.prototype.push.apply(content, s2);
 
     if (r.parts || r.recommendations) {
-      content.push({ text: 'قطع الغيار المطلوبة / المستخدمة والتوصيات', fontSize: 12, bold: true, color: '#102d2c', margin: [0, 0, 0, 4], alignment: 'right' });
+      content.push({ text: 'قطع الغيار المطلوبة / المستخدمة والتوصيات', fontSize: 12, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' });
       if (r.parts) content.push({ text: r.parts, fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 4], alignment: 'right' });
       if (r.recommendations) content.push({ text: r.recommendations, fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 10], alignment: 'right' });
     }
@@ -882,14 +922,14 @@
 
     content.push({
       columns: [
-        { text: 'بلاغ - ' + t.id, bold: true, fontSize: 16, color: '#102d2c' },
+        { text: 'بلاغ - ' + t.id, bold: true, fontSize: 16, color: '#0d312f' },
         statusBadge(t.status)
       ],
       margin: [0, 0, 0, 6]
     });
     content.push({
       stack: [
-        { text: t.title, bold: true, fontSize: 14, color: '#102d2c', margin: [0, 0, 0, 2], alignment: 'right' },
+        { text: t.title, bold: true, fontSize: 14, color: '#0d312f', margin: [0, 0, 0, 2], alignment: 'right' },
         { text: t.description || '', fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 6], alignment: 'right' }
       ],
       margin: [0, 0, 0, 8]
@@ -921,7 +961,7 @@
 
     content.push({
       columns: [
-        { text: 'مستخلص مالي', bold: true, fontSize: 16, color: '#102d2c' },
+        { text: 'مستخلص مالي', bold: true, fontSize: 16, color: '#0d312f' },
         statusBadge(cl.status || 'قيد المراجعة')
       ],
       margin: [0, 0, 0, 6]
@@ -931,12 +971,12 @@
         widths: ['*', 'auto'],
         body: [
           [
-            { text: 'رقم المستخلص: ' + cl.id, bold: true, fontSize: 14, color: '#c9964b', alignment: 'right' },
+            { text: 'رقم المستخلص: ' + cl.id, bold: true, fontSize: 14, color: '#d4a24e', alignment: 'right' },
             { text: 'قيمة المستخلص', fontSize: 10, color: '#748481', alignment: 'center' }
           ],
           [
             { text: '', border: [false, false, false, false] },
-            { text: safeMoney(cl.value), bold: true, fontSize: 18, color: '#c9964b', alignment: 'center' }
+            { text: safeMoney(cl.value), bold: true, fontSize: 18, color: '#d4a24e', alignment: 'center' }
           ]
         ]
       },
@@ -950,7 +990,7 @@
       { label: 'تاريخ الإنشاء', value: cl.createdAt }
     ]));
 
-    content.push({ text: 'بيان المستخلص', fontSize: 12, bold: true, color: '#102d2c', margin: [0, 0, 0, 4], alignment: 'right' });
+    content.push({ text: 'بيان المستخلص', fontSize: 12, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' });
     content.push({
       text: 'مستخلص عن الفترة الموضحة أعلاه بمبلغ إجمالي ' + safeMoney(cl.value) + ' وفق بيانات العقد والخدمات المسجلة في النظام.',
       fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 10], alignment: 'right'
