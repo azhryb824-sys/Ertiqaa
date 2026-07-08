@@ -1,11 +1,13 @@
-const CACHE = "shumoos-v1";
+const CACHE = "shumoos-v2";
 const ASSETS = [
   "/", "/index.html", "/login.html", "/register.html", "/dashboard.html",
-  "/styles.css", "/app.js", "/manifest.json",
-  "/assets/shumoos-logo.png"
+  "/styles.css", "/app.js", "/manifest.json", "/pdfmake-gen.js",
+  "/assets/shumoos-logo.png",
+  "/assets/fonts/cairo-vfs.js"
 ];
 
 self.addEventListener("install", event => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE).then(cache => cache.addAll(ASSETS).catch(() => {}))
   );
@@ -28,4 +30,5 @@ self.addEventListener("activate", event => {
   event.waitUntil(
     caches.keys().then(keys => keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
   );
+  return self.clients.claim();
 });
