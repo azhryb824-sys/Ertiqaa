@@ -361,55 +361,110 @@
     return { text: text || fallback, fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 10], alignment: 'right', lineHeight: 1.8 };
   }
 
-  function buildSpecRows(info, fields){
+  var specGroups = [
+    {
+      tab: 'مواصفات المصعد',
+      fields: [
+        ['elevatorType', 'نوع المصعد'], ['usage', 'الاستخدام'], ['capacity', 'الحمولة'],
+        ['persons', 'عدد الأشخاص'], ['stops', 'عدد الوقفات'], ['speed', 'السرعة'],
+        ['travelHeight', 'ارتفاع المشوار'], ['shaftLength', 'طول البئر'], ['shaftWidth', 'عرض البئر'],
+        ['pitDepth', 'عمق الحفرة'], ['overhead', 'الارتفاع العلوي'], ['entrances', 'عدد المداخل'],
+        ['doorDirection', 'اتجاه الأبواب'], ['speedSystem', 'نظام السرعة']
+      ]
+    },
+    {
+      tab: 'المحرك والكنترول',
+      fields: [
+        ['motorType', 'نوع المحرك'], ['motorManufacturer', 'الشركة المصنعة للمحرك'],
+        ['motorPower', 'قدرة المحرك'], ['motorSpeed', 'سرعة المحرك'], ['controller', 'الكنترول'],
+        ['ropeManufacturer', 'الشركة المصنعة للحبال'], ['ropesCount', 'عدد الحبال'],
+        ['ropeDiameter', 'قطر الحبال'], ['counterweight', 'وزن الثقال'],
+        ['railManufacturer', 'الشركة المصنعة للسكك'], ['railSize', 'مقاس السكك'],
+        ['originCountry', 'بلد المنشأ']
+      ]
+    },
+    {
+      tab: 'الكابينة',
+      fields: [
+        ['cabinSize', 'أبعاد الكابينة'], ['floorType', 'نوع الأرضية'], ['wallType', 'نوع الجدران'],
+        ['ceilingType', 'نوع السقف'], ['lightingType', 'نوع الإنارة'], ['displayType', 'نوع شاشة العرض'],
+        ['risotType', 'نوع الريشوت'], ['mirrors', 'وجود مرايا'], ['fan', 'وجود مروحة'],
+        ['voiceAnnouncement', 'Voice Announcement'], ['braille', 'Braille']
+      ]
+    },
+    {
+      tab: 'الأبواب',
+      fields: [
+        ['doorType', 'نوع الباب'], ['doorManufacturer', 'الشركة المصنعة للأبواب'],
+        ['doorWidth', 'عرض الباب'], ['doorHeight', 'ارتفاع الباب'],
+        ['doorOpenTime', 'زمن فتح الباب'], ['doorCloseTime', 'زمن إغلاق الباب'],
+        ['doorLockType', 'نوع أقفال الأبواب']
+      ]
+    },
+    {
+      tab: 'أنظمة الأمان',
+      fields: [
+        ['bufferType', 'نوع Buffer'], ['rescueSystem', 'نظام الإنقاذ'],
+        ['coolingSystem', 'نظام التبريد'], ['intercom', 'إنتركم'],
+        ['camera', 'كاميرا'], ['fireMode', 'Fire Mode']
+      ]
+    },
+    {
+      tab: 'الكهرباء',
+      fields: [
+        ['voltage', 'الجهد'], ['frequency', 'التردد'], ['phases', 'عدد الفازات'],
+        ['travelCableSize', 'مقاس الكيبل المرن'], ['powerConsumption', 'استهلاك الكهرباء']
+      ]
+    },
+    {
+      tab: 'الضمان',
+      fields: [
+        ['warranty', 'مدة الضمان'], ['notes', 'الملاحظات']
+      ]
+    }
+  ];
+
+  function specTable(info, overallTitle){
     if (!info || typeof info !== 'object') return null;
-    var rows = [];
-    fields.forEach(function(f){
-      var val = info[f.key];
-      if (val && val !== '') {
-        rows.push([
-          { text: f.label, bold: true, fontSize: 8, fillColor: '#eef5f1', alignment: 'right', color: '#102d2c' },
-          { text: val, fontSize: 8, alignment: 'right' }
-        ]);
+    var out = [];
+    specGroups.forEach(function(group){
+      var rows = [];
+      group.fields.forEach(function(f){
+        var val = info[f[0]];
+        if (val && val !== '') {
+          rows.push([
+            { text: f[1], bold: true, fontSize: 8, fillColor: '#eef5f1', alignment: 'right', color: '#102d2c' },
+            { text: val, fontSize: 8, alignment: 'right' }
+          ]);
+        }
+      });
+      if (rows.length) {
+        if (overallTitle && !out.length) {
+          out.push(sectionTitle(overallTitle, [0, 0, 0, 4]));
+        }
+        out.push({ text: group.tab, fontSize: 9, bold: true, color: '#c9964b', margin: [0, 0, 0, 2], alignment: 'right' });
+        out.push({
+          table: {
+            headerRows: 0,
+            widths: [100, '*'],
+            body: rows
+          },
+          layout: {
+            hLineWidth: function(){ return 0.5; },
+            vLineWidth: function(){ return 0.5; },
+            hLineColor: function(){ return '#e2e8e5'; },
+            vLineColor: function(){ return '#e2e8e5'; },
+            paddingLeft: function(){ return 8; },
+            paddingRight: function(){ return 8; },
+            paddingTop: function(){ return 3; },
+            paddingBottom: function(){ return 3; }
+          },
+          margin: [0, 0, 0, 8]
+        });
       }
     });
-    if (!rows.length) return null;
-    return rows;
-  }
-
-  function specTable(info, title){
-    var fields = [
-      { key: 'type', label: 'نوع المصعد' },
-      { key: 'capacity', label: 'الحمولة' },
-      { key: 'speed', label: 'السرعة' },
-      { key: 'stops', label: 'عدد التوقفات' },
-      { key: 'doorType', label: 'نوع الباب' },
-      { key: 'motorManufacturer', label: 'المحرك' },
-      { key: 'controller', label: 'الكنترول' }
-    ];
-    var rows = buildSpecRows(info, fields);
-    if (!rows) return null;
-    return [
-      sectionTitle(title || 'المواصفات الفنية للمصعد'),
-      {
-        table: {
-          headerRows: 0,
-          widths: [100, '*'],
-          body: rows
-        },
-        layout: {
-          hLineWidth: function(){ return 0.5; },
-          vLineWidth: function(){ return 0.5; },
-          hLineColor: function(){ return '#e2e8e5'; },
-          vLineColor: function(){ return '#e2e8e5'; },
-          paddingLeft: function(){ return 8; },
-          paddingRight: function(){ return 8; },
-          paddingTop: function(){ return 4; },
-          paddingBottom: function(){ return 4; }
-        },
-        margin: [0, 0, 0, 10]
-      }
-    ];
+    if (!out.length) return null;
+    return out;
   }
 
   function sectionBlock(num, heading, body){
