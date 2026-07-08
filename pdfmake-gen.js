@@ -353,37 +353,120 @@
     ];
   }
 
+  function sectionTitle(text, margin){
+    return { text: text, fontSize: 12, bold: true, color: '#102d2c', margin: margin || [0, 0, 0, 4], alignment: 'right' };
+  }
+
+  function scopeText(text, fallback){
+    return { text: text || fallback, fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 10], alignment: 'right', lineHeight: 1.8 };
+  }
+
+  function buildSpecRows(info, fields){
+    if (!info || typeof info !== 'object') return null;
+    var rows = [];
+    fields.forEach(function(f){
+      var val = info[f.key];
+      if (val && val !== '') {
+        rows.push([
+          { text: f.label, bold: true, fontSize: 8, fillColor: '#eef5f1', alignment: 'right', color: '#102d2c' },
+          { text: val, fontSize: 8, alignment: 'right' }
+        ]);
+      }
+    });
+    if (!rows.length) return null;
+    return rows;
+  }
+
+  function specTable(info, title){
+    var fields = [
+      { key: 'type', label: 'نوع المصعد' },
+      { key: 'capacity', label: 'الحمولة' },
+      { key: 'speed', label: 'السرعة' },
+      { key: 'stops', label: 'عدد التوقفات' },
+      { key: 'doorType', label: 'نوع الباب' },
+      { key: 'motorManufacturer', label: 'المحرك' },
+      { key: 'controller', label: 'الكنترول' }
+    ];
+    var rows = buildSpecRows(info, fields);
+    if (!rows) return null;
+    return [
+      sectionTitle(title || 'المواصفات الفنية للمصعد'),
+      {
+        table: {
+          headerRows: 0,
+          widths: [100, '*'],
+          body: rows
+        },
+        layout: {
+          hLineWidth: function(){ return 0.5; },
+          vLineWidth: function(){ return 0.5; },
+          hLineColor: function(){ return '#e2e8e5'; },
+          vLineColor: function(){ return '#e2e8e5'; },
+          paddingLeft: function(){ return 8; },
+          paddingRight: function(){ return 8; },
+          paddingTop: function(){ return 4; },
+          paddingBottom: function(){ return 4; }
+        },
+        margin: [0, 0, 0, 10]
+      }
+    ];
+  }
+
+  function sectionBlock(num, heading, body){
+    var out = [];
+    var label = 'البند ' + num + ': ' + heading;
+    out.push(sectionTitle(label, [0, 0, 0, 2]));
+    if (Array.isArray(body)) {
+      out = out.concat(body);
+    } else {
+      out.push(body);
+    }
+    return out;
+  }
+
   // ==================== CONTRACT ====================
   function contractPdfDefinition(c, logoData){
     var companyName = (c.company && c.company.name) || activeCompanyName();
     var cf = safeFooter();
     var content = [];
+    var isInstall = c.type === 'تركيب';
+
+    console.log("PDFGEN", "contract type:", c.type, "is install:", isInstall);
+
     Array.prototype.push.apply(content, buildHeader(logoData));
 
-    content.push({
-      columns: [
-        { text: 'عقد ' + (c.type || ''), bold: true, fontSize: 16, color: '#102d2c' },
-        statusBadge(c.status || '')
-      ],
-      margin: [0, 0, 0, 6]
-    });
     content.push({
       table: {
         widths: ['*', 'auto'],
         body: [
           [
-            { text: 'رقم العقد: ' + c.id, bold: true, fontSize: 14, color: '#c9964b', alignment: 'right' },
-            { text: 'قيمة العقد', fontSize: 10, color: '#748481', alignment: 'center' }
-          ],
-          [
-            { text: '', border: [false, false, false, false] },
-            { text: safeMoney(c.value), bold: true, fontSize: 18, color: '#c9964b', alignment: 'center' }
+            { text: 'عقد ' + (c.type || ''), bold: true, fontSize: 16, color: '#102d2c', alignment: 'right' },
+            { text: 'رقم العقد: ' + c.id, bold: true, fontSize: 10, color: '#fff', fillColor: '#102d2c', alignment: 'center', margin: [4, 2, 4, 2] }
           ]
         ]
       },
-      layout: 'noBorders',
+      layout: {
+        hLineWidth: function(){ return 0; },
+        vLineWidth: function(){ return 0; },
+        paddingLeft: function(){ return 0; },
+        paddingRight: function(){ return 0; },
+        paddingTop: function(){ return 0; },
+        paddingBottom: function(){ return 0; }
+      },
       margin: [0, 0, 0, 8]
     });
+
+    if (isInstall) {
+      content.push({
+        stack: [
+          { text: 'بسم الله الرحمن الرحيم', fontSize: 10, color: '#8b9f99', alignment: 'center', margin: [0, 0, 0, 2] },
+          { text: 'عقد تركيب مصعد فل أوتوماتيك', fontSize: 14, bold: true, color: '#102d2c', alignment: 'center', margin: [0, 0, 0, 4] },
+          { text: 'يسعدنا نحن ' + companyName + ' أن نتقدم لسعادتكم بهذا العقد لتوريد وتركيب مصعد في موقعكم الموضح أدناه، وفق المواصفات الفنية والبنود العامة المعتمدة.', fontSize: 9, color: '#3b564f', alignment: 'right', margin: [0, 0, 0, 6], lineHeight: 1.8 }
+        ],
+        margin: [0, 0, 0, 6]
+      });
+    }
+
     content.push({
       stack: [
         { text: 'الطرف الثاني', fontSize: 12, bold: true, color: '#102d2c', margin: [0, 0, 0, 2] },
@@ -391,52 +474,77 @@
       ],
       margin: [0, 0, 0, 8]
     });
+
     content.push(summaryTable([
       { label: 'بداية العقد', value: c.startDate },
       { label: 'نهاية العقد', value: c.endDate },
       { label: 'منشأة الإصدار', value: companyName }
     ]));
 
-    console.log("PDFGEN", "contract type:", c.type, "is install:", c.type === 'تركيب');
-    var isInstall = c.type === 'تركيب';
-
     var intro = contractIntroParagraph(c, isInstall);
     if (intro) Array.prototype.push.apply(content, intro);
 
-    var et = elevatorTable(c.elevatorInfo);
-    if (et) Array.prototype.push.apply(content, et);
-
     if (isInstall) {
+      var scopeDefault = 'يشمل العقد توريد وتركيب المصعد والسكة والأبواب والكابينة والمكينة ولوحة التحكم والتشغيل والاختبار والتسليم النهائي وفقاً للمواصفات الفنية الواردة بهذا العقد، مع توفير الضمان اللازم للأجزاء الموردة حسب ما هو متفق عليه.';
+      Array.prototype.push.apply(content, sectionBlock('أولاً', 'نطاق التوريد والتركيب', scopeText(c.details, scopeDefault)));
+
+      var st = specTable(c.elevatorInfo, 'البند ثانياً: المواصفات الفنية للمصعد');
+      if (st) Array.prototype.push.apply(content, st);
+
       var pt = paymentPlanTable(c.value);
-      if (pt) Array.prototype.push.apply(content, pt);
-    } else {
-      var mt = maintenanceTable(c.maintenanceChecklist);
-      if (mt) Array.prototype.push.apply(content, mt);
-    }
+      if (pt) {
+        Array.prototype.push.apply(content, sectionBlock('ثالثاً', 'شروط الدفع', pt));
+      }
 
-    var buildings = c.buildings || [];
-    if (buildings.length > 0) {
-      content.push({ text: 'المباني والمواقع', fontSize: 12, bold: true, color: '#102d2c', margin: [0, 0, 0, 4] });
-      buildings.forEach(function(b){
-        content.push({
-          stack: [
-            { text: b.name || 'غير محدد', bold: true, fontSize: 11, color: '#17413e', margin: [0, 0, 0, 2], alignment: 'right' },
-            { text: [b.district, b.mapUrl].filter(Boolean).join(' - ') || '', fontSize: 9, color: '#748481', margin: [0, 0, 0, 4], alignment: 'right' }
-          ],
-          margin: [0, 0, 0, 4]
+      var ti = renderItems(c.items, 'البند رابعاً: البنود الافتراضية');
+      if (ti) Array.prototype.push.apply(content, ti);
+      var ci = renderItems(c.customItems, 'البند خامساً: البنود الإضافية');
+      if (ci) Array.prototype.push.apply(content, ci);
+      else if (!ti) content.push(sectionTitle('البند رابعاً: البنود'));
+
+      var buildings = c.buildings || [];
+      if (buildings.length > 0) {
+        var bd = [{ text: '', margin: [0, 0, 0, 2] }];
+        buildings.forEach(function(b){
+          bd.push({
+            stack: [
+              { text: b.name || 'غير محدد', bold: true, fontSize: 10, color: '#17413e', margin: [0, 0, 0, 1], alignment: 'right' },
+              { text: [b.district, b.mapUrl].filter(Boolean).join(' - ') || '', fontSize: 9, color: '#748481', margin: [0, 0, 0, 4], alignment: 'right' }
+            ],
+            margin: [0, 0, 0, 2]
+          });
         });
-      });
-      content.push({ text: '', margin: [0, 0, 0, 4] });
-    }
+        Array.prototype.push.apply(content, sectionBlock('سادساً', 'المباني والمواقع', bd));
+      }
+    } else {
+      var scopeDefault = 'يشمل العقد أعمال الصيانة الدورية للمصعد (المصاعد) وفق بنود الصيانة والشروط والمواصفات الواردة في هذا العقد، للحفاظ على سلامة وأداء المصعد طوال مدة العقد.';
+      Array.prototype.push.apply(content, sectionBlock('أولاً', 'نطاق الصيانة', scopeText(c.details, scopeDefault)));
 
-    var ti = renderItems(c.items, 'البنود الافتراضية');
-    if (ti) Array.prototype.push.apply(content, ti);
-    var ci = renderItems(c.customItems, 'البنود الإضافية');
-    if (ci) Array.prototype.push.apply(content, ci);
+      var st = specTable(c.elevatorInfo, 'البند ثانياً: المواصفات الفنية للمصعد');
+      if (st) Array.prototype.push.apply(content, st);
 
-    if (c.details) {
-      content.push({ text: 'نطاق العمل', fontSize: 12, bold: true, color: '#102d2c', margin: [0, 0, 0, 4] });
-      content.push({ text: c.details, fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 10], alignment: 'right' });
+      var mt = maintenanceTable(c.maintenanceChecklist);
+      if (mt) Array.prototype.push.apply(content, sectionBlock('ثالثاً', 'بنود الصيانة الدورية', mt));
+
+      var buildings = c.buildings || [];
+      if (buildings.length > 0) {
+        var bd = [{ text: '', margin: [0, 0, 0, 2] }];
+        buildings.forEach(function(b){
+          bd.push({
+            stack: [
+              { text: b.name || 'غير محدد', bold: true, fontSize: 10, color: '#17413e', margin: [0, 0, 0, 1], alignment: 'right' },
+              { text: [b.district, b.mapUrl].filter(Boolean).join(' - ') || '', fontSize: 9, color: '#748481', margin: [0, 0, 0, 4], alignment: 'right' }
+            ],
+            margin: [0, 0, 0, 2]
+          });
+        });
+        Array.prototype.push.apply(content, sectionBlock('رابعاً', 'المباني والمواقع', bd));
+      }
+
+      var ti = renderItems(c.items, 'خامساً: البنود الافتراضية');
+      if (ti) Array.prototype.push.apply(content, ti);
+      var ci = renderItems(c.customItems, 'البنود الإضافية');
+      if (ci) Array.prototype.push.apply(content, ci);
     }
 
     Array.prototype.push.apply(content, buildSignature(companyName, safeLabel(c)));
