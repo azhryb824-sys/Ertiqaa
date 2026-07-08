@@ -369,7 +369,8 @@
         ['persons', 'عدد الأشخاص'], ['stops', 'عدد الوقفات'], ['speed', 'السرعة'],
         ['travelHeight', 'ارتفاع المشوار'], ['shaftLength', 'طول البئر'], ['shaftWidth', 'عرض البئر'],
         ['pitDepth', 'عمق الحفرة'], ['overhead', 'الارتفاع العلوي'], ['entrances', 'عدد المداخل'],
-        ['doorDirection', 'اتجاه الأبواب'], ['speedSystem', 'نظام السرعة']
+        ['doorDirection', 'اتجاه الأبواب'], ['speedSystem', 'نظام السرعة'],
+        ['doorType', 'نوع الأبواب']
       ]
     },
     {
@@ -395,7 +396,7 @@
     {
       tab: 'الأبواب',
       fields: [
-        ['doorType', 'نوع الباب'], ['doorManufacturer', 'الشركة المصنعة للأبواب'],
+        ['doorManufacturer', 'الشركة المصنعة للأبواب'],
         ['doorWidth', 'عرض الباب'], ['doorHeight', 'ارتفاع الباب'],
         ['doorOpenTime', 'زمن فتح الباب'], ['doorCloseTime', 'زمن إغلاق الباب'],
         ['doorLockType', 'نوع أقفال الأبواب']
@@ -534,7 +535,7 @@
       { label: 'بداية العقد', value: c.startDate },
       { label: 'نهاية العقد', value: c.endDate },
       { label: 'منشأة الإصدار', value: companyName }
-    ]));
+    ].concat(isInstall?[{label:'مدة التركيب',value:(c.installationInfo?.installDuration||'45 يوماً')}]:[]).concat(isInstall&&c.deliveryDate?[{label:'تاريخ التسليم',value:c.deliveryDate}]:[])));
 
     var intro = contractIntroParagraph(c, isInstall);
     if (intro) Array.prototype.push.apply(content, intro);
@@ -570,6 +571,13 @@
           });
         });
         Array.prototype.push.apply(content, sectionBlock('سادساً', 'المباني والمواقع', bd));
+      }
+      if (c.maintenanceChecklist && c.maintenanceChecklist.length > 0) {
+        var mi = maintenanceTable(c.maintenanceChecklist);
+        if (mi) Array.prototype.push.apply(content, sectionBlock('سابعاً', 'بنود الصيانة المتفق عليها', mi));
+      }
+      if (c.deliveryDate && c.maintenanceEndDate) {
+        content.push(sectionBlock('ثامناً', 'فترة الصيانة', { text: 'تبدأ فترة الصيانة من تاريخ تسليم المصعد (' + c.deliveryDate + ') إلى تاريخ (' + c.maintenanceEndDate + ')، على أن تشمل أعمال الصيانة الدورية والطارئة وفق بنود الصيانة المتفق عليها أعلاه.', fontSize: 9, color: '#3b564f', alignment: 'right', lineHeight: 1.8 }));
       }
     } else {
       var scopeDefault = 'يشمل العقد أعمال الصيانة الدورية للمصعد (المصاعد) وفق بنود الصيانة والشروط والمواصفات الواردة في هذا العقد، للحفاظ على سلامة وأداء المصعد طوال مدة العقد.';
