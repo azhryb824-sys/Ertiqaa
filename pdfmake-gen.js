@@ -73,6 +73,10 @@
   }
 
   function buildSignature(side1, side2){
+    var stamp = (A.companyStamp && A.companyStamp()) || '';
+    var sig1 = stamp
+      ? { image: stamp, width: 80, height: 60, alignment: 'center', margin: [0, 4, 0, 0] }
+      : { text: 'التوقيع: ........................', fontSize: 8, color: '#8b9f99', alignment: 'center' };
     return [
       { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.5, lineColor: '#e2e8e5' }], margin: [0, 0, 0, 6] },
       {
@@ -81,7 +85,7 @@
             stack: [
               { text: 'الطرف الأول', bold: true, fontSize: 10, color: '#748481', alignment: 'center' },
               { text: side1, fontSize: 9, color: '#102d2c', alignment: 'center', margin: [0, 2, 0, 2] },
-              { text: 'التوقيع: ........................', fontSize: 8, color: '#8b9f99', alignment: 'center' }
+              sig1
             ]
           },
           {

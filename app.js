@@ -971,6 +971,11 @@ const unlinkUser=e.target.closest("[data-unlink-user]");if(unlinkUser){const uid
     money: money,
     fixedPdfFooter: fixedPdfFooter,
     activeOwnerCompany: activeOwnerCompany,
+    companyStamp: function(){
+      var allDocs = read("misadCompanyDocs");
+      var oid = ownerId();
+      return (allDocs.find(function(d){ return d.companyOwnerId===oid && (d.type==="stamp"||d.type==="signature") && d.status==="معتمد" && d.fileData; })||{}).fileData||"";
+    },
     reports: reports,
     quotes: quotes,
     toast: toast,
