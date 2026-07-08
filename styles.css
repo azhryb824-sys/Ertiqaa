@@ -1481,3 +1481,18 @@ textarea{
 /* Electronic contract specification builder */
 .contract-builder-form{gap:16px}.contract-tabs{display:flex;gap:8px;flex-wrap:wrap;position:sticky;top:0;z-index:2;background:#fff;padding:6px 0 10px}.contract-tab{border:1px solid var(--line);background:#fff;color:var(--navy);border-radius:8px;padding:9px 12px;font-size:11px;font-weight:800;cursor:pointer}.contract-tab.active{background:var(--navy);color:#fff;border-color:var(--navy)}.contract-tab-panel{display:none}.contract-tab-panel.active{display:block}.contract-tab-panel legend{color:var(--navy)}.spec-grid label{background:#fbfdfc;border:1px solid #edf2ef;border-radius:8px;padding:10px}.spec-grid label.wide{grid-column:1/-1}.spec-doc-group{margin-bottom:14px}.spec-doc-group h4{margin:0 0 8px;color:var(--navy)}
 .system-update-panel{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:15px;background:#fbfdfc}.system-update-panel small{display:block;color:var(--gold);font-weight:800;font-size:11px}.system-update-panel h3{margin:4px 0 6px;color:var(--navy);font-size:18px}.system-update-panel p{margin:0;color:#52635f;line-height:1.8;font-size:13px}.system-update-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}@media(max-width:720px){.system-update-panel{display:grid}.system-update-actions{justify-content:flex-start}}
+/* Maintenance tab - improved checkboxes and grid layout */
+.maint-simple{display:grid;gap:12px}
+.maint-block{border:1px solid #e8efeb;border-radius:10px;padding:10px 12px;background:#fafcfa}
+.maint-block-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;padding-bottom:4px;border-bottom:2px solid #eef3ef}
+.maint-block-head h4{margin:0;color:#102d2c;font-size:11px;font-weight:800}
+.maint-selall,.maint-selall-top{font-size:10px;color:#60756f;display:inline-flex;align-items:center;gap:4px;cursor:pointer;user-select:none}
+.maint-selall input[type=checkbox],.maint-selall-top input[type=checkbox]{width:12px;height:12px;margin:0;accent-color:#c9964b;cursor:pointer}
+.maint-grid{display:grid;grid-template-columns:1fr 1fr;gap:3px}
+.maint-check{display:flex;align-items:center;gap:5px;padding:4px 6px;border-radius:5px;cursor:pointer;transition:background .1s;font-size:11px;line-height:1.4}
+.maint-check:hover{background:#f0f5f2}
+.maint-check input[type=checkbox]{width:13px;height:13px;margin:0;accent-color:#c9964b;cursor:pointer;flex-shrink:0}
+.maint-check span{color:#2a423f;line-height:1.4}
+.maintenance-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.maintenance-actions label{font-size:11px;font-weight:700;color:#3c4c4a;display:inline-flex;align-items:center;gap:4px;cursor:pointer}
+.maintenance-actions label input[type=checkbox]{width:13px;height:13px;accent-color:#c9964b;cursor:pointer}
