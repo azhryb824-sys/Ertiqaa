@@ -340,7 +340,8 @@
       var dd = new Date(dateRef);
       if (!isNaN(dd.getTime())) {
         var days = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
-        datePart = days[dd.getDay()] + ' ' + dd.getDate() + '/' + (dd.getMonth() + 1) + '/' + dd.getFullYear() + 'م';
+        var months = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+        datePart = days[dd.getDay()] + ' ' + dd.getDate() + ' ' + months[dd.getMonth()] + ' ' + dd.getFullYear() + 'م';
       }
     }
 
@@ -349,7 +350,7 @@
       : 'على صيانة المصعد (المصاعد) وفق بنود الصيانة الدورية والشروط والمواصفات الواردة في هذا العقد.';
 
     return [
-      { text: 'إنه في يوم ' + datePart + ' تم الاتفاق بين:', fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 4], alignment: 'right' },
+      { text: [{ text: 'إنه في يوم ', fontSize: 9, color: '#3b564f' }, { text: datePart, fontSize: 9, color: '#3b564f' }, { text: ' تم الاتفاق بين:', fontSize: 9, color: '#3b564f' }], alignment: 'right', margin: [0, 0, 0, 4] },
       { stack: [
           { text: [{ text: 'الطرف الأول: ', bold: true, fontSize: 9, color: '#0d312f' }, { text: p1, fontSize: 9, color: '#3b564f' }], margin: [0, 2, 0, 1], alignment: 'right' },
           { text: [{ text: 'الطرف الثاني: ', bold: true, fontSize: 9, color: '#0d312f' }, { text: p2, fontSize: 9, color: '#3b564f' }], margin: [0, 0, 0, 4], alignment: 'right' }
