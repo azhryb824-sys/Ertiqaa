@@ -602,7 +602,14 @@
       if (ci) Array.prototype.push.apply(content, ci);
     }
 
-    Array.prototype.push.apply(content, buildSignature(companyName, safeLabel(c)));
+    content.push({
+      table: {
+        widths: ['*'],
+        body: [[{ stack: buildSignature(companyName, safeLabel(c)) }]]
+      },
+      layout: 'noBorders',
+      margin: [0, 0, 0, 0]
+    });
     return makeDd(content, cf);
   }
 
@@ -716,7 +723,10 @@
       content.push({ text: q.details, fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 10], alignment: 'right' });
     }
 
-    Array.prototype.push.apply(content, buildSignature(companyName, party));
+    content.push({
+      table: { widths: ['*'], body: [[{ stack: buildSignature(companyName, party) }]] },
+      layout: 'noBorders', margin: [0, 0, 0, 0]
+    });
     return makeDd(content, cf);
   }
 
@@ -778,7 +788,10 @@
     var s3 = section('صور أو روابط مرفقة', r.attachments);
     if (s3) Array.prototype.push.apply(content, s3);
 
-    Array.prototype.push.apply(content, buildSignature(companyName, r.clientName || r.clientCompanyName || 'العميل'));
+    content.push({
+      table: { widths: ['*'], body: [[{ stack: buildSignature(companyName, r.clientName || r.clientCompanyName || 'العميل') }]] },
+      layout: 'noBorders', margin: [0, 0, 0, 0]
+    });
     return makeDd(content, cf);
   }
 
@@ -814,7 +827,10 @@
     var et = elevatorTable(t.elevatorInfo);
     if (et) Array.prototype.push.apply(content, et);
 
-    Array.prototype.push.apply(content, buildSignature(companyName, t.clientCompanyName || t.clientName || 'العميل'));
+    content.push({
+      table: { widths: ['*'], body: [[{ stack: buildSignature(companyName, t.clientCompanyName || t.clientName || 'العميل') }]] },
+      layout: 'noBorders', margin: [0, 0, 0, 0]
+    });
     return makeDd(content, cf);
   }
 
@@ -862,7 +878,10 @@
       fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 10], alignment: 'right'
     });
 
-    Array.prototype.push.apply(content, buildSignature(companyName, cl.clientName || safeLabel(cl) || 'الطرف الثاني'));
+    content.push({
+      table: { widths: ['*'], body: [[{ stack: buildSignature(companyName, cl.clientName || safeLabel(cl) || 'الطرف الثاني') }]] },
+      layout: 'noBorders', margin: [0, 0, 0, 0]
+    });
     return makeDd(content, cf);
   }
 
