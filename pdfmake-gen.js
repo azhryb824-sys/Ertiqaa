@@ -315,6 +315,44 @@
     return dd;
   }
 
+  function contractIntroParagraph(c, isInstall){
+    var co = (A.activeOwnerCompany && A.activeOwnerCompany()) || null;
+    var party1Name = (c.company && c.company.name) || (co && co.name) || activeCompanyName();
+    var p1 = party1Name;
+    if (co && co.unifiedNumber && co.unifiedNumber !== '') p1 += ' - الرقم الموحد: ' + String(co.unifiedNumber);
+    if (co && co.address && co.address !== '') p1 += ' - المقر: ' + String(co.address);
+
+    var p2 = safeLabel(c);
+    var p2Extra = [];
+    if (c.clientId) p2Extra.push('رقم الهوية: ' + String(c.clientId));
+    if (c.clientCompanyName && c.clientCompanyName !== '') p2Extra.push('اسم المنشأة: ' + String(c.clientCompanyName));
+    if (c.clientCompanyUnifiedNumber && c.clientCompanyUnifiedNumber !== '') p2Extra.push('الرقم الموحد: ' + String(c.clientCompanyUnifiedNumber));
+    if (p2Extra.length) p2 += ' - ' + p2Extra.join(' - ');
+
+    var dateRef = c.startDate || c.createdAt || '';
+    var datePart = 'تاريخ العقد';
+    if (dateRef) {
+      var dd = new Date(dateRef);
+      if (!isNaN(dd.getTime())) {
+        var days = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+        datePart = days[dd.getDay()] + ' ' + dd.getDate() + '/' + (dd.getMonth() + 1) + '/' + dd.getFullYear() + 'م';
+      }
+    }
+
+    var actionText = isInstall
+      ? 'على توريد وتركيب مصعد فل أوتوماتيك وفق المواصفات والبنود الواردة في هذا العقد.'
+      : 'على صيانة المصعد (المصاعد) وفق بنود الصيانة الدورية والشروط والمواصفات الواردة في هذا العقد.';
+
+    return [
+      { text: 'إنه في يوم ' + datePart + ' تم الاتفاق بين:', fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 4], alignment: 'right' },
+      { stack: [
+          { text: [{ text: 'الطرف الأول: ', bold: true, fontSize: 9, color: '#102d2c' }, { text: p1, fontSize: 9, color: '#3b564f' }], margin: [0, 2, 0, 1], alignment: 'right' },
+          { text: [{ text: 'الطرف الثاني: ', bold: true, fontSize: 9, color: '#102d2c' }, { text: p2, fontSize: 9, color: '#3b564f' }], margin: [0, 0, 0, 4], alignment: 'right' }
+        ], margin: [0, 0, 0, 4] },
+      { text: actionText, fontSize: 9, bold: true, color: '#102d2c', margin: [0, 0, 0, 10], alignment: 'right' }
+    ];
+  }
+
   // ==================== CONTRACT ====================
   function contractPdfDefinition(c, logoData){
     var companyName = (c.company && c.company.name) || activeCompanyName();
@@ -361,6 +399,9 @@
 
     console.log("PDFGEN", "contract type:", c.type, "is install:", c.type === 'تركيب');
     var isInstall = c.type === 'تركيب';
+
+    var intro = contractIntroParagraph(c, isInstall);
+    if (intro) Array.prototype.push.apply(content, intro);
 
     var et = elevatorTable(c.elevatorInfo);
     if (et) Array.prototype.push.apply(content, et);
