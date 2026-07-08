@@ -102,8 +102,8 @@
   }
 
   function summaryTable(rows){
-    var header = rows.map(function(r){ return { text: r.label, bold: true, alignment: 'right' }; });
-    var values = rows.map(function(r){ return { text: r.value || 'غير محدد', bold: true, alignment: 'right' }; });
+    var header = rows.map(function(r){ return { text: r.label, bold: true, alignment: 'right', color: '#fff', fillColor: '#102d2c' }; });
+    var values = rows.map(function(r){ return { text: r.value || 'غير محدد', bold: true, alignment: 'right', color: '#102d2c' }; });
     return {
       table: {
         widths: rows.map(function(){ return '*'; }),
@@ -118,7 +118,7 @@
         paddingRight: function(){ return 8; },
         paddingTop: function(){ return 6; },
         paddingBottom: function(){ return 6; },
-        fillColor: function(i){ return i === 0 ? '#f0f6f3' : '#f8fbf9'; }
+        fillColor: function(i){ return i === 0 ? null : '#f8fbf9'; }
       },
       margin: [0, 0, 0, 10]
     };
@@ -168,7 +168,8 @@
           paddingLeft: function(){ return 8; },
           paddingRight: function(){ return 8; },
           paddingTop: function(){ return 5; },
-          paddingBottom: function(){ return 5; }
+          paddingBottom: function(){ return 5; },
+          fillColor: function(i){ return i < 2 ? null : (i % 2 === 0 ? null : '#f4f9f6'); }
         },
         margin: [0, 0, 0, 10]
       }
@@ -192,7 +193,7 @@
       ]);
     });
     return [
-      { text: 'بنود الصيانة الدورية', fontSize: 12, bold: true, color: '#102d2c', margin: [0, 0, 0, 4] },
+      sectionTitle('بنود الصيانة الدورية', [0, 0, 0, 4]),
       {
         table: {
           headerRows: 1,
@@ -242,7 +243,7 @@
       ]);
     });
     return [
-      { text: 'جدول الدفعات', fontSize: 12, bold: true, color: '#102d2c', margin: [0, 0, 0, 4] },
+      sectionTitle('جدول الدفعات', [0, 0, 0, 4]),
       {
         table: {
           headerRows: 1,
@@ -258,7 +259,7 @@
           paddingRight: function(){ return 6; },
           paddingTop: function(){ return 4; },
           paddingBottom: function(){ return 4; },
-          fillColor: function(i){ return i % 2 === 0 ? null : '#f4f9f6'; }
+          fillColor: function(i){ return i === 0 ? null : (i % 2 === 0 ? null : '#f4f9f6'); }
         },
         margin: [0, 0, 0, 10]
       }
@@ -438,8 +439,8 @@
         var val = info[f[0]];
         if (val && val !== '') {
           rows.push([
-            { text: f[1], bold: true, fontSize: 8, fillColor: '#eef5f1', alignment: 'right', color: '#102d2c' },
-            { text: val, fontSize: 8, alignment: 'right' }
+            { text: f[1], bold: true, fontSize: 9, fillColor: '#eef5f1', alignment: 'right', color: '#102d2c' },
+            { text: val, fontSize: 9, alignment: 'right' }
           ]);
         }
       });
@@ -447,7 +448,7 @@
         if (overallTitle && !out.length) {
           out.push(sectionTitle(overallTitle, [0, 0, 0, 4]));
         }
-        out.push({ text: group.tab, fontSize: 9, bold: true, color: '#c9964b', margin: [0, 0, 0, 2], alignment: 'right' });
+        out.push({ text: group.tab, fontSize: 10, bold: true, color: '#c9964b', margin: [0, 0, 0, 2], alignment: 'right' });
         out.push({
           table: {
             headerRows: 0,
@@ -461,8 +462,9 @@
             vLineColor: function(){ return '#e2e8e5'; },
             paddingLeft: function(){ return 8; },
             paddingRight: function(){ return 8; },
-            paddingTop: function(){ return 3; },
-            paddingBottom: function(){ return 3; }
+            paddingTop: function(){ return 5; },
+            paddingBottom: function(){ return 5; },
+            fillColor: function(i){ return i % 2 === 0 ? null : '#f4f9f6'; }
           },
           margin: [0, 0, 0, 8]
         });
