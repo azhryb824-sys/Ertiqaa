@@ -314,10 +314,12 @@ body{margin:0;line-height:1.6;color:#102d2c;background:#fff;font-size:11px}
 .contract-spec-table .total-row td,.contract-spec-table tbody tr.total-row{background:linear-gradient(135deg,#fdf6e8,#fceac4)!important;font-weight:900;font-size:11px;color:#8b601f;border-top:1.5px solid #d79a2b}
 
 /* === MAINTENANCE TABLE === */
-.maintenance-table{box-shadow:0 1px 4px #102d2c06}
-.maintenance-table thead th{background:linear-gradient(135deg,#102d2c,#1a4a44)!important;color:#fff!important;font-weight:700!important;font-size:10px;padding:4px 8px!important}
+.maintenance-table{box-shadow:0 1px 4px #102d2c06;width:100%;border-collapse:separate;border-spacing:0;border:1px solid #c5d9cf;border-radius:8px;overflow:hidden;direction:rtl}
+.maintenance-table thead th{background:linear-gradient(135deg,#102d2c,#1a4a44)!important;color:#fff!important;font-weight:700!important;font-size:10px;padding:5px 8px!important;border-bottom:1.5px solid #d79a2b!important}
+.maintenance-table tbody tr:nth-child(odd){background:#fff}
+.maintenance-table tbody tr:nth-child(even){background:#f4f9f6}
 .maintenance-table tbody th{width:28px;text-align:center!important;color:#d79a2b!important;font-size:12px;background:none!important}
-.maintenance-table td{font-size:9px;padding:2px 6px!important}
+.maintenance-table td{font-size:9px;padding:3px 8px!important;border-bottom:1px solid #e3ede7}
 .maintenance-table td:nth-child(2){font-weight:600;color:#102d2c}
 .maintenance-table td:nth-child(3){width:80px;font-weight:700;color:#17413e}
 .maintenance-table td:nth-child(4){font-size:9px;color:#60756f}
