@@ -359,6 +359,7 @@
       { label: 'منشأة الإصدار', value: companyName }
     ]));
 
+    console.log("PDFGEN", "contract type:", c.type, "is install:", c.type === 'تركيب');
     var isInstall = c.type === 'تركيب';
 
     var et = elevatorTable(c.elevatorInfo);
