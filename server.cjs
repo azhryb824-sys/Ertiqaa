@@ -785,6 +785,10 @@ function jameelVoiceReady() {
   if (endpoint && /^https?:\/\//i.test(endpoint)) {
     return {ready: true, root: "", references: 0, remote: true, endpoint: endpoint.replace(/\/+$/, "")};
   }
+  return localJameelVoiceReady();
+}
+
+function localJameelVoiceReady() {
   const rootPath = jameelVoiceRoot();
   if (!rootPath) return {ready: false, root: "", references: 0};
   const refs = path.join(rootPath, "voice_samples", "wav");
@@ -804,6 +808,7 @@ function jameelSynthesize(text) {
   if (!status.ready) return Promise.reject(new Error("بصمة jameel-ai المحلية غير جاهزة."));
   const endpoint = jameelVoiceEndpoint();
   const timeoutMs = Math.max(10000, Math.min(120000, Number(process.env.JAMEEL_VOICE_TIMEOUT_MS || 90000)));
+  const localStatus = status.root ? status : localJameelVoiceReady();
   const endpointRequest = fetch(`${endpoint}/speech`, {
     method: "POST",
     headers: {"Content-Type": "application/json"},
@@ -820,6 +825,7 @@ function jameelSynthesize(text) {
       source: "jameel-ai-api"
     };
   });
+  if (localStatus.root) return endpointRequest.catch(() => jameelSynthesizeDirect(text, localStatus, timeoutMs));
   if (status.remote || process.env.JAMEEL_VOICE_ALLOW_DIRECT !== "1") return endpointRequest;
   return endpointRequest.catch(() => jameelSynthesizeDirect(text, status, timeoutMs));
 }
@@ -5255,7 +5261,7 @@ ${JSON.stringify(rows, null, 2)}
   if (pathname === "/api/voice/samples/upload" && req.method === "POST") {
     let body = "";
     req.on("data", chunk => body += chunk);
-    req.on("end", () => {
+    req.on("end", async () => {
       try {
         const input = JSON.parse(body || "{}");
         const audioBase64 = String(input.audio || "");
@@ -5266,7 +5272,24 @@ ${JSON.stringify(rows, null, 2)}
         if (audioBuffer.length > 10 * 1024 * 1024) return sendJson(res, 400, {error: "حجم الملف كبير جداً (الحد 10MB)."});
         fs.mkdirSync(voiceSamplesDir, {recursive: true});
         fs.writeFileSync(path.join(voiceSamplesDir, fileName), audioBuffer);
-        return sendJson(res, 200, {ok: true, name: fileName, size: audioBuffer.length, message: "تم رفع العينة الصوتية."});
+        let training = null;
+        try {
+          const saved = saveVoiceSampleToJameel({filename: fileName, data: audioBuffer});
+          const refresh = await refreshJameelVoiceService();
+          training = {ok: Number(saved.after.references || 0) > Number(saved.before.references || 0), before: saved.before, after: saved.after, refresh, savedAs: saved.targetName};
+        } catch (err) {
+          training = {ok: false, error: err.message || "تعذر حفظ العينة داخل Jameel"};
+        }
+        const samples = voiceSamplePublicList();
+        return sendJson(res, training.ok ? 200 : 500, {
+          ok: training.ok,
+          name: fileName,
+          size: audioBuffer.length,
+          training,
+          sampleCount: samples.length,
+          samples,
+          message: training.ok ? "تم رفع العينة وتحديث الصوت المسجل." : "تم رفع العينة، لكن الصوت المسجل لم يصبح جاهزًا بعد."
+        });
       } catch (err) {
         return sendJson(res, 500, {error: "فشل رفع العينة: " + err.message});
       }
