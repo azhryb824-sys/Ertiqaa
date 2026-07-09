@@ -32,7 +32,8 @@
 
   function safeLabel(obj){
     if (A.contractLabel) return A.contractLabel(obj);
-    return obj.clientName || obj.clientId || "غير محدد";
+    var label = obj.clientName || obj.clientId || "غير محدد";
+    return String(label).trim();
   }
 
   function safeMoney(v){
@@ -339,9 +340,7 @@
     if (dateRef) {
       var dd = new Date(dateRef);
       if (!isNaN(dd.getTime())) {
-        var days = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
-        var months = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
-        datePart = days[dd.getDay()] + ' ' + dd.getDate() + ' ' + months[dd.getMonth()] + ' ' + dd.getFullYear() + 'م';
+        datePart = dd.toLocaleDateString('ar-SA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
       }
     }
 

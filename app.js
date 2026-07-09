@@ -435,7 +435,7 @@ a[href]:after{content:""}
     <div class="dashboard-grid">${dashList("آخر البلاغات",openTickets.slice(0,8),"لا توجد بلاغات مفتوحة",t=>`<li><strong>${t.title}</strong><span>${t.clientCompanyName||t.clientName||"عميل"} · ${t.status}</span></li>`)}${dashList("العقود النشطة",active.slice(0,8),"لا توجد عقود سارية",c=>`<li><strong>${c.id}</strong><span>${contractLabel(c)} · ${money(c.value)}</span></li>`)}</div>
     <div class="dashboard-grid">${dashList("أداء الفريق",team.slice(0,8),"لا يوجد فريق",s=>`<li><strong>${s.name}</strong><span>${s.role==="engineer"?"مهندس":"فني"} · ${s.availability||"working"}</span></li>`)}${dashList("مصاعد متوقفة",stopped.slice(0,8),"لا توجد مصاعد متوقفة",r=>`<li><strong>${r.visitId||r.id}</strong><span>${r.technician||""} · ${r.createdAt||""}</span></li>`)}</div>`;
   }
-  function render(page){refresh();currentPage=page;const canManage=["owner","company_admin","admin"].includes(session.role);const c=$("#dashboardContent");if(page==="overview")c.innerHTML=richOverview();
+  function render(page){refresh();currentPage=page;const canManage=["owner","company_admin","admin"].includes(session.role);const c=$("#dashboardContent");if(page==="home"){location.href="index.html";return}if(page==="overview")c.innerHTML=richOverview();
     else if(page==="knowledge-hub")c.innerHTML=knowledgeHub();
     else if(page==="admin-banners")c.innerHTML=session.role==="admin"?adminBannersPage():empty("غير مصرح","هذه الصفحة لمشرف النظام فقط.");
     else if(page==="admin-knowledge")c.innerHTML=session.role==="admin"?adminKnowledgePage():empty("غير مصرح","هذه الصفحة لمشرف النظام فقط.");
