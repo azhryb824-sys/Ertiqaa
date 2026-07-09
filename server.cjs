@@ -571,7 +571,7 @@ function publicOrigin(req) {
 }
 
 function voiceSampleList() {
-  const allowed = new Set([".aac", ".m4a", ".mp3", ".wav", ".ogg", ".flac"]);
+  const allowed = new Set([".aac", ".m4a", ".mp3", ".wav", ".ogg", ".flac", ".webm"]);
   const dir = fs.existsSync(voiceSamplesDir) ? voiceSamplesDir : root;
   try {
     return fs.readdirSync(dir, {withFileTypes: true})
@@ -5001,15 +5001,17 @@ ${JSON.stringify(rows, null, 2)}
       if (jameel.remote && jameel.endpoint) {
         try {
           const dirSamples = fs.existsSync(voiceSamplesDir) ? fs.readdirSync(voiceSamplesDir).filter(f => /\.(wav|mp3|m4a|ogg|flac|webm)$/i.test(f)) : [];
-          const results = await Promise.allSettled(dirSamples.map(f => {
+          const results = await Promise.allSettled(dirSamples.map(async f => {
             const audioBuffer = fs.readFileSync(path.join(voiceSamplesDir, f));
-            return fetch(`${jameel.endpoint}/training/voice`, {
+            const resp = await fetch(`${jameel.endpoint}/training/voice`, {
               method: "POST",
               headers: {"Content-Type": "application/json"},
               body: JSON.stringify({audio: audioBuffer.toString("base64"), name: f})
             });
+            const data = await resp.json();
+            return data.ok === true;
           }));
-          const okCount = results.filter(r => r.status === "fulfilled").length;
+          const okCount = results.filter(r => r.status === "fulfilled" && r.value === true).length;
           return sendJson(res, 200, {ok: true, trainStarted: true, samplesCopied: okCount, message: `تم إرسال ${okCount} عينة لـ jameel-ai للتدريب.`});
         } catch (err) {
           return sendJson(res, 500, {error: "فشل إرسال العينات: " + err.message, trainStarted: false});
