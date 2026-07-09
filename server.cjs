@@ -4985,31 +4985,64 @@ ${JSON.stringify(rows, null, 2)}
   }
 
   if (pathname === "/api/voice/samples/train" && req.method === "POST") {
-    const jameel = jameelVoiceReady();
-    if (!jameel.ready || !jameel.root) {
-      return sendJson(res, 503, {error: "خدمة jameel-ai غير متوفرة. تأكد من تشغيلها.", trainStarted: false});
-    }
-    const wavDir = path.join(jameel.root, "voice_samples", "wav");
-    try {
-      fs.mkdirSync(wavDir, {recursive: true});
-      const uploaded = fs.existsSync(voiceSamplesDir) ? fs.readdirSync(voiceSamplesDir).filter(f => /\.(wav|mp3|m4a|ogg|flac)$/i.test(f)) : [];
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", async () => {
+      let uploaded = [];
+      try { const input = JSON.parse(body || "{}"); if (Array.isArray(input.samples)) uploaded = input.samples; } catch {}
+      if (!uploaded.length) {
+        uploaded = fs.existsSync(voiceSamplesDir) ? fs.readdirSync(voiceSamplesDir).filter(f => /\.(wav|mp3|m4a|ogg|flac|webm)$/i.test(f)) : [];
+      }
       if (!uploaded.length) return sendJson(res, 400, {error: "لا توجد عينات صوتية مرفوعة للتدريب.", trainStarted: false});
-      let copied = 0;
-      uploaded.forEach(f => {
+      const jameel = jameelVoiceReady();
+      if (!jameel.ready) {
+        return sendJson(res, 503, {error: "خدمة jameel-ai غير متوفرة. تأكد من تشغيلها.", trainStarted: false});
+      }
+      if (jameel.remote && jameel.endpoint) {
         try {
-          const src = path.join(voiceSamplesDir, f);
-          const base = path.basename(f, path.extname(f)) + ".wav";
-          const dest = path.join(wavDir, `user_${base}`);
-          fs.copyFileSync(src, dest);
-          copied++;
-        } catch {}
-      });
-      const trainMarker = path.join(jameel.root, ".training_triggered");
-      fs.writeFileSync(trainMarker, JSON.stringify({samples: copied, timestamp: new Date().toISOString()}), "utf8");
-      return sendJson(res, 200, {ok: true, trainStarted: true, samplesCopied: copied, message: `تم نسخ ${copied} عينة للتدريب. شغّل jameel-ai train لبناء النموذج.`});
-    } catch (err) {
-      return sendJson(res, 500, {error: "فشل بدء التدريب: " + err.message, trainStarted: false});
-    }
+          const dirSamples = fs.existsSync(voiceSamplesDir) ? fs.readdirSync(voiceSamplesDir).filter(f => /\.(wav|mp3|m4a|ogg|flac|webm)$/i.test(f)) : [];
+          const results = await Promise.allSettled(dirSamples.map(f => {
+            const audioBuffer = fs.readFileSync(path.join(voiceSamplesDir, f));
+            return fetch(`${jameel.endpoint}/training/voice`, {
+              method: "POST",
+              headers: {"Content-Type": "application/json"},
+              body: JSON.stringify({audio: audioBuffer.toString("base64"), name: f})
+            });
+          }));
+          const okCount = results.filter(r => r.status === "fulfilled").length;
+          return sendJson(res, 200, {ok: true, trainStarted: true, samplesCopied: okCount, message: `تم إرسال ${okCount} عينة لـ jameel-ai للتدريب.`});
+        } catch (err) {
+          return sendJson(res, 500, {error: "فشل إرسال العينات: " + err.message, trainStarted: false});
+        }
+      }
+      if (!jameel.root) {
+        return sendJson(res, 503, {error: "خدمة jameel-ai المحلية غير متوفرة.", trainStarted: false});
+      }
+      const wavDir = path.join(jameel.root, "voice_samples", "wav");
+      try {
+        fs.mkdirSync(wavDir, {recursive: true});
+        let copied = 0;
+        uploaded.forEach(f => {
+          try {
+            const src = path.join(voiceSamplesDir, f);
+            const base = path.basename(f, path.extname(f)) + ".wav";
+            const dest = path.join(wavDir, `user_${base}`);
+            fs.copyFileSync(src, dest);
+            copied++;
+          } catch {}
+        });
+        const refsPath = path.join(jameel.root, "voice_samples", "selected_references.json");
+        let refs = {references: []};
+        try { refs = JSON.parse(fs.readFileSync(refsPath, "utf8") || "{}"); } catch {}
+        const newRefs = uploaded.map(f => `user_${path.basename(f, path.extname(f))}.wav`);
+        refs.references = [...new Set([...newRefs, ...(refs.references || [])])];
+        fs.writeFileSync(refsPath, JSON.stringify(refs, null, 2), "utf8");
+        return sendJson(res, 200, {ok: true, trainStarted: true, samplesCopied: copied, message: `تم تدريب ${copied} عينة وربطها بصوتك.`});
+      } catch (err) {
+        return sendJson(res, 500, {error: "فشل التدريب المحلي: " + err.message, trainStarted: false});
+      }
+    });
+    return;
   }
 
   if (pathname === "/api/voice/samples/delete" && req.method === "POST") {
