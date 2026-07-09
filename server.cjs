@@ -37,6 +37,7 @@ const storageFailover = path.join(require("os").homedir(), ".elevator-storage.js
 const legacyStoragePath = path.join(root, "storage.json");
 const aiResponseBankPath = path.join(root, "ai-response-bank.json");
 const voiceCacheDir = path.join(dataDir, ".voice-cache");
+const voiceSamplesDir = path.join(dataDir, "voice-samples");
 const entrySecret = process.env.SECRET_ENTRY_TOKEN || crypto.randomBytes(32).toString("hex");
 const entryCookie = "misad_entry";
 const inviteCookie = "misad_invite";
@@ -49,6 +50,7 @@ const _lastQs = new Map(); // {userId: {q, time, answer}}
 try {
   fs.mkdirSync(dataDir, {recursive: true});
   fs.mkdirSync(voiceCacheDir, {recursive: true});
+  fs.mkdirSync(voiceSamplesDir, {recursive: true});
 } catch (err) {
   console.warn("Storage directory initialization failed:", err.message);
 }
@@ -570,18 +572,19 @@ function publicOrigin(req) {
 
 function voiceSampleList() {
   const allowed = new Set([".aac", ".m4a", ".mp3", ".wav", ".ogg", ".flac"]);
+  const dir = fs.existsSync(voiceSamplesDir) ? voiceSamplesDir : root;
   try {
-    return fs.readdirSync(root, {withFileTypes: true})
+    return fs.readdirSync(dir, {withFileTypes: true})
       .filter(item => item.isFile() && allowed.has(path.extname(item.name).toLowerCase()))
       .map(item => {
-        const filePath = path.join(root, item.name);
+        const filePath = path.join(dir, item.name);
         const stat = fs.statSync(filePath);
         return {
           name: item.name,
           ext: path.extname(item.name).toLowerCase(),
           size: stat.size,
           updatedAt: stat.mtime.toISOString(),
-          url: `/${encodeURIComponent(item.name)}`
+          url: `/voice-sample/${encodeURIComponent(item.name)}`
         };
       })
       .sort((a, b) => b.size - a.size)
@@ -4922,8 +4925,8 @@ ${JSON.stringify(rows, null, 2)}
       localVoice: jameelVoice,
       mode: jameelVoice.ready ? "my-voice-model-ready" : "my-voice-model-required",
       message: jameelVoice.ready
-        ? "بصمة الصوت جاهزة عبر jameel-ai."
-        : "شغّل خدمة jameel-ai المحلية لتفعيل بصمة الصوت."
+        ? `صوتك المسجل جاهز (${jameelVoice.references} مرجع).`
+        : "لم يتم تدريب صوتك بعد. سجّل عينات صوتية من إعدادات الصوت."
     });
   }
 
@@ -4934,10 +4937,11 @@ ${JSON.stringify(rows, null, 2)}
       ok: true,
       samples: samples.length,
       localVoice: jameel,
-      browserTTS: true,
+      browserTTS: false,
+      voiceOnly: true,
       message: jameel.ready
-        ? "بصمة الصوت جاهزة عبر jameel-ai."
-        : "بصمة jameel-ai غير شغالة. سيتم استخدام صوت المتصفح كبديل."
+        ? "صوتك المسجل جاهز."
+        : "لم يتم تدريب الصوت بعد. سجّل عينات من إعدادات الصوت."
     });
   }
 
@@ -4951,8 +4955,8 @@ ${JSON.stringify(rows, null, 2)}
         if (!text) return sendJson(res, 400, {error: "Missing text"});
         if (!jameelVoiceReady().ready) {
           return sendJson(res, 503, {
-            error: "خدمة jameel-ai غير شغالة. شغّل start-with-local-voice.ps1 لتشغيل بصمة الصوت المحلية.",
-            mode: "jameel-ai-required"
+            error: "صوتك المسجل غير جاهز. افتح إعدادات الصوت وسجّل عينات صوتية لتدريب النموذج.",
+            mode: "voice-training-required"
           });
         }
         try {
@@ -4967,6 +4971,123 @@ ${JSON.stringify(rows, null, 2)}
       }
     });
     return;
+  }
+
+  // Voice sample management endpoints
+  if (pathname === "/api/voice/samples/clear" && req.method === "POST") {
+    try {
+      const files = fs.existsSync(voiceSamplesDir) ? fs.readdirSync(voiceSamplesDir) : [];
+      files.forEach(f => { try { fs.unlinkSync(path.join(voiceSamplesDir, f)); } catch {} });
+      return sendJson(res, 200, {ok: true, message: "تم حذف جميع عينات الصوت."});
+    } catch (err) {
+      return sendJson(res, 500, {error: "فشل حذف العينات: " + err.message});
+    }
+  }
+
+  if (pathname === "/api/voice/samples/train" && req.method === "POST") {
+    const jameel = jameelVoiceReady();
+    if (!jameel.ready || !jameel.root) {
+      return sendJson(res, 503, {error: "خدمة jameel-ai غير متوفرة. تأكد من تشغيلها.", trainStarted: false});
+    }
+    const wavDir = path.join(jameel.root, "voice_samples", "wav");
+    try {
+      fs.mkdirSync(wavDir, {recursive: true});
+      const uploaded = fs.existsSync(voiceSamplesDir) ? fs.readdirSync(voiceSamplesDir).filter(f => /\.(wav|mp3|m4a|ogg|flac)$/i.test(f)) : [];
+      if (!uploaded.length) return sendJson(res, 400, {error: "لا توجد عينات صوتية مرفوعة للتدريب.", trainStarted: false});
+      let copied = 0;
+      uploaded.forEach(f => {
+        try {
+          const src = path.join(voiceSamplesDir, f);
+          const base = path.basename(f, path.extname(f)) + ".wav";
+          const dest = path.join(wavDir, `user_${base}`);
+          fs.copyFileSync(src, dest);
+          copied++;
+        } catch {}
+      });
+      const trainMarker = path.join(jameel.root, ".training_triggered");
+      fs.writeFileSync(trainMarker, JSON.stringify({samples: copied, timestamp: new Date().toISOString()}), "utf8");
+      return sendJson(res, 200, {ok: true, trainStarted: true, samplesCopied: copied, message: `تم نسخ ${copied} عينة للتدريب. شغّل jameel-ai train لبناء النموذج.`});
+    } catch (err) {
+      return sendJson(res, 500, {error: "فشل بدء التدريب: " + err.message, trainStarted: false});
+    }
+  }
+
+  if (pathname === "/api/voice/samples/delete" && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => {
+      try {
+        const input = JSON.parse(body || "{}");
+        const name = String(input.name || "").replace(/[^a-zA-Z0-9_.\-]/g, "");
+        if (!name) return sendJson(res, 400, {error: "اسم العينة مطلوب."});
+        const filePath = path.join(voiceSamplesDir, name);
+        if (!filePath.startsWith(voiceSamplesDir) || !fs.existsSync(filePath)) {
+          return sendJson(res, 404, {error: "الملف غير موجود."});
+        }
+        fs.unlinkSync(filePath);
+        return sendJson(res, 200, {ok: true, message: "تم حذف العينة."});
+      } catch (err) {
+        return sendJson(res, 500, {error: "فشل حذف العينة: " + err.message});
+      }
+    });
+    return;
+  }
+
+  if (pathname === "/api/voice/samples/upload" && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => {
+      try {
+        const input = JSON.parse(body || "{}");
+        const audioBase64 = String(input.audio || "");
+        const fileName = String(input.name || `sample_${Date.now()}.wav`).replace(/[^a-zA-Z0-9_.\-]/g, "_");
+        if (!audioBase64) return sendJson(res, 400, {error: "البيانات الصوتية مطلوبة (base64)."});
+        const audioBuffer = Buffer.from(audioBase64, "base64");
+        if (audioBuffer.length < 100) return sendJson(res, 400, {error: "العينة قصيرة جداً."});
+        if (audioBuffer.length > 10 * 1024 * 1024) return sendJson(res, 400, {error: "حجم الملف كبير جداً (الحد 10MB)."});
+        fs.mkdirSync(voiceSamplesDir, {recursive: true});
+        fs.writeFileSync(path.join(voiceSamplesDir, fileName), audioBuffer);
+        return sendJson(res, 200, {ok: true, name: fileName, size: audioBuffer.length, message: "تم رفع العينة الصوتية."});
+      } catch (err) {
+        return sendJson(res, 500, {error: "فشل رفع العينة: " + err.message});
+      }
+    });
+    return;
+  }
+
+  if (pathname === "/api/voice/settings" && req.method === "GET") {
+    const samples = voiceSampleList();
+    const jameel = jameelVoiceReady();
+    return sendJson(res, 200, {
+      ok: true,
+      sampleCount: samples.length,
+      samples,
+      localVoice: jameel,
+      voiceCloneReady: jameel.ready && jameel.references > 0,
+      mode: jameel.ready ? "my-voice-model-ready" : "my-voice-model-required",
+      message: jameel.ready
+        ? `بصمة الصوت جاهزة (${jameel.references} مرجع).`
+        : "لم يتم تدريب بصمة الصوت بعد. سجّل عينات صوتية ودرب النموذج."
+    });
+  }
+
+  // Serve voice sample audio files
+  if (pathname.startsWith("/voice-sample/") && req.method === "GET") {
+    const relativeName = decodeURIComponent(pathname.slice("/voice-sample/".length)).replace(/[^a-zA-Z0-9_.\-]/g, "");
+    if (!relativeName) return sendJson(res, 400, {error: "Invalid file name"});
+    const filePath = path.join(voiceSamplesDir, relativeName);
+    if (!filePath.startsWith(voiceSamplesDir) || !fs.existsSync(filePath)) {
+      const oldPath = path.join(root, relativeName);
+      if (fs.existsSync(oldPath)) {
+        const ext = path.extname(oldPath);
+        res.writeHead(200, {"Content-Type": types[ext] || "audio/wav", "Cache-Control": "private, max-age=86400"});
+        return fs.createReadStream(oldPath).pipe(res);
+      }
+      return sendJson(res, 404, {error: "الملف غير موجود."});
+    }
+    const ext = path.extname(filePath);
+    res.writeHead(200, {"Content-Type": types[ext] || "audio/wav", "Cache-Control": "private, max-age=86400"});
+    return fs.createReadStream(filePath).pipe(res);
   }
 
   // WhatsApp status endpoint
