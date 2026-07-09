@@ -5012,7 +5012,10 @@ ${JSON.stringify(rows, null, 2)}
             return data.ok === true;
           }));
           const okCount = results.filter(r => r.status === "fulfilled" && r.value === true).length;
-          return sendJson(res, 200, {ok: true, trainStarted: true, samplesCopied: okCount, message: `تم إرسال ${okCount} عينة لـ jameel-ai للتدريب.`});
+          if (okCount === 0) {
+            return sendJson(res, 200, {ok: false, trainStarted: false, samplesCopied: 0, error: "لم تقبل jameel-ai أي عينة. تأكد من تشغيلها وإعداد JAMEEL_VOICE_ENDPOINT."});
+          }
+          return sendJson(res, 200, {ok: true, trainStarted: true, samplesCopied: okCount, message: `تم تدريب ${okCount} عينة في jameel-ai بنجاح.`});
         } catch (err) {
           return sendJson(res, 500, {error: "فشل إرسال العينات: " + err.message, trainStarted: false});
         }
