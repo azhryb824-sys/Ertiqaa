@@ -572,26 +572,170 @@ function publicOrigin(req) {
 
 function voiceSampleList() {
   const allowed = new Set([".aac", ".m4a", ".mp3", ".wav", ".ogg", ".flac", ".webm"]);
-  const dir = fs.existsSync(voiceSamplesDir) ? voiceSamplesDir : root;
+  const seen = new Set();
+  const listDir = (dir, source) => {
+    try {
+      return fs.readdirSync(dir, {withFileTypes: true})
+        .filter(item => item.isFile() && allowed.has(path.extname(item.name).toLowerCase()))
+        .map(item => {
+          const filePath = path.join(dir, item.name);
+          const stat = fs.statSync(filePath);
+          const key = `${source}:${item.name}:${stat.size}`;
+          if (seen.has(key)) return null;
+          seen.add(key);
+          return {
+            name: item.name,
+            ext: path.extname(item.name).toLowerCase(),
+            size: stat.size,
+            updatedAt: stat.mtime.toISOString(),
+            source,
+            path: filePath,
+            url: source === "uploaded" ? `/voice-sample/${encodeURIComponent(item.name)}` : ""
+          };
+        })
+        .filter(Boolean);
+    } catch {
+      return [];
+    }
+  };
+  const rootPath = jameelVoiceRoot();
+  const jameelRefs = rootPath ? listDir(path.join(rootPath, "voice_samples", "wav"), "jameel-ai") : [];
+  const uploadedRefs = listDir(voiceSamplesDir, "uploaded");
+  const legacyRefs = listDir(root, "project");
+  return [...jameelRefs, ...uploadedRefs, ...legacyRefs]
+    .sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")))
+    .slice(0, 200);
+}
+
+function voiceSamplePublicList() {
+  return voiceSampleList().map(({path: _path, ...item}) => item);
+}
+
+function clearVoiceCache() {
   try {
-    return fs.readdirSync(dir, {withFileTypes: true})
-      .filter(item => item.isFile() && allowed.has(path.extname(item.name).toLowerCase()))
-      .map(item => {
-        const filePath = path.join(dir, item.name);
-        const stat = fs.statSync(filePath);
-        return {
-          name: item.name,
-          ext: path.extname(item.name).toLowerCase(),
-          size: stat.size,
-          updatedAt: stat.mtime.toISOString(),
-          url: `/voice-sample/${encodeURIComponent(item.name)}`
-        };
-      })
-      .sort((a, b) => b.size - a.size)
-      .slice(0, 200);
+    if (!fs.existsSync(voiceCacheDir)) return 0;
+    let removed = 0;
+    for (const name of fs.readdirSync(voiceCacheDir)) {
+      if (name.endsWith(".audio") || name.endsWith(".json")) {
+        fs.unlinkSync(path.join(voiceCacheDir, name));
+        removed++;
+      }
+    }
+    return removed;
   } catch {
-    return [];
+    return 0;
   }
+}
+
+function safeVoiceSampleName(name = "") {
+  const ext = path.extname(String(name || "")).toLowerCase();
+  const allowed = new Set([".aac", ".m4a", ".mp3", ".wav", ".ogg", ".flac", ".webm"]);
+  const finalExt = allowed.has(ext) ? ext : ".wav";
+  const base = path.basename(String(name || "sample"), ext).replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "sample";
+  return `${Date.now()}-${crypto.randomBytes(4).toString("hex")}-${base}${finalExt}`;
+}
+
+function jameelVoiceSampleDir() {
+  const rootPath = jameelVoiceRoot();
+  if (!rootPath) return "";
+  const dir = path.join(rootPath, "voice_samples", "wav");
+  fs.mkdirSync(dir, {recursive: true});
+  return dir;
+}
+
+function collectRequestBuffer(req, maxBytes = 80 * 1024 * 1024) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let total = 0;
+    req.on("data", chunk => {
+      total += chunk.length;
+      if (total > maxBytes) {
+        reject(new Error("Voice sample is too large."));
+        try { req.destroy(); } catch {}
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on("end", () => resolve(Buffer.concat(chunks)));
+    req.on("error", reject);
+  });
+}
+
+function extractMultipartFile(buffer, contentType) {
+  const boundaryMatch = String(contentType || "").match(/boundary=(?:"([^"]+)"|([^;]+))/i);
+  const boundary = boundaryMatch && (boundaryMatch[1] || boundaryMatch[2]);
+  if (!boundary) return null;
+  const raw = buffer.toString("binary");
+  const marker = `--${boundary}`;
+  const parts = raw.split(marker);
+  for (const part of parts) {
+    if (!/filename=/i.test(part)) continue;
+    const headerEnd = part.indexOf("\r\n\r\n");
+    if (headerEnd < 0) continue;
+    const headers = part.slice(0, headerEnd);
+    let body = part.slice(headerEnd + 4);
+    body = body.replace(/\r\n--$/, "").replace(/\r\n$/, "");
+    const filename = (headers.match(/filename="([^"]*)"/i) || [])[1] || "voice-sample.wav";
+    return {filename, data: Buffer.from(body, "binary")};
+  }
+  return null;
+}
+
+async function receiveVoiceSample(req) {
+  const contentType = String(req.headers["content-type"] || "");
+  const buffer = await collectRequestBuffer(req);
+  if (/multipart\/form-data/i.test(contentType)) {
+    const file = extractMultipartFile(buffer, contentType);
+    if (!file || !file.data.length) throw new Error("No audio file was found in the upload.");
+    return file;
+  }
+  if (/application\/json/i.test(contentType)) {
+    const input = JSON.parse(buffer.toString("utf8") || "{}");
+    const raw = String(input.dataUrl || input.audioDataUrl || input.audioBase64 || input.audio || "");
+    const clean = raw.includes(",") ? raw.split(",").pop() : raw;
+    const data = Buffer.from(clean, "base64");
+    if (!data.length) throw new Error("No audio data was provided.");
+    return {filename: input.filename || input.name || "voice-sample.wav", data};
+  }
+  const ext = contentType.includes("webm") ? ".webm" : contentType.includes("mpeg") ? ".mp3" : contentType.includes("ogg") ? ".ogg" : ".wav";
+  return {filename: `voice-sample${ext}`, data: buffer};
+}
+
+function saveVoiceSampleToJameel(sample) {
+  const dir = jameelVoiceSampleDir();
+  if (!dir) throw new Error("Jameel voice root was not found. Set JAMEEL_VOICE_ROOT or fix start-with-local-voice.ps1.");
+  const before = jameelVoiceReady();
+  const targetName = safeVoiceSampleName(sample.filename);
+  const targetPath = path.join(dir, targetName);
+  fs.writeFileSync(targetPath, sample.data);
+  const stat = fs.statSync(targetPath);
+  if (!stat.size) throw new Error("The uploaded voice sample was saved as an empty file.");
+  try {
+    fs.mkdirSync(voiceSamplesDir, {recursive: true});
+    fs.writeFileSync(path.join(voiceSamplesDir, targetName), sample.data);
+  } catch {}
+  const after = jameelVoiceReady();
+  clearVoiceCache();
+  return {targetName, targetPath, before, after};
+}
+
+async function refreshJameelVoiceService() {
+  const endpoint = jameelVoiceEndpoint();
+  const attempts = ["/reload", "/train", "/refresh", "/voice/reload"];
+  const results = [];
+  for (const route of attempts) {
+    try {
+      const response = await fetch(`${endpoint}${route}`, {
+        method: "POST",
+        signal: AbortSignal.timeout(5000)
+      });
+      results.push({route, status: response.status, ok: response.ok});
+      if (response.ok) return {ok: true, route, results};
+    } catch (err) {
+      results.push({route, ok: false, error: err.message || "failed"});
+    }
+  }
+  return {ok: false, results};
 }
 
 function voiceSampleSignature(samples) {
@@ -4911,7 +5055,7 @@ ${JSON.stringify(rows, null, 2)}
   }
 
   if (pathname === "/api/voice/samples" && req.method === "GET") {
-    const samples = voiceSampleList();
+    const samples = voiceSamplePublicList();
     const cachedAudio = fs.existsSync(voiceCacheDir) ? fs.readdirSync(voiceCacheDir).filter(name => name.endsWith(".audio")).length : 0;
     const jameelVoice = jameelVoiceReady();
     return sendJson(res, 200, {
@@ -4930,8 +5074,45 @@ ${JSON.stringify(rows, null, 2)}
     });
   }
 
+  if ((pathname === "/api/voice/samples" || pathname === "/api/voice/train" || pathname === "/api/voice/upload") && req.method === "POST") {
+    try {
+      const sample = await receiveVoiceSample(req);
+      const saved = saveVoiceSampleToJameel(sample);
+      const refresh = await refreshJameelVoiceService();
+      const samples = voiceSamplePublicList();
+      const changed = Number(saved.after.references || 0) > Number(saved.before.references || 0);
+      if (!changed) {
+        return sendJson(res, 500, {
+          ok: false,
+          error: "تم حفظ الملف لكن عدد عينات Jameel لم يتغير. تحقق من امتداد الملف ومجلد voice_samples/wav.",
+          before: saved.before,
+          after: saved.after,
+          refresh,
+          savedAs: saved.targetName,
+          count: samples.length,
+          samples
+        });
+      }
+      return sendJson(res, 200, {
+        ok: true,
+        message: "تم حفظ العينة داخل Jameel وتحديث عداد العينات.",
+        savedAs: saved.targetName,
+        before: saved.before,
+        after: saved.after,
+        refresh,
+        count: samples.length,
+        samples
+      });
+    } catch (err) {
+      return sendJson(res, 400, {
+        ok: false,
+        error: "تعذر تدريب/حفظ عينة الصوت في Jameel: " + (err.message || "خطأ غير معروف")
+      });
+    }
+  }
+
   if (pathname === "/api/voice/test" && req.method === "GET") {
-    const samples = voiceSampleList();
+    const samples = voiceSamplePublicList();
       const jameel = jameelVoiceReady();
     return sendJson(res, 200, {
       ok: true,
