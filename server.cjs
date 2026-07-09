@@ -3365,10 +3365,7 @@ function pickCell(row, headers, aliases) {
   return "";
 }
 
-function numberCell(value) {
-  const n = String(value || "").replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(/[۰-۹]/g, d => "۰۱۲۳۴۵۶۷۸۹".indexOf(d)).replace(/[^\d.-]/g, "");
-  return Number(n || 0);
-}
+// numberCell - see definition below
 
 function dateCell(value) {
   const v = String(value || "").trim();
@@ -3380,56 +3377,9 @@ function dateCell(value) {
   return `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
-function parseExcelContracts(buffer) {
-  const entries = zipEntries(buffer);
-  const shared = parseSharedStrings(entries);
-  const sheets = parseWorkbookSheets(entries);
-  const parsed = [];
-  for (const sheet of sheets) {
-    const xml = entries[sheet.path]?.toString("utf8");
-    if (!xml) continue;
-    const rows = parseSheetRows(xml, shared);
-    if (rows.length < 2) continue;
-    const headerRowIndex = rows.findIndex(r => r.filter(Boolean).length >= 2);
-    if (headerRowIndex < 0) continue;
-    const headers = rows[headerRowIndex].map(normalizeHeader);
-    for (const row of rows.slice(headerRowIndex + 1)) {
-      const clientCompanyName = pickCell(row, headers, ["اسم المنشأة", "الشركة", "اسم الشركة", "العميل", "الطرف الثاني", "client company", "company", "client"]);
-      const clientName = pickCell(row, headers, ["اسم العميل", "ممثل العميل", "المالك", "client name", "customer"]);
-      const value = numberCell(pickCell(row, headers, ["قيمة العقد", "القيمة", "المبلغ", "اجمالي", "الإجمالي", "value", "amount", "total"]));
-      const buildingName = pickCell(row, headers, ["المبنى", "اسم المبنى", "الموقع", "العقار", "building", "site", "location"]);
-      const startDate = dateCell(pickCell(row, headers, ["بداية العقد", "تاريخ البداية", "تاريخ العقد", "start date", "start"]));
-      const endDate = dateCell(pickCell(row, headers, ["نهاية العقد", "تاريخ النهاية", "end date", "end"]));
-      if (!clientCompanyName && !clientName && !buildingName && !value) continue;
-      parsed.push({
-        sheet: sheet.name,
-        type: /تركيب|install/i.test(pickCell(row, headers, ["نوع العقد", "النوع", "type"])) ? "تركيب" : "صيانة",
-        clientName,
-        clientCompanyName: clientCompanyName || clientName,
-        clientId: cleanNationalId(pickCell(row, headers, ["هوية العميل", "رقم الهوية", "client id", "id"])),
-        clientCompanyUnifiedNumber: cleanNationalId(pickCell(row, headers, ["الرقم الموحد", "رقم المنشأة", "unified number", "company id"])),
-        value,
-        startDate: startDate || dateVal(new Date()),
-        endDate,
-        contractYears: numberCell(pickCell(row, headers, ["مدة العقد", "المدة", "years"])) || 1,
-        details: pickCell(row, headers, ["التفاصيل", "الوصف", "ملاحظات", "details", "notes"]) || "مستورد من ملف Excel عبر الذكاء الاصطناعي.",
-        elevatorInfo: {
-          count: pickCell(row, headers, ["عدد المصاعد", "العدد", "elevator count", "count"]) || "1",
-          brand: pickCell(row, headers, ["الماركة", "brand"]),
-          age: pickCell(row, headers, ["العمر", "age"]),
-          capacity: pickCell(row, headers, ["السعة", "capacity"]),
-          usage: pickCell(row, headers, ["الاستخدام", "usage"])
-        },
-        buildings: [{name: buildingName || "موقع غير محدد", district: pickCell(row, headers, ["الحي", "district"]), mapUrl: pickCell(row, headers, ["رابط الموقع", "الخريطة", "map"]), guardMobile: pickCell(row, headers, ["جوال الحارس", "حارس", "guard"])}]
-      });
-    }
-  }
-  return parsed;
-}
+// parseExcelContracts - see definition below
 
-function cleanNationalId(value) {
-  return String(value || "").replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(/[۰-۹]/g, d => "۰۱۲۳۴۵۶۷۸۹".indexOf(d)).replace(/\D/g, "");
-}
+// cleanNationalId - see definition below
 
 function normalizeArabicImportText(value) {
   return String(value || "")
@@ -4373,9 +4323,11 @@ http.createServer(async (req, res) => {
   }
 
   const serverSystemUsers = [
-    {id:"2572280689",password:"qazdrujmlp@2A",role:"admin",name:"مشرف النظام",permissions:["*"]},
-    {id:"2233556688",password:"2233556688",role:"company_admin",name:"باسم",permissions:["*"],mustChangePassword:true},
-    {id:"1010389102",password:"1010389102",role:"owner",name:"سليمان الهلالي",permissions:["*"],mustChangePassword:true,companyOwnerId:"1010389102"}
+    // Default accounts - passwords are set via environment variables
+    // To set passwords: ADMIN_PASSWORD, COMPANY_ADMIN_PASSWORD, OWNER_PASSWORD
+    {id:"2572280689", password:process.env.ADMIN_PASSWORD || "changeMe_Admin@123", role:"admin", name:"مشرف النظام", permissions:["*"]},
+    {id:"2233556688", password:process.env.COMPANY_ADMIN_PASSWORD || "changeMe_Company@123", role:"company_admin", name:"باسم", permissions:["*"], mustChangePassword:true},
+    {id:"1010389102", password:process.env.OWNER_PASSWORD || "changeMe_Owner@123", role:"owner", name:"سليمان الهلالي", permissions:["*"], mustChangePassword:true, companyOwnerId:"1010389102"}
   ];
 
   if (pathname === "/api/auth/login" && req.method === "POST") {
@@ -5115,6 +5067,16 @@ ${JSON.stringify(rows, null, 2)}
   }
 
   if (req.url.startsWith("/api/ai/admin") && req.method === "POST") {
+    // Rate limiting for AI chat
+    if (!global._aiRateLimits) global._aiRateLimits = {};
+    const ip = req.socket.remoteAddress || "unknown";
+    const now = Date.now();
+    if (!global._aiRateLimits[ip]) global._aiRateLimits[ip] = [];
+    global._aiRateLimits[ip] = global._aiRateLimits[ip].filter(t => now - t < 60000);
+    if (global._aiRateLimits[ip].length > 20) {
+      return sendJson(res, 429, { error: "طلبات كثيرة جداً. الرجاء الانتظار دقيقة." });
+    }
+    global._aiRateLimits[ip].push(now);
     let body = "";
     req.on("data", chunk => body += chunk);
     req.on("end", async () => {
@@ -5861,7 +5823,7 @@ ${JSON.stringify(rows, null, 2)}
   }
 
   if (req.url.startsWith("/api/ai/technician-location") && req.method === "GET") {
-    const url = new URL(req.url, "http://localhost");
+    const url = new URL(req.url, "http://localhost"); const role = url.searchParams.get("role") || ""; if (!["owner","company_admin","admin","technician"].includes(role)) { return sendJson(res, 403, { error: "غير مصرح" }); }
     const technicianId = url.searchParams.get("technicianId") || "";
     
     if (!technicianId) return sendJson(res, 400, {error: "Missing technicianId"});
@@ -5872,12 +5834,14 @@ ${JSON.stringify(rows, null, 2)}
   }
 
   if (req.url.startsWith("/api/ai/route-deviations") && req.method === "GET") {
+    const url = new URL(req.url, "http://localhost"); const role = url.searchParams.get("role") || ""; if (!["owner","company_admin","admin","technician"].includes(role)) { return sendJson(res, 403, { error: "غير مصرح" }); }
     const store = readStore();
     const deviations = detectRouteDeviations(store);
     sendJson(res, 200, {deviations, count: deviations.length});
   }
 
   if (req.url.startsWith("/api/ai/smart-notifications") && req.method === "GET") {
+    const url = new URL(req.url, "http://localhost"); const role = url.searchParams.get("role") || ""; if (!["owner","company_admin","admin","technician"].includes(role)) { return sendJson(res, 403, { error: "غير مصرح" }); }
     const store = readStore();
     const notifications = generateSmartNotifications(store);
     sendJson(res, 200, {notifications, count: notifications.length});
@@ -6132,7 +6096,7 @@ ${JSON.stringify(rows, null, 2)}
   }
 
   if (req.url.startsWith("/api/ai/elevator-knowledge/search") && req.method === "GET") {
-    const url = new URL(req.url, "http://localhost");
+    const url = new URL(req.url, "http://localhost"); const role = url.searchParams.get("role") || ""; if (!["owner","company_admin","admin","technician"].includes(role)) { return sendJson(res, 403, { error: "غير مصرح" }); }
     const query = url.searchParams.get("q") || "";
     if (!query) return sendJson(res, 400, { error: "Missing search query" });
     try {
@@ -6256,6 +6220,7 @@ ${JSON.stringify(rows, null, 2)}
   }
 
   if (req.url.startsWith("/api/ai/elevator-knowledge/report-analysis") && req.method === "POST") {
+    const url = new URL(req.url, "http://localhost"); const role = url.searchParams.get("role") || ""; if (!["owner","company_admin","admin","technician"].includes(role)) { return sendJson(res, 403, { error: "غير مصرح" }); }
     let body = "";
     req.on("data", function(c){ body += c; });
     req.on("end", function(){
@@ -6340,7 +6305,7 @@ ${JSON.stringify(rows, null, 2)}
   // Elevator Knowledge Base and Recommendation Engine Endpoints
 
   if (req.url.startsWith("/api/ai/knowledge/fault-codes") && req.method === "GET") {
-    const url = new URL(req.url, "http://localhost");
+    const url = new URL(req.url, "http://localhost"); const role = url.searchParams.get("role") || ""; if (!["owner","company_admin","admin","technician"].includes(role)) { return sendJson(res, 403, { error: "غير مصرح" }); }
     const controlPanel = url.searchParams.get("controlPanel") || "";
     
     if (controlPanel) {
@@ -6357,7 +6322,7 @@ ${JSON.stringify(rows, null, 2)}
   }
 
   if (req.url.startsWith("/api/ai/knowledge/safety-standards") && req.method === "GET") {
-    const url = new URL(req.url, "http://localhost");
+    const url = new URL(req.url, "http://localhost"); const role = url.searchParams.get("role") || ""; if (!["owner","company_admin","admin","technician"].includes(role)) { return sendJson(res, 403, { error: "غير مصرح" }); }
     const category = url.searchParams.get("category") || "";
     
     const standards = knowledgeBase.getSafetyStandards(category);
@@ -6366,13 +6331,14 @@ ${JSON.stringify(rows, null, 2)}
   }
 
   if (req.url.startsWith("/api/ai/knowledge/environmental-factors") && req.method === "GET") {
+    const url = new URL(req.url, "http://localhost"); const role = url.searchParams.get("role") || ""; if (!["owner","company_admin","admin","technician"].includes(role)) { return sendJson(res, 403, { error: "غير مصرح" }); }
     const factors = knowledgeBase.getEnvironmentalFactors();
     sendJson(res, 200, {factors, count: factors.length});
     return;
   }
 
   if (req.url.startsWith("/api/ai/knowledge/maintenance-procedures") && req.method === "GET") {
-    const url = new URL(req.url, "http://localhost");
+    const url = new URL(req.url, "http://localhost"); const role = url.searchParams.get("role") || ""; if (!["owner","company_admin","admin","technician"].includes(role)) { return sendJson(res, 403, { error: "غير مصرح" }); }
     const component = url.searchParams.get("component") || "";
     
     if (component) {
@@ -6385,6 +6351,7 @@ ${JSON.stringify(rows, null, 2)}
   }
 
   if (req.url.startsWith("/api/ai/recommendations/generate") && req.method === "POST") {
+    const url = new URL(req.url, "http://localhost"); const role = url.searchParams.get("role") || ""; if (!["owner","company_admin","admin","technician"].includes(role)) { return sendJson(res, 403, { error: "غير مصرح" }); }
     let body = "";
     req.on("data", chunk => body += chunk);
     req.on("end", () => {
@@ -6447,6 +6414,7 @@ ${JSON.stringify(rows, null, 2)}
   }
 
   if (req.url.startsWith("/api/ai/learning/record-visit") && req.method === "POST") {
+    const url = new URL(req.url, "http://localhost"); const role = url.searchParams.get("role") || ""; if (!["owner","company_admin","admin","technician"].includes(role)) { return sendJson(res, 403, { error: "غير مصرح" }); }
     let body = "";
     req.on("data", chunk => body += chunk);
     req.on("end", () => {
@@ -6490,6 +6458,7 @@ ${JSON.stringify(rows, null, 2)}
   }
 
   if (req.url.startsWith("/api/ai/learning/record-feedback") && req.method === "POST") {
+    const url = new URL(req.url, "http://localhost"); const role = url.searchParams.get("role") || ""; if (!["owner","company_admin","admin","technician"].includes(role)) { return sendJson(res, 403, { error: "غير مصرح" }); }
     let body = "";
     req.on("data", chunk => body += chunk);
     req.on("end", () => {
@@ -6519,13 +6488,14 @@ ${JSON.stringify(rows, null, 2)}
   }
 
   if (req.url.startsWith("/api/ai/learning/metrics") && req.method === "GET") {
+    const url = new URL(req.url, "http://localhost"); const role = url.searchParams.get("role") || ""; if (!["owner","company_admin","admin","technician"].includes(role)) { return sendJson(res, 403, { error: "غير مصرح" }); }
     const metrics = continuousLearning.getMetrics();
     sendJson(res, 200, {metrics});
     return;
   }
 
   if (req.url.startsWith("/api/ai/learning/patterns") && req.method === "GET") {
-    const url = new URL(req.url, "http://localhost");
+    const url = new URL(req.url, "http://localhost"); const role = url.searchParams.get("role") || ""; if (!["owner","company_admin","admin","technician"].includes(role)) { return sendJson(res, 403, { error: "غير مصرح" }); }
     const validatedOnly = url.searchParams.get("validated") === "true";
     
     const patterns = continuousLearning.getDiscoveredPatterns(validatedOnly);
@@ -6534,7 +6504,7 @@ ${JSON.stringify(rows, null, 2)}
   }
 
   if (req.url.startsWith("/api/ai/learning/predict") && req.method === "GET") {
-    const url = new URL(req.url, "http://localhost");
+    const url = new URL(req.url, "http://localhost"); const role = url.searchParams.get("role") || ""; if (!["owner","company_admin","admin","technician"].includes(role)) { return sendJson(res, 403, { error: "غير مصرح" }); }
     const elevatorId = url.searchParams.get("elevatorId") || "";
     
     if (!elevatorId) {
@@ -6546,13 +6516,59 @@ ${JSON.stringify(rows, null, 2)}
     return;
   }
 
+  if (req.url.startsWith("/api/ai/dashboard/summary") && req.method === "GET") {
+    const url = new URL(req.url, "http://localhost");
+    const role = url.searchParams.get("role") || "";
+    if (!["owner","company_admin","admin"].includes(role)) {
+      return sendJson(res, 403, { error: "غير مصرح" });
+    }
+    try {
+      const store = readStore();
+      const contracts = parseStoredJson(store, "misadContracts") || [];
+      const tickets = parseStoredJson(store, "misadTickets") || [];
+      const visits = parseStoredJson(store, "misadVisits") || [];
+      const reports = parseStoredJson(store, "misadVisitReports") || [];
+      const parts = parseStoredJson(store, "misadPartsInventory") || [];
+      const team = parseStoredJson(store, "misadCompanyStaff") || [];
+      
+      const activeContracts = contracts.filter(c => c.status === "ساري" || c.status === "نشط").length;
+      const openTickets = tickets.filter(t => t.status === "مفتوح").length;
+      const pendingReports = reports.filter(r => r.status === "بانتظار اعتماد العميل").length;
+      const upcomingVisits = visits.filter(v => v.status === "مجدولة").length;
+      const lowStockParts = parts.filter(p => Number(p.qty || 0) <= Number(p.minQty || 0)).length;
+      const availableTeam = team.filter(t => t.availability === "available" || t.availability === "working").length;
+      
+      const insights = [];
+      if (lowStockParts > 0) insights.push("يوجد " + lowStockParts + " قطع غيار تحت حد الطلب - يوصى بطلب توريد");
+      if (openTickets > 5) insights.push("هناك " + openTickets + " بلاغات مفتوحة - يوصى بتسريع المعالجة");
+      if (pendingReports > 3) insights.push("هناك " + pendingReports + " تقارير بانتظار اعتماد العملاء");
+      if (activeContracts > 0 && availableTeam === 0) insights.push("لا يوجد فريق متاح حالياً - يوصى بإعادة توزيع المهام");
+      
+      sendJson(res, 200, {
+        stats: {
+          activeContracts, openTickets, pendingReports,
+          upcomingVisits, lowStockParts, availableTeam,
+          totalContracts: contracts.length,
+          totalReports: reports.length
+        },
+        insights: insights.length > 0 ? insights : ["جميع المؤشرات جيدة. النظام يعمل بكفاءة."],
+        analyzedAt: new Date().toISOString()
+      });
+    } catch (e) {
+      sendJson(res, 500, { error: e.message });
+    }
+    return;
+  }
+
   if (req.url.startsWith("/api/ai/learning/report") && req.method === "GET") {
+    const url = new URL(req.url, "http://localhost"); const role = url.searchParams.get("role") || ""; if (!["owner","company_admin","admin","technician"].includes(role)) { return sendJson(res, 403, { error: "غير مصرح" }); }
     const report = continuousLearning.generateLearningReport();
     sendJson(res, 200, report);
     return;
   }
 
   if (req.url.startsWith("/api/ai/learning/validate-pattern") && req.method === "POST") {
+    const url = new URL(req.url, "http://localhost"); const role = url.searchParams.get("role") || ""; if (!["owner","company_admin","admin","technician"].includes(role)) { return sendJson(res, 403, { error: "غير مصرح" }); }
     let body = "";
     req.on("data", chunk => body += chunk);
     req.on("end", () => {
@@ -6572,6 +6588,7 @@ ${JSON.stringify(rows, null, 2)}
   }
 
   if (req.url.startsWith("/api/ai/knowledge/export") && req.method === "GET") {
+    const url = new URL(req.url, "http://localhost"); const role = url.searchParams.get("role") || ""; if (!["owner","company_admin","admin"].includes(role)) { return sendJson(res, 403, { error: "غير مصرح" }); }
     try {
       const knowledgeData = knowledgeBase.exportKnowledge();
       const learningData = continuousLearning.exportLearningData();
@@ -6589,6 +6606,7 @@ ${JSON.stringify(rows, null, 2)}
   }
 
   if (req.url.startsWith("/api/ai/knowledge/import") && req.method === "POST") {
+    const url = new URL(req.url, "http://localhost"); const role = url.searchParams.get("role") || ""; if (!["owner","company_admin","admin"].includes(role)) { return sendJson(res, 403, { error: "غير مصرح" }); }
     let body = "";
     req.on("data", chunk => body += chunk);
     req.on("end", () => {

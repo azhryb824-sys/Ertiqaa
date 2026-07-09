@@ -348,18 +348,29 @@
     return rec;
   };
   
+  function waitForElement(selector, callback, maxWait) {
+    maxWait = maxWait || 10000;
+    var el = document.querySelector(selector);
+    if (el) { callback(el); return; }
+    var observer = new MutationObserver(function() {
+      var found = document.querySelector(selector);
+      if (found) { observer.disconnect(); callback(found); }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    setTimeout(function() { observer.disconnect(); }, maxWait);
+  }
+  
   // Override the existing voice assistant to use enhanced handler
   document.addEventListener("DOMContentLoaded", function() {
-    // Wait for the voice dock to be created
-    const checkAndEnhance = setInterval(() => {
-      const dock = document.getElementById("voiceAiDock");
-      if (dock) {
-        clearInterval(checkAndEnhance);
+    var _observerInitialized = false;
+    if (!_observerInitialized) {
+      _observerInitialized = true;
+      waitForElement("#voiceAiDock", function(dock) {
+        enhanceVoiceInputs(document.getElementById("modalContent") || document.body);
         
         // Find the listen button and enhance it with better recognition
         const listenBtn = dock.querySelector("[data-voice-listen]");
         if (listenBtn) {
-          const originalHandler = listenBtn.onclick;
           listenBtn.onclick = () => {
             const input = dock.querySelector(".voice-ai-input");
             const log = dock.querySelector(".voice-ai-log");
@@ -427,11 +438,16 @@
             }
           };
         }
-      }
-    }, 100);
-    
-    // Stop checking after 10 seconds
-    setTimeout(() => clearInterval(checkAndEnhance), 10000);
+      });
+      
+      // Additionally observe for new modals
+      var modalObserver = new MutationObserver(function() {
+        if (document.getElementById("modalContent")) {
+          enhanceVoiceInputs(document.getElementById("modalContent"));
+        }
+      });
+      modalObserver.observe(document.body, { childList: true, subtree: true });
+    }
   });
   
   console.log("Voice AI Enhancement Module Loaded with Enhanced Recognition");

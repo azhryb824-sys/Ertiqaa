@@ -1496,3 +1496,27 @@ textarea{
 .maintenance-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .maintenance-actions label{font-size:11px;font-weight:700;color:#3c4c4a;display:inline-flex;align-items:center;gap:4px;cursor:pointer}
 .maintenance-actions label input[type=checkbox]{width:13px;height:13px;accent-color:#c9964b;cursor:pointer}
+/* AI Smart Overview */
+.ai-smart-overview{background:linear-gradient(135deg,#0d312f,#1a5a54);color:#fff;border-radius:12px;padding:20px;margin:20px 0}
+.ai-smart-overview h3{color:#8fd6d0;margin:0 0 16px}
+.smart-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.smart-card{background:rgba(255,255,255,0.1);border-radius:10px;padding:16px;transition:transform .2s}
+.smart-card:hover{transform:translateY(-2px)}
+.smart-card .stat-value{font-size:1.5em;font-weight:700;display:block}
+.smart-card .stat-label{font-size:.85em;opacity:.8;display:block;margin-top:4px}
+.smart-card .stat-detail{font-size:.75em;opacity:.6;display:block;margin-top:8px}
+.ai-action-btn{background:#8fd6d0;color:#0d312f;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-weight:600;margin-top:12px;display:inline-block}
+.ai-action-btn:hover{background:#b0e8e3}
+/* Knowledge Base Interactive */
+.kb-cat-btn{transition:transform .2s,box-shadow .2s}
+.kb-cat-btn:hover{transform:translateY(-3px);box-shadow:0 4px 12px rgba(0,0,0,.15)}
+.kb-item{border-right:4px solid #1a73e8;transition:background .2s}
+.kb-item:hover{background:#f0f4ff!important}
+.kb-item h4{color:#1a73e8;margin:0 0 8px}
+/* Prediction Results */
+#predictionResults table{width:100%;border-collapse:collapse;margin:12px 0}
+#predictionResults th{background:#0d312f;color:#fff;padding:10px;text-align:right}
+#predictionResults td{padding:8px 10px;border-bottom:1px solid #eee}
+#predictionResults tr:hover td{background:#f5fafa}
+#predictionResults ul{padding-right:20px}
+#predictionResults ul li{margin:6px 0;line-height:1.6}
