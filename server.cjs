@@ -6120,6 +6120,193 @@ ${JSON.stringify(rows, null, 2)}
     return;
   }
 
+  if (req.url.startsWith("/api/ai/elevator-knowledge/search") && req.method === "GET") {
+    const url = new URL(req.url, "http://localhost");
+    const query = url.searchParams.get("q") || "";
+    if (!query) return sendJson(res, 400, { error: "Missing search query" });
+    try {
+      const axios = require("axios");
+      const openaiKey = process.env.OPENAI_API_KEY || "";
+      if (openaiKey && query.length > 5) {
+        const aiRes = await axios.post("https://api.openai.com/v1/chat/completions", {
+          model: "gpt-4o-mini",
+          messages: [
+            { role: "system", content: "You are an expert elevator maintenance engineer. Answer in Arabic. Provide professional, detailed maintenance advice for the given fault or query. Include: likely causes, step-by-step solution, required parts, safety notes." },
+            { role: "user", content: query }
+          ],
+          temperature: 0.3,
+          max_tokens: 800
+        }, { headers: { "Authorization": "Bearer " + openaiKey, "Content-Type": "application/json" }, timeout: 15000 });
+        return sendJson(res, 200, { source: "ai", answer: aiRes.data.choices[0].message.content });
+      }
+    } catch(e){}
+    return sendJson(res, 200, { source: "local", answer: "", note: "AI key not configured for deep analysis. Use local KB." });
+  }
+
+  if (req.url.startsWith("/api/ai/predict-failures") && req.method === "GET") {
+    const url = new URL(req.url, "http://localhost");
+    const role = url.searchParams.get("role") || "";
+    if (!["owner", "company_admin", "admin"].includes(role)) {
+      return sendJson(res, 403, { error: "Not authorized" });
+    }
+    const store = readStore();
+    const reports = parseStoredJson(store, "misadVisitReports") || [];
+    const predictions = [];
+    const faultCounts = {};
+    const brandCounts = {};
+    const partUsage = {};
+
+    reports.forEach(function(r){
+      var text = (r.description || r.workDone || r.issues || r.notes || "") + " " + (r.recommendations || "");
+      if (!text.trim()) return;
+      text = text.toLowerCase();
+
+      if (text.includes("محرك") || text.includes("موتور")) {
+        faultCounts["المحرك"] = (faultCounts["المحرك"] || 0) + 1;
+        if (text.includes("حرارة")) faultCounts["ارتفاع حرارة المحرك"] = (faultCounts["ارتفاع حرارة المحرك"] || 0) + 1;
+        if (text.includes("صوت") || text.includes("ضوضاء")) faultCounts["ضوضاء المحرك"] = (faultCounts["ضوضاء المحرك"] || 0) + 1;
+        if (text.includes("لا يعمل") || text.includes("توقف")) faultCounts["توقف المحرك"] = (faultCounts["توقف المحرك"] || 0) + 1;
+      }
+      if (text.includes("باب") || text.includes("door")) {
+        faultCounts["الأبواب"] = (faultCounts["الأبواب"] || 0) + 1;
+        if (text.includes("لا يفتح") || text.includes("لا يغلق")) faultCounts["الباب لا يعمل"] = (faultCounts["الباب لا يعمل"] || 0) + 1;
+        if (text.includes("حساس") || text.includes("safety")) faultCounts["حساس الباب"] = (faultCounts["حساس الباب"] || 0) + 1;
+      }
+      if (text.includes("كنترول") || text.includes("control") || text.includes("كارتة") || text.includes("board")) {
+        faultCounts["الكنترول"] = (faultCounts["الكنترول"] || 0) + 1;
+      }
+      if (text.includes("إنفيرتر") || text.includes("inverter") || text.includes("vfd")) {
+        faultCounts["الإنفيرتر"] = (faultCounts["الإنفيرتر"] || 0) + 1;
+      }
+      if (text.includes("حبل") || text.includes("rope") || text.includes("كابل")) {
+        faultCounts["الحبال"] = (faultCounts["الحبال"] || 0) + 1;
+      }
+      if (text.includes("فرامل") || text.includes("brake")) {
+        faultCounts["الفرامل"] = (faultCounts["الفرامل"] || 0) + 1;
+      }
+      if (text.includes("قضبان") || text.includes("rail") || text.includes("توجيه")) {
+        faultCounts["قضبان التوجيه"] = (faultCounts["قضبان التوجيه"] || 0) + 1;
+      }
+
+      var brand = (r.elevatorBrand || r.brand || "").toLowerCase();
+      if (brand) {
+        brand = brand.charAt(0).toUpperCase() + brand.slice(1);
+        brandCounts[brand] = (brandCounts[brand] || 0) + 1;
+      }
+
+      if (r.parts) {
+        var parts = r.parts.split(/[,،\n]/);
+        parts.forEach(function(p){
+          var part = p.trim().toLowerCase();
+          if (part && part.length > 2) {
+            partUsage[part] = (partUsage[part] || 0) + 1;
+          }
+        });
+      }
+    });
+
+    var totalReports = reports.length;
+    var sortedFaults = Object.entries(faultCounts).sort(function(a,b){ return b[1] - a[1]; });
+    var sortedParts = Object.entries(partUsage).sort(function(a,b){ return b[1] - a[1]; });
+    var topFaults = sortedFaults.slice(0, 10).map(function(f){ return { fault: f[0], count: f[1], percentage: Math.round(f[1]/totalReports*100) }; });
+    var topParts = sortedParts.slice(0, 10).map(function(p){ return { part: p[0], count: p[1] }; });
+
+    var recommendations = [];
+    if (topFaults.length > 0) {
+      var mainFault = topFaults[0];
+      recommendations.push("العطل الأكثر شيوعاً هو '" + mainFault.fault + "' بنسبة " + mainFault.percentage + "% - يوصى بتوفير قطع الغيار اللازمة وتدريب الفنيين على إصلاحه");
+    }
+    if (faultCounts["المحرك"] > 0) {
+      recommendations.push("أعطال المحرك تشكل نسبة كبيرة - يوصى بجدولة صيانة دورية للمحركات");
+    }
+    if (faultCounts["الأبواب"] > 0) {
+      recommendations.push("أعطال الأبواب متكررة - يوصى بفحص وتشحيم جميع الأبواب بشكل دوري");
+    }
+    if (faultCounts["الإنفيرتر"] > 0) {
+      recommendations.push("أعطال الإنفيرتر تحتاج خبرة متخصصة - يوصى بتدريب الفنيين على تشخيص أعطال الإنفيرتر");
+    }
+    if (faultCounts["الفرامل"] > 0) {
+      recommendations.push("أعطال الفرامل حرجة - يوصى بفحص الفرامل أسبوعياً وعدم التأخير في صيانتها");
+    }
+    if (recommendations.length === 0) {
+      recommendations.push("لا توجد بيانات كافية للتحليل - يوصى بتعبئة تقارير الزيارات بشكل أكثر تفصيلاً");
+    }
+
+    res.setHeader("Content-Type", "application/json");
+    res.end(JSON.stringify({
+      totalReports: totalReports,
+      topFaults: topFaults,
+      topParts: topParts,
+      brandStats: Object.entries(brandCounts).sort(function(a,b){ return b[1] - a[1]; }).slice(0, 5).map(function(b){ return { brand: b[0], count: b[1] }; }),
+      recommendations: recommendations,
+      analyzedAt: new Date().toISOString()
+    }));
+    return;
+  }
+
+  if (req.url.startsWith("/api/ai/elevator-knowledge/report-analysis") && req.method === "POST") {
+    let body = "";
+    req.on("data", function(c){ body += c; });
+    req.on("end", function(){
+      try {
+        var data = JSON.parse(body);
+        var reportId = data.reportId || "";
+        var store = readStore();
+        var reports = parseStoredJson(store, "misadVisitReports") || [];
+        var report = reports.find(function(r){ return r.id === reportId || r.visitId === reportId; });
+        if (!report) return sendJson(res, 404, { error: "Report not found" });
+        var text = (report.description || report.workDone || report.issues || report.notes || "") + " " + (report.recommendations || "");
+        var analysis = {
+          reportId: report.id,
+          visitId: report.visitId,
+          contractId: report.contractId,
+          technician: report.technician,
+          createdAt: report.createdAt,
+          textAnalysis: {
+            keywords: [],
+            predictedFaults: [],
+            maintenanceAdvice: [],
+            requiredParts: []
+          },
+          severity: "low"
+        };
+        text = text.toLowerCase();
+        var faultKeywords = {
+          "المحرك": ["محرك", "موتور", "motor", "engine"],
+          "الأبواب": ["باب", "door", "بوابة"],
+          "الكنترول": ["كنترول", "control", "كارتة", "لوحة"],
+          "الإنفيرتر": ["إنفيرتر", "inverter", "vfd"],
+          "الحبال": ["حبل", "rope", "كابل", "كيبل"],
+          "الفرامل": ["فرامل", "brake", "مكابح"],
+          "القضبان": ["قضبان", "rail", "سكة", "توجيه"],
+          "الإضاءة": ["إضاءة", "light", "لمبة", "led"],
+          "الجرس": ["جرس", "bell", "إنذار"],
+          "التهوية": ["مروحة", "fan", "تهوية", "تبريد"]
+        };
+        for (var fault in faultKeywords) {
+          if (faultKeywords[fault].some(function(kw){ return text.includes(kw); })) {
+            analysis.textAnalysis.keywords.push(fault);
+          }
+        }
+        if (text.includes("خطر") || text.includes("طارئ") || text.includes("توقف كامل") || text.includes("emergency")) {
+          analysis.severity = "critical";
+        } else if (text.includes("عالي") || text.includes("high") || text.includes("مهم") || text.includes("أولوية")) {
+          analysis.severity = "high";
+        } else if (text.includes("متوسط") || text.includes("medium")) {
+          analysis.severity = "medium";
+        }
+        var parts = parseStoredJson(store, "misadPartsInventory") || [];
+        parts.forEach(function(p){
+          if (text.includes(p.name.toLowerCase()) || (p.sku && text.includes(p.sku.toLowerCase()))) {
+            analysis.textAnalysis.requiredParts.push({ id: p.id, name: p.name, sku: p.sku });
+          }
+        });
+        sendJson(res, 200, analysis);
+      } catch(e){ sendJson(res, 500, { error: e.message }); }
+    });
+    return;
+  }
+
   if (req.url.startsWith("/api/ai/document-analyze") && req.method === "GET") {
     const url = new URL(req.url, "http://localhost");
     const documentId = url.searchParams.get("documentId") || "";
