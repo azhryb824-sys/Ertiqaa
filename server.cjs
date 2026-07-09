@@ -6,6 +6,17 @@ const zlib = require("zlib");
 const {spawn} = require("child_process");
 require("dotenv").config();
 
+// Import AI modules for elevator knowledge and recommendations
+const { knowledgeBase } = require("./src/ai/elevatorKnowledgeBase.cjs");
+const { recommendationEngine } = require("./src/ai/recommendationEngine.cjs");
+const { continuousLearning } = require("./src/ai/continuousLearning.cjs");
+
+// Import advanced AI modules
+const { modelSelectionSystem } = require("./src/ai/modelSelectionSystem.cjs");
+const { deepLearningModels } = require("./src/ai/deepLearningModels.cjs");
+const { nlpProcessor } = require("./src/ai/nlpProcessor.cjs");
+const { explainableAI } = require("./src/ai/explainableAI.cjs");
+
 const root = __dirname;
 const port = Number(process.env.PORT || 4173);
 const host = process.env.HOST || "0.0.0.0";
@@ -6324,6 +6335,283 @@ ${JSON.stringify(rows, null, 2)}
     const analysis = analyzeDocumentForApproval(store, documentId, documentType);
     sendJson(res, 200, analysis);
   }
+
+  // ==================== NEW AI ENDPOINTS ====================
+  // Elevator Knowledge Base and Recommendation Engine Endpoints
+
+  if (req.url.startsWith("/api/ai/knowledge/fault-codes") && req.method === "GET") {
+    const url = new URL(req.url, "http://localhost");
+    const controlPanel = url.searchParams.get("controlPanel") || "";
+    
+    if (controlPanel) {
+      const codes = knowledgeBase.faultCodes.get(controlPanel.toLowerCase()) || [];
+      sendJson(res, 200, {controlPanel, codes, count: codes.length});
+    } else {
+      const allCodes = {};
+      knowledgeBase.faultCodes.forEach((codes, panel) => {
+        allCodes[panel] = codes;
+      });
+      sendJson(res, 200, {faultCodes: allCodes});
+    }
+    return;
+  }
+
+  if (req.url.startsWith("/api/ai/knowledge/safety-standards") && req.method === "GET") {
+    const url = new URL(req.url, "http://localhost");
+    const category = url.searchParams.get("category") || "";
+    
+    const standards = knowledgeBase.getSafetyStandards(category);
+    sendJson(res, 200, {standards, count: standards.length});
+    return;
+  }
+
+  if (req.url.startsWith("/api/ai/knowledge/environmental-factors") && req.method === "GET") {
+    const factors = knowledgeBase.getEnvironmentalFactors();
+    sendJson(res, 200, {factors, count: factors.length});
+    return;
+  }
+
+  if (req.url.startsWith("/api/ai/knowledge/maintenance-procedures") && req.method === "GET") {
+    const url = new URL(req.url, "http://localhost");
+    const component = url.searchParams.get("component") || "";
+    
+    if (component) {
+      const procedures = knowledgeBase.getMaintenanceProcedures(component);
+      sendJson(res, 200, {component, procedures, count: procedures.length});
+    } else {
+      sendJson(res, 400, {error: "Component parameter required"});
+    }
+    return;
+  }
+
+  if (req.url.startsWith("/api/ai/recommendations/generate") && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => {
+      try {
+        const input = JSON.parse(body || "{}");
+        const store = readStore();
+        
+        const elevatorId = String(input.elevatorId || "");
+        const contracts = parseStoredJson(store, "misadContracts");
+        const contract = contracts.find(c => c.id === elevatorId);
+        
+        const elevatorData = {
+          id: elevatorId,
+          manufacturer: contract?.elevatorInfo?.manufacturer || input.manufacturer,
+          model: contract?.elevatorInfo?.model || input.model,
+          controlPanel: contract?.elevatorInfo?.controlPanel || input.controlPanel,
+          installationDate: contract?.startDate || input.installationDate,
+          lastMaintenanceDate: input.lastMaintenanceDate,
+          components: input.components || [],
+          operatingConditions: input.operatingConditions || {}
+        };
+
+        const visits = parseStoredJson(store, "misadVisits").filter(v => v.contractId === elevatorId);
+        const maintenanceHistory = {
+          elevatorId,
+          visits: visits.map(v => ({
+            id: v.id,
+            date: v.date,
+            type: v.type,
+            findings: v.findings || v.description || "",
+            actions: v.actionsPerformed || [],
+            partsReplaced: v.partsUsed || [],
+            faultCodes: v.faultCodes || []
+          })),
+          faultHistory: []
+        };
+
+        const currentIssue = input.currentIssue ? {
+          description: input.currentIssue.description || "",
+          faultCode: input.currentIssue.faultCode,
+          severity: input.currentIssue.severity
+        } : undefined;
+
+        const environmentalConditions = input.environmentalConditions || undefined;
+
+        const result = recommendationEngine.generateRecommendations({
+          elevatorData,
+          maintenanceHistory,
+          currentIssue,
+          environmentalConditions
+        });
+
+        sendJson(res, 200, result);
+      } catch (err) {
+        console.error("Error generating recommendations:", err);
+        sendJson(res, 500, {error: "Failed to generate recommendations", details: err.message});
+      }
+    });
+    return;
+  }
+
+  if (req.url.startsWith("/api/ai/learning/record-visit") && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => {
+      try {
+        const input = JSON.parse(body || "{}");
+        
+        const visit = {
+          id: String(input.id || `VISIT-${Date.now()}`),
+          elevatorId: String(input.elevatorId || ""),
+          date: String(input.date || new Date().toISOString()),
+          type: String(input.type || "maintenance"),
+          technicianId: String(input.technicianId || ""),
+          findings: String(input.findings || ""),
+          actions: Array.isArray(input.actions) ? input.actions : [],
+          partsReplaced: Array.isArray(input.partsReplaced) ? input.partsReplaced : [],
+          faultCodes: Array.isArray(input.faultCodes) ? input.faultCodes : [],
+          outcome: String(input.outcome || "success"),
+          followUpRequired: Boolean(input.followUpRequired || false),
+          duration: Number(input.duration || 0),
+          cost: Number(input.cost || 0)
+        };
+
+        continuousLearning.recordVisit(visit);
+        
+        knowledgeBase.recordMaintenanceOutcome({
+          elevatorId: visit.elevatorId,
+          faultCode: visit.faultCodes[0],
+          recommendedAction: visit.actions[0] || "",
+          actualAction: visit.actions.join(", ") || "",
+          outcome: visit.outcome,
+          timestamp: visit.date
+        });
+
+        sendJson(res, 200, {ok: true, visit});
+      } catch (err) {
+        console.error("Error recording visit:", err);
+        sendJson(res, 500, {error: "Failed to record visit", details: err.message});
+      }
+    });
+    return;
+  }
+
+  if (req.url.startsWith("/api/ai/learning/record-feedback") && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => {
+      try {
+        const input = JSON.parse(body || "{}");
+        
+        const feedback = {
+          recommendationId: String(input.recommendationId || ""),
+          elevatorId: String(input.elevatorId || ""),
+          accepted: Boolean(input.accepted || false),
+          implemented: Boolean(input.implemented || false),
+          outcome: String(input.outcome || "success"),
+          actualCost: Number(input.actualCost || 0),
+          actualDuration: Number(input.actualDuration || 0),
+          feedback: String(input.feedback || ""),
+          timestamp: new Date().toISOString()
+        };
+
+        continuousLearning.recordRecommendationFeedback(feedback);
+        sendJson(res, 200, {ok: true, feedback});
+      } catch (err) {
+        console.error("Error recording feedback:", err);
+        sendJson(res, 500, {error: "Failed to record feedback", details: err.message});
+      }
+    });
+    return;
+  }
+
+  if (req.url.startsWith("/api/ai/learning/metrics") && req.method === "GET") {
+    const metrics = continuousLearning.getMetrics();
+    sendJson(res, 200, {metrics});
+    return;
+  }
+
+  if (req.url.startsWith("/api/ai/learning/patterns") && req.method === "GET") {
+    const url = new URL(req.url, "http://localhost");
+    const validatedOnly = url.searchParams.get("validated") === "true";
+    
+    const patterns = continuousLearning.getDiscoveredPatterns(validatedOnly);
+    sendJson(res, 200, {patterns, count: patterns.length});
+    return;
+  }
+
+  if (req.url.startsWith("/api/ai/learning/predict") && req.method === "GET") {
+    const url = new URL(req.url, "http://localhost");
+    const elevatorId = url.searchParams.get("elevatorId") || "";
+    
+    if (!elevatorId) {
+      return sendJson(res, 400, {error: "elevatorId parameter required"});
+    }
+
+    const predictions = continuousLearning.predictIssues(elevatorId);
+    sendJson(res, 200, {elevatorId, predictions, count: predictions.length});
+    return;
+  }
+
+  if (req.url.startsWith("/api/ai/learning/report") && req.method === "GET") {
+    const report = continuousLearning.generateLearningReport();
+    sendJson(res, 200, report);
+    return;
+  }
+
+  if (req.url.startsWith("/api/ai/learning/validate-pattern") && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => {
+      try {
+        const input = JSON.parse(body || "{}");
+        const patternId = String(input.patternId || "");
+        const isValid = Boolean(input.validated === true);
+        
+        continuousLearning.validatePattern(patternId, isValid);
+        sendJson(res, 200, {ok: true, patternId, validated: isValid});
+      } catch (err) {
+        console.error("Error validating pattern:", err);
+        sendJson(res, 500, {error: "Failed to validate pattern", details: err.message});
+      }
+    });
+    return;
+  }
+
+  if (req.url.startsWith("/api/ai/knowledge/export") && req.method === "GET") {
+    try {
+      const knowledgeData = knowledgeBase.exportKnowledge();
+      const learningData = continuousLearning.exportLearningData();
+      
+      sendJson(res, 200, {
+        knowledgeBase: knowledgeData,
+        learningData: learningData,
+        exportedAt: new Date().toISOString()
+      });
+    } catch (err) {
+      console.error("Error exporting knowledge:", err);
+      sendJson(res, 500, {error: "Failed to export knowledge", details: err.message});
+    }
+    return;
+  }
+
+  if (req.url.startsWith("/api/ai/knowledge/import") && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => {
+      try {
+        const input = JSON.parse(body || "{}");
+        
+        if (input.knowledgeBase) {
+          knowledgeBase.importKnowledge(JSON.stringify(input.knowledgeBase));
+        }
+        
+        if (input.learningData) {
+          continuousLearning.importLearningData(JSON.stringify(input.learningData));
+        }
+        
+        sendJson(res, 200, {ok: true, importedAt: new Date().toISOString()});
+      } catch (err) {
+        console.error("Error importing knowledge:", err);
+        sendJson(res, 500, {error: "Failed to import knowledge", details: err.message});
+      }
+    });
+    return;
+  }
+  // ==================== END NEW AI ENDPOINTS ====================
 
   if (req.url.startsWith("/api/invite/current")) {
     const token = parseCookies(req.headers.cookie)[inviteCookie];
