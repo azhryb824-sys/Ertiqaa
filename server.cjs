@@ -16,6 +16,7 @@ const { modelSelectionSystem } = require("./src/ai/modelSelectionSystem.cjs");
 const { deepLearningModels } = require("./src/ai/deepLearningModels.cjs");
 const { nlpProcessor } = require("./src/ai/nlpProcessor.cjs");
 const { explainableAI } = require("./src/ai/explainableAI.cjs");
+const { huggingFacePipeline } = require("./src/ai/huggingFacePipeline.cjs");
 
 const root = __dirname;
 const port = Number(process.env.PORT || 4173);
@@ -7155,10 +7156,58 @@ ${JSON.stringify(rows, null, 2)}
   if (req.url === "/api/ai/deep-learning/status" && req.method === "GET") {
     try {
       const dlStatus = await deepLearningModels.getStatus();
+      const hfStatus = await huggingFacePipeline.status();
+      dlStatus.huggingFace = hfStatus;
       return sendJson(res, 200, dlStatus);
     } catch (err) {
       return sendJson(res, 200, { available: false, connected: false, error: err.message });
     }
+  }
+
+  if (req.url === "/api/ai/huggingface/status" && req.method === "GET") {
+    try {
+      const hfStatus = await huggingFacePipeline.status();
+      return sendJson(res, 200, hfStatus);
+    } catch (err) {
+      return sendJson(res, 200, { available: false, error: err.message });
+    }
+  }
+
+  if (req.url === "/api/ai/huggingface/classify" && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", async () => {
+      try {
+        const input = JSON.parse(body || "{}");
+        const text = String(input.text || "").trim();
+        const labels = Array.isArray(input.labels) ? input.labels : undefined;
+        if (!text) return sendJson(res, 400, { error: "النص مطلوب." });
+        const result = await huggingFacePipeline.classifyText(text, labels);
+        if (!result) return sendJson(res, 503, { error: "مكتبة التعلم العميق غير متاحة." });
+        return sendJson(res, 200, result);
+      } catch (err) {
+        return sendJson(res, 500, { error: "فشل التصنيف: " + err.message });
+      }
+    });
+    return;
+  }
+
+  if (req.url === "/api/ai/huggingface/embed" && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", async () => {
+      try {
+        const input = JSON.parse(body || "{}");
+        const text = String(input.text || "").trim();
+        if (!text) return sendJson(res, 400, { error: "النص مطلوب." });
+        const embedding = await huggingFacePipeline.getEmbedding(text);
+        if (!embedding) return sendJson(res, 503, { error: "مكتبة التعلم العميق غير متاحة." });
+        return sendJson(res, 200, { ok: true, dimensions: embedding.length, embedding: embedding.slice(0, 10) });
+      } catch (err) {
+        return sendJson(res, 500, { error: "فشل التضمين: " + err.message });
+      }
+    });
+    return;
   }
 
   if (req.url === "/api/ai/deep-learning/train" && req.method === "POST") {
@@ -7805,9 +7854,13 @@ ${JSON.stringify(rows, null, 2)}
   deepLearningModels.init().then(status => {
     console.log(`Deep learning models: ${status.available ? "available" : "unavailable"} (connected: ${status.connected}, endpoint: ${status.endpoint})`);
     if (status.models?.length) {
-      status.models.forEach(m => console.log(`  Model: ${m.name} — ${m.status} (${m.refCount} refs)`));
+      status.models.forEach(m => console.log(`  Model: ${m.name || m.id} — ${m.status || "loaded"} (${m.refCount || "N/A"} refs)`));
     }
   }).catch(err => console.log("Deep learning init failed:", err.message));
+  // Initialize HuggingFace Transformers.js (lazy, models loaded on first use)
+  huggingFacePipeline.ready().then(ok => {
+    console.log(`HuggingFace Transformers.js: ${ok ? "ready (models cached on first use)" : "not available"}`);
+  }).catch(err => console.log("HuggingFace init:", err.message));
   if (process.env.AI_INTERNET_ENABLED === "1") {
     const runInternetUpdate = () => updateInternetKnowledge(readStore()).then(r => console.log(`Internet AI knowledge update: ${r.updated || 0}/${r.sources || 0}`)).catch(err => console.log("Internet AI knowledge update failed:", err.message));
     runInternetUpdate();

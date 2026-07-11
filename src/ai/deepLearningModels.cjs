@@ -26,6 +26,7 @@ function fetchJson(endpoint, options = {}) {
   });
 }
 
+const { huggingFacePipeline } = require("./huggingFacePipeline.cjs");
 const deepLearningModels = {
   available: true,
   connected: false,
@@ -85,18 +86,24 @@ const deepLearningModels = {
     return this.predictFailureRisk(input);
   },
 
+  classifyWithHF: async function (text, labels) {
+    try { return await huggingFacePipeline.classifyText(text, labels); } catch { return null; }
+  },
+
   getStatus: async function () {
     if (!this.connected) await this.init();
     const ep = jameelEndpoint();
     const voiceStatus = await fetchJson(`${ep}/speech/status`, { timeout: 5000 });
     const health = await fetchJson(`${ep}/health`, { timeout: 5000 });
+    const hfStatus = await huggingFacePipeline.status();
     return {
       available: true, connected: this.connected, endpoint: ep,
       models: this.models,
       voiceEngine: voiceStatus?.ready ? "ready" : (voiceStatus?.error ? "error" : "loading"),
       references: voiceStatus?.references || 0,
       health: health?.status === "ok",
-      localMode: this.mode
+      localMode: this.mode,
+      huggingFace: hfStatus
     };
   },
 
