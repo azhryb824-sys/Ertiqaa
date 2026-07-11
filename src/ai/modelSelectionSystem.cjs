@@ -17,7 +17,7 @@ const MODEL_CAPABILITIES = {
   knowledge_base: { tasks: [TASK_TYPES.KNOWLEDGE_LOOKUP], cost: 'low', speed: 'instant', languages: [] },
   keyword_matcher: { tasks: [TASK_TYPES.REPORT_ANALYSIS, TASK_TYPES.COMPLIANCE_CHECK], cost: 'low', speed: 'instant', languages: ['ar'] },
   time_series_ml: { tasks: [TASK_TYPES.SENSOR_ANALYSIS, TASK_TYPES.FAULT_PREDICTION], cost: 'medium', speed: 'medium', languages: [] },
-  deep_learning: { tasks: [TASK_TYPES.IMAGE_ANALYSIS], cost: 'high', speed: 'slow', languages: [] },
+  deep_learning: { tasks: [TASK_TYPES.VOICE_SYNTHESIS, TASK_TYPES.FAULT_PREDICTION, TASK_TYPES.IMAGE_ANALYSIS], cost: 'high', speed: 'slow', languages: ['ar'] },
   statistical_model: { tasks: [TASK_TYPES.FAULT_PREDICTION], cost: 'low', speed: 'fast', languages: [] },
   voice_synthesizer: { tasks: [TASK_TYPES.VOICE_SYNTHESIS], cost: 'low', speed: 'instant', languages: ['ar', 'en'] }
 };
@@ -134,7 +134,7 @@ const modelSelectionSystem = {
       knowledge_lookup: 'استعلام مباشر من قاعدة المعرفة',
       compliance_check: 'فحص التوافق مع المعايير باستخدام المحرك القاعدي',
       recommendation: 'توليد توصيات ذكية باستخدام ',
-      voice_synthesis: 'توليد الصوت باستخدام المحرك الصوتي',
+      voice_synthesis: 'توليد الصوت بصوتك المسجل باستخدام Coqui XTTS (تعلم عميق)',
       image_analysis: 'تحليل الصور باستخدام التعلم العميق (جاهز للتكامل)',
       sensor_analysis: 'تحليل بيانات الحساسات باستخدام نماذج السلاسل الزمنية (جاهز للتكامل)'
     };

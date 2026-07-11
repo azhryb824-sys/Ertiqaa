@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // Local predictive AI layer.
 // It provides useful risk scoring without external model downloads, and keeps the
 // same surface ready for TensorFlow/ONNX models later.
@@ -256,6 +257,117 @@ const deepLearningModels = {
       "أكيد، أقدر أوضحها لك."
     ];
     return pool.filter(x => !(avoidOpenings || []).some(a => this._similarOpening(x, a))).slice(0, 5);
+=======
+const http = require("http");
+const https = require("https");
+const url = require("url");
+
+function jameelEndpoint() {
+  return (process.env.JAMEEL_VOICE_ENDPOINT || "http://127.0.0.1:5050").replace(/\/+$/, "");
+}
+
+function fetchJson(endpoint, options = {}) {
+  return new Promise((resolve, reject) => {
+    const parsed = url.parse(endpoint);
+    const lib = parsed.protocol === "https:" ? https : http;
+    const req = lib.request(endpoint, {
+      method: options.method || "GET",
+      headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+      timeout: options.timeout || 10000
+    }, res => {
+      let data = "";
+      res.on("data", chunk => data += chunk);
+      res.on("end", () => {
+        try { resolve(JSON.parse(data)); }
+        catch { resolve({ error: "Invalid JSON response", raw: data.slice(0, 200) }); }
+      });
+    });
+    req.on("error", err => resolve({ error: err.message, available: false }));
+    if (options.body) req.write(JSON.stringify(options.body));
+    req.end();
+  });
+}
+
+const deepLearningModels = {
+  available: false,
+  connected: false,
+  jameelEndpoint: jameelEndpoint(),
+  supportedTasks: ["voice_synthesis", "voice_cloning", "fault_prediction", "text_generation"],
+  models: [],
+
+  init: async function () {
+    const ep = jameelEndpoint();
+    this.jameelEndpoint = ep;
+    const status = await fetchJson(`${ep}/health`, { timeout: 5000 });
+    this.connected = status && !status.error;
+    if (this.connected) {
+      const modelInfo = await fetchJson(`${ep}/speech/status`, { timeout: 5000 });
+      this.models = [{
+        id: "coqui-xtts",
+        name: "Coqui XTTS (Arabic)",
+        type: "voice_cloning",
+        status: modelInfo?.ready ? "ready" : "loading",
+        refCount: modelInfo?.references || 0,
+        endpoint: ep
+      }];
+      this.available = true;
+    }
+    return this;
+  },
+
+  loadModel: async function (modelConfig) {
+    const ep = jameelEndpoint();
+    const status = await fetchJson(`${ep}/speech/status`, { timeout: 5000 });
+    if (status && !status.error) {
+      return { loaded: true, modelId: modelConfig?.id || "coqui-xtts", references: status.references || 0 };
+    }
+    return { loaded: false, error: "jameel-ai غير متاح. تأكد من تشغيله.", requirements: ["Python 3.11", "coqui-tts", "PyTorch"] };
+  },
+
+  train: async function (task, data) {
+    const ep = jameelEndpoint();
+    if (task === "voice") {
+      const samples = data?.samples || [];
+      if (!samples.length) return { error: "لا توجد عينات للتدريب." };
+      const results = [];
+      for (const s of samples) {
+        const r = await fetchJson(`${ep}/training/voice`, {
+          method: "POST", body: { audio: s.audio, name: s.name }, timeout: 30000
+        });
+        results.push(r);
+      }
+      const okCount = results.filter(r => r.ok === true).length;
+      return { ok: okCount > 0, trained: okCount, total: samples.length, details: results };
+    }
+    return { error: `مهمة التعلم العميق "${task}" غير مدعومة.` };
+  },
+
+  predict: async function (modelId, input) {
+    const ep = jameelEndpoint();
+    if (modelId === "coqui-xtts" || modelId === "voice") {
+      if (!input?.text) return { error: "النص مطلوب للتوليد." };
+      const status = await fetchJson(`${ep}/speech/status`, { timeout: 5000 });
+      if (!status?.ready) return { error: "النموذج الصوتي غير جاهز. درّب العينات أولاً." };
+      return { ok: true, modelId: "coqui-xtts", task: "voice_synthesis", status: "ready", references: status.references || 0 };
+    }
+    return { error: `النموذج "${modelId}" غير متاح.` };
+  },
+
+  getStatus: async function () {
+    if (!this.connected) await this.init();
+    const ep = jameelEndpoint();
+    const voiceStatus = await fetchJson(`${ep}/speech/status`, { timeout: 5000 });
+    const health = await fetchJson(`${ep}/health`, { timeout: 5000 });
+    return {
+      available: this.available,
+      connected: this.connected,
+      endpoint: ep,
+      models: this.models,
+      voiceEngine: voiceStatus?.ready ? "ready" : (voiceStatus?.error ? "error" : "loading"),
+      references: voiceStatus?.references || 0,
+      health: health?.status === "ok"
+    };
+>>>>>>> 9d10d17 (تفعيل مسارات التعلم العميق بالكامل: ربط deepLearningModels.cjs بـ jameel-ai، إضافة endpoints (status/train/predict) في server.cjs، توسيع قدرات deep_learning في modelSelectionSystem.cjs ليشمل voice_synthesis وfault_prediction، إضافة قسم DL في صفحة الإدارة الذكية مع حالة النموذج وزر تدريب، تفعيل explainableAI.cjs بتوليد تفسيرات حقيقية للقرارات والتنبؤات)
   }
 };
 

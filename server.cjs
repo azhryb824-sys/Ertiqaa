@@ -14,6 +14,7 @@ const { continuousLearning } = require("./src/ai/continuousLearning.cjs");
 // Import advanced AI modules
 const { modelSelectionSystem } = require("./src/ai/modelSelectionSystem.cjs");
 const { deepLearningModels } = require("./src/ai/deepLearningModels.cjs");
+const { deepLearningModels } = require("./src/ai/deepLearningModels.cjs");
 const { nlpProcessor } = require("./src/ai/nlpProcessor.cjs");
 const { explainableAI } = require("./src/ai/explainableAI.cjs");
 
@@ -7150,6 +7151,49 @@ ${JSON.stringify(rows, null, 2)}
     });
     return;
   }
+
+  // Deep Learning endpoints
+  if (req.url === "/api/ai/deep-learning/status" && req.method === "GET") {
+    try {
+      const dlStatus = await deepLearningModels.getStatus();
+      return sendJson(res, 200, dlStatus);
+    } catch (err) {
+      return sendJson(res, 200, { available: false, connected: false, error: err.message });
+    }
+  }
+
+  if (req.url === "/api/ai/deep-learning/train" && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", async () => {
+      try {
+        const input = JSON.parse(body || "{}");
+        const task = String(input.task || "").trim();
+        if (!task) return sendJson(res, 400, { error: "مهمة التدريب مطلوبة (voice / prediction)." });
+        const result = await deepLearningModels.train(task, input);
+        return sendJson(res, result.error ? 400 : 200, result);
+      } catch (err) {
+        return sendJson(res, 500, { error: "فشل تدريب النموذج: " + err.message });
+      }
+    });
+    return;
+  }
+
+  if (req.url === "/api/ai/deep-learning/predict" && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", async () => {
+      try {
+        const input = JSON.parse(body || "{}");
+        const modelId = String(input.modelId || "coqui-xtts").trim();
+        const result = await deepLearningModels.predict(modelId, input);
+        return sendJson(res, result.error ? 400 : 200, result);
+      } catch (err) {
+        return sendJson(res, 500, { error: "فشل استدعاء النموذج: " + err.message });
+      }
+    });
+    return;
+  }
   // ==================== END NEW AI ENDPOINTS ====================
 
   if (req.url.startsWith("/api/invite/current")) {
@@ -7758,6 +7802,13 @@ ${JSON.stringify(rows, null, 2)}
   if (!process.env.SECRET_ENTRY_TOKEN) {
     console.log("Set SECRET_ENTRY_TOKEN on Render to keep entry sessions valid across restarts.");
   }
+  // Initialize deep learning models on startup
+  deepLearningModels.init().then(status => {
+    console.log(`Deep learning models: ${status.available ? "available" : "unavailable"} (connected: ${status.connected}, endpoint: ${status.endpoint})`);
+    if (status.models?.length) {
+      status.models.forEach(m => console.log(`  Model: ${m.name} — ${m.status} (${m.refCount} refs)`));
+    }
+  }).catch(err => console.log("Deep learning init failed:", err.message));
   if (process.env.AI_INTERNET_ENABLED === "1") {
     const runInternetUpdate = () => updateInternetKnowledge(readStore()).then(r => console.log(`Internet AI knowledge update: ${r.updated || 0}/${r.sources || 0}`)).catch(err => console.log("Internet AI knowledge update failed:", err.message));
     runInternetUpdate();
