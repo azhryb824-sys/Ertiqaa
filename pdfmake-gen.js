@@ -395,7 +395,7 @@
       fields: [
         ['cabinSize', 'أبعاد الكابينة'], ['floorType', 'نوع الأرضية'], ['wallType', 'نوع الجدران'],
         ['ceilingType', 'نوع السقف'], ['lightingType', 'نوع الإنارة'], ['displayType', 'نوع شاشة العرض'],
-        ['risotType', 'نوع الريشوت'], ['mirrors', 'وجود مرايا'], ['fan', 'وجود مروحة'],
+        ['risotType', 'نوع المنطاد أو البرشوت'], ['mirrors', 'وجود مرايا'], ['fan', 'وجود مروحة'],
         ['voiceAnnouncement', 'Voice Announcement'], ['braille', 'Braille']
       ]
     },
