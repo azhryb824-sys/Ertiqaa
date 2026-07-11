@@ -90,6 +90,84 @@ function pickAiResponseVariants(intent = "general_answer", count = 10) {
   return variants;
 }
 
+function recentAiMemoryForLanguage(store, user = {}, limit = 40) {
+  if (process.env.AI_USE_REVIEWED_FEEDBACK_FOR_STYLE !== "1") return [];
+  const userId = String(user.id || user.userId || "");
+  const role = String(user.role || "");
+  return aiMemoryList(store)
+    .filter(item => item.reviewApproved === true && (!userId || String(item.userId || "") === userId) && (!role || String(item.role || "") === role))
+    .slice(0, limit)
+    .map(item => ({
+      intent: item.plan?.intent || "answer",
+      question: item.question || "",
+      answer: item.answer || "",
+      rating: item.rating || "unrated",
+      feedback: item.feedback || "",
+      createdAt: item.createdAt || ""
+    }));
+}
+
+function approvedInferenceModelStatus(store, user = {}) {
+  const profile = buildLinguisticLearningProfile(store, "", {intent: "status"}, user, []);
+  return {
+    version: process.env.AI_APPROVED_MODEL_VERSION || "Shumoos-AI-v1.0-inference",
+    mode: "inference-only",
+    frozenWeights: true,
+    userTrainingEnabled: false,
+    developerTrainingOnly: true,
+    baseModel: process.env.AI_BASE_MODEL || process.env.OPENAI_MODEL || process.env.GROQ_MODEL || "approved-open-source-or-hosted-base",
+    specialization: "Arabic elevator operations assistant",
+    persona: profile.persona,
+    tone: profile.tone,
+    confidence: profile.confidence,
+    note: "Production serves an approved inference profile only. User feedback is stored for developer review and does not train or change model weights automatically."
+  };
+}
+
+function isVagueServiceRequest(question = "") {
+  return /(?:عاوز|ابغى|ابي|أريد|اريد|ممكن|تقدر|وش|ايش|إيش).{0,20}(?:تعمل|تسوي|تخدم|تساعد|شي|شئ|حاجة|خدمة)|(?:ساعدني|اخدمني|وش تقدر تسوي|ماذا تستطيع)/i.test(String(question || ""));
+}
+
+function serviceEmployeeHelp(role = "") {
+  const manage = ["owner", "company_admin", "admin"].includes(role);
+  if (!manage) {
+    return "أبشر، أنا هنا لخدمتك. أقدر أساعدك في متابعة عقودك وبلاغاتك وزياراتك وتقاريرك حسب الصلاحيات المتاحة لحسابك. اكتب مثلًا: اعرض بلاغاتي، ما حالة زيارتي، أو أريد اعتماد التقرير.";
+  }
+  return "أبشر، أقدر أخدمك كموظف ذكاء اصطناعي جاهز للاستدلال فقط. أستطيع إنشاء عقد أو عرض سعر أو بلاغ أو زيارة، تحليل المخزون، متابعة الفنيين، وتحديد أولويات التشغيل. اكتب المطلوب مباشرة مثل: أنشئ بلاغ عطل باب، حلل المخزون، أو وزع الزيارات المتأخرة.";
+}
+
+function isVagueServiceRequest(question = "") {
+  const text = String(question || "");
+  const starters = ["\u0639\u0627\u0648\u0632", "\u0627\u0628\u063a\u0649", "\u0627\u0628\u064a", "\u0623\u0631\u064a\u062f", "\u0627\u0631\u064a\u062f", "\u0645\u0645\u0643\u0646", "\u062a\u0642\u062f\u0631", "\u0648\u0634", "\u0627\u064a\u0634", "\u0625\u064a\u0634"];
+  const serviceWords = ["\u062a\u0639\u0645\u0644", "\u062a\u0633\u0648\u064a", "\u062a\u062e\u062f\u0645", "\u062a\u0633\u0627\u0639\u062f", "\u0634\u064a", "\u0634\u0626", "\u062d\u0627\u062c\u0629", "\u062e\u062f\u0645\u0629"];
+  return starters.some(a => serviceWords.some(b => text.includes(a) && text.includes(b))) ||
+    ["\u0633\u0627\u0639\u062f\u0646\u064a", "\u0627\u062e\u062f\u0645\u0646\u064a", "\u0648\u0634 \u062a\u0642\u062f\u0631 \u062a\u0633\u0648\u064a", "\u0645\u0627\u0630\u0627 \u062a\u0633\u062a\u0637\u064a\u0639"].some(x => text.includes(x));
+}
+
+function serviceEmployeeHelp(role = "") {
+  const manage = ["owner", "company_admin", "admin"].includes(role);
+  if (!manage) {
+    return "\u0623\u0628\u0634\u0631\u060c \u0623\u0646\u0627 \u0647\u0646\u0627 \u0644\u062e\u062f\u0645\u062a\u0643. \u0623\u0642\u062f\u0631 \u0623\u0633\u0627\u0639\u062f\u0643 \u0641\u064a \u0645\u062a\u0627\u0628\u0639\u0629 \u0639\u0642\u0648\u062f\u0643 \u0648\u0628\u0644\u0627\u063a\u0627\u062a\u0643 \u0648\u0632\u064a\u0627\u0631\u0627\u062a\u0643 \u0648\u062a\u0642\u0627\u0631\u064a\u0631\u0643 \u062d\u0633\u0628 \u0627\u0644\u0635\u0644\u0627\u062d\u064a\u0627\u062a \u0627\u0644\u0645\u062a\u0627\u062d\u0629 \u0644\u062d\u0633\u0627\u0628\u0643. \u0627\u0643\u062a\u0628 \u0645\u062b\u0644\u0627: \u0627\u0639\u0631\u0636 \u0628\u0644\u0627\u063a\u0627\u062a\u064a\u060c \u0645\u0627 \u062d\u0627\u0644\u0629 \u0632\u064a\u0627\u0631\u062a\u064a\u060c \u0623\u0648 \u0623\u0631\u064a\u062f \u0627\u0639\u062a\u0645\u0627\u062f \u0627\u0644\u062a\u0642\u0631\u064a\u0631.";
+  }
+  return "\u0623\u0628\u0634\u0631\u060c \u0623\u0642\u062f\u0631 \u0623\u062e\u062f\u0645\u0643 \u0643\u0645\u0648\u0638\u0641 \u0630\u0643\u0627\u0621 \u0627\u0635\u0637\u0646\u0627\u0639\u064a \u062c\u0627\u0647\u0632 \u0644\u0644\u0627\u0633\u062a\u062f\u0644\u0627\u0644 \u0641\u0642\u0637. \u0623\u0633\u062a\u0637\u064a\u0639 \u0625\u0646\u0634\u0627\u0621 \u0639\u0642\u062f \u0623\u0648 \u0639\u0631\u0636 \u0633\u0639\u0631 \u0623\u0648 \u0628\u0644\u0627\u063a \u0623\u0648 \u0632\u064a\u0627\u0631\u0629\u060c \u062a\u062d\u0644\u064a\u0644 \u0627\u0644\u0645\u062e\u0632\u0648\u0646\u060c \u0645\u062a\u0627\u0628\u0639\u0629 \u0627\u0644\u0641\u0646\u064a\u064a\u0646\u060c \u0648\u062a\u062d\u062f\u064a\u062f \u0623\u0648\u0644\u0648\u064a\u0627\u062a \u0627\u0644\u062a\u0634\u063a\u064a\u0644. \u0627\u0643\u062a\u0628 \u0627\u0644\u0645\u0637\u0644\u0648\u0628 \u0645\u0628\u0627\u0634\u0631\u0629 \u0645\u062b\u0644: \u0623\u0646\u0634\u0626 \u0628\u0644\u0627\u063a \u0639\u0637\u0644 \u0628\u0627\u0628\u060c \u062d\u0644\u0644 \u0627\u0644\u0645\u062e\u0632\u0648\u0646\u060c \u0623\u0648 \u0648\u0632\u0639 \u0627\u0644\u0632\u064a\u0627\u0631\u0627\u062a \u0627\u0644\u0645\u062a\u0623\u062e\u0631\u0629.";
+}
+
+function buildLinguisticLearningProfile(store, question, plan, user = {}, conversationHistory = []) {
+  const memory = recentAiMemoryForLanguage(store, user, 50);
+  return deepLearningModels.predictResponseStyle({
+    question,
+    intent: plan?.intent || "answer",
+    user,
+    history: conversationHistory,
+    memory,
+    voiceMode: /voice|صوت|مايك|تحدث|اسمع/i.test(String(question || ""))
+  });
+}
+
+function polishAiAnswerWithLanguageLearning(answer, linguisticProfile, question, user = {}) {
+  return deepLearningModels.improveResponseLanguage(answer, linguisticProfile, {question, user});
+}
+
 function shumoosSystemUsageGuide() {
   return {
     identity: {
@@ -5346,6 +5424,14 @@ ${JSON.stringify(rows, null, 2)}
         };
 
         var action = actionMap[plan.intent];
+        if (!action && isVagueServiceRequest(question)) {
+          return sendJson(res, 200, {
+            executed: true,
+            message: serviceEmployeeHelp(role),
+            action: "service_help",
+            modelStatus: approvedInferenceModelStatus(store, {id: userId, role})
+          });
+        }
 
         // If client is following up on a pending creation, use the original action
         if (input._pendingAction && input._pendingData) {
@@ -5595,15 +5681,46 @@ ${JSON.stringify(rows, null, 2)}
     return;
   }
 
+  if (req.url.startsWith("/api/ai/response-feedback") && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => {
+      try {
+        const input = JSON.parse(body || "{}");
+        const store = readStore();
+        const memory = aiMemoryList(store);
+        const item = memory.find(x => String(x.id || "") === String(input.memoryId || input.id || ""));
+        if (!item) return sendJson(res, 404, {error: "AI memory item not found"});
+        item.rating = String(input.rating || input.value || "unrated");
+        item.feedback = String(input.feedback || input.note || "");
+        item.feedbackAt = new Date().toISOString();
+        item.reviewFeedback = {
+          useful: /good|useful|مفيد|ممتاز|جيد|رائع|صح/i.test(item.rating + " " + item.feedback),
+          needsVariation: /كرر|مكرر|نفس|تنويع|repeated|same/i.test(item.rating + " " + item.feedback),
+          needsCustomerTone: /عميل|خدمة|أسلوب|لباقة|customer|tone/i.test(item.feedback),
+          trainingEffect: "none",
+          reviewedByDeveloper: false
+        };
+        saveAiMemory(store, memory);
+        return sendJson(res, 200, {ok: true, id: item.id, rating: item.rating, reviewFeedback: item.reviewFeedback});
+      } catch (err) {
+        return sendJson(res, 400, {error: "Invalid AI feedback request: " + (err.message || "Unknown error")});
+      }
+    });
+    return;
+  }
+
   if (req.url.startsWith("/api/ai/agent/status") && req.method === "GET") {
     const url = new URL(req.url, "http://localhost");
     const userId = url.searchParams.get("userId") || "";
     const role = url.searchParams.get("role") || "";
     const store = readStore();
     const memory = aiMemoryList(store).filter(x => !userId || x.userId === userId);
+    const approvedModel = approvedInferenceModelStatus(store, {id: userId, role});
     return sendJson(res, 200, {
       knowledge: elevatorKnowledgeBase(),
       internetKnowledge: internetKnowledgeSummary(store),
+      approvedInferenceModel: approvedModel,
       memoryCount: memory.length,
       recentMemory: memory.slice(0, 12).map(x => ({id: x.id, role: x.role, intent: x.plan?.intent || "answer", allowed: x.plan?.allowed !== false, createdAt: x.createdAt, rating: x.rating || "unrated"})),
       contextCounts: buildAiContext(store, {id: userId, role}).counts
