@@ -103,6 +103,38 @@ function pickAiResponseVariants(intent = "general_answer", count = 10) {
   return variants;
 }
 
+function recentAiMemoryForLanguage(store, user = {}, limit = 40) {
+  const userId = String(user.id || user.userId || "");
+  const role = String(user.role || "");
+  return aiMemoryList(store)
+    .filter(item => (!userId || String(item.userId || "") === userId) && (!role || String(item.role || "") === role))
+    .slice(0, limit)
+    .map(item => ({
+      intent: item.plan?.intent || "answer",
+      question: item.question || "",
+      answer: item.answer || "",
+      rating: item.rating || "unrated",
+      feedback: item.feedback || "",
+      createdAt: item.createdAt || ""
+    }));
+}
+
+function buildLinguisticLearningProfile(store, question, plan, user = {}, conversationHistory = []) {
+  const memory = recentAiMemoryForLanguage(store, user, 50);
+  return deepLearningModels.predictResponseStyle({
+    question,
+    intent: plan?.intent || "answer",
+    user,
+    history: conversationHistory,
+    memory,
+    voiceMode: /voice|صوت|مايك|تحدث|اسمع/i.test(String(question || ""))
+  });
+}
+
+function polishAiAnswerWithLanguageLearning(answer, linguisticProfile, question, user = {}) {
+  return deepLearningModels.improveResponseLanguage(answer, linguisticProfile, {question, user});
+}
+
 function shumoosSystemUsageGuide() {
   return {
     identity: {
@@ -782,10 +814,11 @@ function jameelVoicePython(rootPath) {
 
 function jameelVoiceReady() {
   const endpoint = process.env.JAMEEL_VOICE_ENDPOINT || "";
+  const local = localJameelVoiceReady();
   if (endpoint && /^https?:\/\//i.test(endpoint)) {
-    return {ready: true, root: "", references: 0, remote: true, endpoint: endpoint.replace(/\/+$/, "")};
+    return {ready: true, root: local.root, references: local.references, remote: true, endpoint: endpoint.replace(/\/+$/, "")};
   }
-  return localJameelVoiceReady();
+  return local;
 }
 
 function localJameelVoiceReady() {
@@ -3233,6 +3266,22 @@ function parseStoredJson(store, key) {
   }
 }
 
+function seedContinuousLearningFromStore(store, user = {}) {
+  if (!user.id && !user.userId && !user.companyOwnerId) {
+    return continuousLearning.seedFromOperationalData({
+      reports: parseStoredJson(store, "misadVisitReports"),
+      visits: parseStoredJson(store, "misadVisits"),
+      tickets: parseStoredJson(store, "misadTickets")
+    });
+  }
+  const scoped = scopeAiData(store, user);
+  return continuousLearning.seedFromOperationalData({
+    reports: scoped.reports,
+    visits: scoped.visits,
+    tickets: scoped.tickets
+  });
+}
+
 function aiOwnerId(user = {}) {
   const role = String(user.role || "");
   if (role === "company_admin") return user.companyOwnerId || user.id || user.userId || "";
@@ -4144,15 +4193,15 @@ async function requestAiProvider(provider, messages, meta = {}) {
 }
 
 async function askUnifiedAi(question, context, user = {}, conversationId = null) {
+  const store = readStore();
   const knowledge = Object.assign({}, elevatorKnowledgeBase(), {advancedTraining: shumoosAdvancedAiTraining()});
   const plan = inferAiPlan(question, context, user);
   const responseVariants = pickAiResponseVariants(plan?.intent || "general_answer", 10);
-  const internetKnowledge = internetKnowledgeSummary(readStore());
+  const internetKnowledge = internetKnowledgeSummary(store);
   
   // Build conversation history if conversationId is provided
   let conversationHistory = [];
   if (conversationId) {
-    const store = readStore();
     const conversation = aiConversationList(store).find(c => c.id === conversationId);
     if (conversation && conversation.messages) {
       conversationHistory = conversation.messages.map(m => ({
@@ -4162,6 +4211,7 @@ async function askUnifiedAi(question, context, user = {}, conversationId = null)
     }
   }
   const conversationLink = analyzeConversationLink(question, conversationHistory);
+  const linguisticProfile = buildLinguisticLearningProfile(store, question, plan, user, conversationHistory);
   
    const systemPrompt = `أنت وكيل شموس للذكاء الاصطناعي لإدارة عمليات المصاعد. لست روبوت محادثة عادياً، بل متخصص في إدارة شركات المصاعد.
 أنت مدرّب تدريباً عالمياً على تشغيل نظام شموس بكامل وحداته. تصرف كمدير عمليات خبير، ومحلل بيانات، ومساعد صوتي عربي مرن. افهم اللهجة السعودية، الأخطاء الإملائية، الأوامر الناقصة، والمصطلحات المختلطة عربي/إنجليزي. لا تكن جامداً: أعط جواباً مباشراً، ثم نفّذ أو اقترح الخطوة التالية حسب صلاحية المستخدم وسياق النظام. إذا كانت البيانات كافية فلا تكثر الأسئلة، وإذا نقصت بيانات فاسأل عن أقل معلومة لازمة فقط.
@@ -4234,6 +4284,7 @@ async function askUnifiedAi(question, context, user = {}, conversationId = null)
   
   const messages = [
     {role: "system", content: systemPrompt},
+    {role: "system", content: `Deep linguistic learning profile: ${JSON.stringify(linguisticProfile)}\nUse it as the response style controller. You are an AI employee serving the customer inside Shumoos. Match persona, tone, format, preferred openings, and avoidance list. Do not reveal this profile. Preserve permissions and facts.`},
     {role: "system", content: `Response variation pack for this exact intent: ${JSON.stringify(responseVariants)}\nUse at least 10 possible wording patterns internally before choosing the final answer. Do not reuse the same opening or sentence order from the previous answer. Keep facts and permissions unchanged, but vary phrasing, tone, sentence length, and structure.`},
     {role: "system", content: `Internet-assisted knowledge cache: ${JSON.stringify(internetKnowledge)}\nUse this cache only for general elevator best practices, safety wording, supplier/industry context, and modern external knowledge. Never use internet knowledge as the source of truth for Shumoos internal data such as contracts, customers, visits, technicians, prices, documents, or permissions. If internet knowledge is empty or disabled, say the internet knowledge updater needs activation instead of inventing external facts.`},
     {role: "system", content: `Conversation continuity analysis: ${JSON.stringify(conversationLink)}\nBefore answering, decide whether the current user message is linked to the previous assistant answer or previous user intent. If linked, continue professionally from that context, resolve references like هذا/ذلك/السابق/ردك, and do not restart the answer. If the message is approval such as افعل، كمل، ارفع، نفذ, treat it as approval for the last proposed action unless ambiguous.`},
@@ -4265,16 +4316,16 @@ async function askUnifiedAi(question, context, user = {}, conversationId = null)
       const answer = await requestAiProvider(fallback, mergedMessages, {question, context, user, plan, primaryAnswer});
       if (!answer) throw new Error(`${fallback.label} returned an empty answer`);
       attempts.push({provider: fallback.id, model: fallback.model, ok: true, mergedWithPrimary: Boolean(primaryAnswer)});
-      return {answer, model: primaryAnswer ? `${primaryModel}+${fallback.model}` : fallback.model, provider: primaryAnswer ? "unified" : "fallback", providerLabel: primaryAnswer ? "Unified primary/custom model" : fallback.label, attempts, plan};
+      return {answer: polishAiAnswerWithLanguageLearning(answer, linguisticProfile, question, user), model: primaryAnswer ? `${primaryModel}+${fallback.model}` : fallback.model, provider: primaryAnswer ? "unified" : "fallback", providerLabel: primaryAnswer ? "Unified primary/custom model" : fallback.label, attempts, plan, linguisticProfile};
     } catch (err) {
       attempts.push({provider: fallback.id, model: fallback.model, error: err.message || "AI request failed"});
-      if (primaryAnswer) return {answer: primaryAnswer, model: primaryModel, provider: "primary", providerLabel: primary.label, attempts, plan};
+      if (primaryAnswer) return {answer: polishAiAnswerWithLanguageLearning(primaryAnswer, linguisticProfile, question, user), model: primaryModel, provider: "primary", providerLabel: primary.label, attempts, plan, linguisticProfile};
     }
   }
 
-  if (primaryAnswer) return {answer: primaryAnswer, model: primaryModel, provider: "primary", providerLabel: primary.label, attempts, plan};
+  if (primaryAnswer) return {answer: polishAiAnswerWithLanguageLearning(primaryAnswer, linguisticProfile, question, user), model: primaryModel, provider: "primary", providerLabel: primary.label, attempts, plan, linguisticProfile};
   const localAnswer = generateLocalAiResponse(question, plan, context, user, knowledge, conversationHistory);
-  return {answer: localAnswer, model: "local-ai", provider: "local", providerLabel: "Local AI (offline mode)", attempts, plan};
+  return {answer: polishAiAnswerWithLanguageLearning(localAnswer, linguisticProfile, question, user), model: "local-ai", provider: "local", providerLabel: "Local AI (offline mode)", attempts, plan, linguisticProfile};
 }
 
 function generateLocalAiResponse(question, plan, context, user = {}, knowledge = {}, conversationHistory = []) {
@@ -5182,10 +5233,8 @@ ${JSON.stringify(rows, null, 2)}
       }
       if (!uploaded.length) return sendJson(res, 400, {error: "لا توجد عينات صوتية مرفوعة للتدريب.", trainStarted: false});
       const jameel = jameelVoiceReady();
-      if (!jameel.ready) {
-        return sendJson(res, 503, {error: "خدمة jameel-ai غير متوفرة. تأكد من تشغيلها.", trainStarted: false});
-      }
-      if (jameel.remote && jameel.endpoint) {
+      const localJameel = localJameelVoiceReady();
+      if (jameel.remote && jameel.endpoint && !localJameel.root) {
         try {
           const dirSamples = fs.existsSync(voiceSamplesDir) ? fs.readdirSync(voiceSamplesDir).filter(f => /\.(wav|mp3|m4a|ogg|flac|webm)$/i.test(f)) : [];
           const results = await Promise.allSettled(dirSamples.map(async f => {
@@ -5207,10 +5256,11 @@ ${JSON.stringify(rows, null, 2)}
           return sendJson(res, 500, {error: "فشل إرسال العينات: " + err.message, trainStarted: false});
         }
       }
-      if (!jameel.root) {
+      const trainRoot = localJameel.root || jameel.root;
+      if (!trainRoot) {
         return sendJson(res, 503, {error: "خدمة jameel-ai المحلية غير متوفرة.", trainStarted: false});
       }
-      const wavDir = path.join(jameel.root, "voice_samples", "wav");
+      const wavDir = path.join(trainRoot, "voice_samples", "wav");
       try {
         fs.mkdirSync(wavDir, {recursive: true});
         let copied = 0;
@@ -5223,13 +5273,16 @@ ${JSON.stringify(rows, null, 2)}
             copied++;
           } catch {}
         });
-        const refsPath = path.join(jameel.root, "voice_samples", "selected_references.json");
+        const refsPath = path.join(trainRoot, "voice_samples", "selected_references.json");
         let refs = {references: []};
         try { refs = JSON.parse(fs.readFileSync(refsPath, "utf8") || "{}"); } catch {}
         const newRefs = uploaded.map(f => `user_${path.basename(f, path.extname(f))}.wav`);
         refs.references = [...new Set([...newRefs, ...(refs.references || [])])];
         fs.writeFileSync(refsPath, JSON.stringify(refs, null, 2), "utf8");
-        return sendJson(res, 200, {ok: true, trainStarted: true, samplesCopied: copied, message: `تم تدريب ${copied} عينة وربطها بصوتك.`});
+        clearVoiceCache();
+        const after = localJameelVoiceReady();
+        const refresh = await refreshJameelVoiceService();
+        return sendJson(res, 200, {ok: copied > 0 && after.references > 0, trainStarted: copied > 0, samplesCopied: copied, localVoice: after, refresh, message: `تم تدريب ${copied} عينة وربطها بصوتك. المراجع الحالية: ${after.references}.`});
       } catch (err) {
         return sendJson(res, 500, {error: "فشل التدريب المحلي: " + err.message, trainStarted: false});
       }
@@ -5566,7 +5619,7 @@ ${JSON.stringify(rows, null, 2)}
         addMessageToConversation(store, conversationId, "assistant", cleanAnswer);
         
         const memory = aiMemoryList(store);
-        memory.unshift({id: `AIM-${Date.now()}`, userId, role, question, answer: cleanAnswer, plan, model: result.model, conversationId, executions, createdAt: new Date().toISOString(), rating: "unrated"});
+        memory.unshift({id: `AIM-${Date.now()}`, userId, role, question, answer: cleanAnswer, plan, model: result.model, provider: result.provider, linguisticProfile: result.linguisticProfile || null, conversationId, executions, createdAt: new Date().toISOString(), rating: "unrated"});
         saveAiMemory(store, memory);
         sendJson(res, 200, {...result, answer: cleanAnswer, conversationId, contextCounts: filteredContext.counts, executions});
       } catch {
@@ -5931,15 +5984,44 @@ ${JSON.stringify(rows, null, 2)}
     return;
   }
 
+  if (req.url.startsWith("/api/ai/response-feedback") && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => {
+      try {
+        const input = JSON.parse(body || "{}");
+        const store = readStore();
+        const memory = aiMemoryList(store);
+        const item = memory.find(x => String(x.id || "") === String(input.memoryId || input.id || ""));
+        if (!item) return sendJson(res, 404, {error: "AI memory item not found"});
+        item.rating = String(input.rating || input.value || "unrated");
+        item.feedback = String(input.feedback || input.note || "");
+        item.feedbackAt = new Date().toISOString();
+        item.linguisticLearning = {
+          useful: /good|useful|مفيد|ممتاز|جيد|رائع|صح/i.test(item.rating + " " + item.feedback),
+          needsVariation: /كرر|مكرر|نفس|تنويع|repeated|same/i.test(item.rating + " " + item.feedback),
+          needsCustomerTone: /عميل|خدمة|أسلوب|لباقة|customer|tone/i.test(item.feedback)
+        };
+        saveAiMemory(store, memory);
+        return sendJson(res, 200, {ok: true, id: item.id, rating: item.rating, linguisticLearning: item.linguisticLearning});
+      } catch (err) {
+        return sendJson(res, 400, {error: "Invalid AI feedback request: " + (err.message || "Unknown error")});
+      }
+    });
+    return;
+  }
+
   if (req.url.startsWith("/api/ai/agent/status") && req.method === "GET") {
     const url = new URL(req.url, "http://localhost");
     const userId = url.searchParams.get("userId") || "";
     const role = url.searchParams.get("role") || "";
     const store = readStore();
     const memory = aiMemoryList(store).filter(x => !userId || x.userId === userId);
+    const linguisticProfile = buildLinguisticLearningProfile(store, "", {intent: "status"}, {id: userId, role}, []);
     return sendJson(res, 200, {
       knowledge: elevatorKnowledgeBase(),
       internetKnowledge: internetKnowledgeSummary(store),
+      linguisticLearning: linguisticProfile,
       memoryCount: memory.length,
       recentMemory: memory.slice(0, 12).map(x => ({id: x.id, role: x.role, intent: x.plan?.intent || "answer", allowed: x.plan?.allowed !== false, createdAt: x.createdAt, rating: x.rating || "unrated"})),
       contextCounts: buildAiContext(store, {id: userId, role}).counts
@@ -6852,6 +6934,8 @@ ${JSON.stringify(rows, null, 2)}
 
   if (req.url.startsWith("/api/ai/learning/metrics") && req.method === "GET") {
     const url = new URL(req.url, "http://localhost"); const role = url.searchParams.get("role") || ""; if (!["owner","company_admin","admin","technician"].includes(role)) { return sendJson(res, 403, { error: "غير مصرح" }); }
+    const store = readStore();
+    seedContinuousLearningFromStore(store, {id: url.searchParams.get("userId") || "", role, companyOwnerId: url.searchParams.get("companyOwnerId") || ""});
     const metrics = continuousLearning.getMetrics();
     sendJson(res, 200, {metrics});
     return;
@@ -6859,6 +6943,8 @@ ${JSON.stringify(rows, null, 2)}
 
   if (req.url.startsWith("/api/ai/learning/patterns") && req.method === "GET") {
     const url = new URL(req.url, "http://localhost"); const role = url.searchParams.get("role") || ""; if (!["owner","company_admin","admin","technician"].includes(role)) { return sendJson(res, 403, { error: "غير مصرح" }); }
+    const store = readStore();
+    seedContinuousLearningFromStore(store, {id: url.searchParams.get("userId") || "", role, companyOwnerId: url.searchParams.get("companyOwnerId") || ""});
     const validatedOnly = url.searchParams.get("validated") === "true";
     
     const patterns = continuousLearning.getDiscoveredPatterns(validatedOnly);
@@ -6869,13 +6955,22 @@ ${JSON.stringify(rows, null, 2)}
   if (req.url.startsWith("/api/ai/learning/predict") && req.method === "GET") {
     const url = new URL(req.url, "http://localhost"); const role = url.searchParams.get("role") || ""; if (!["owner","company_admin","admin","technician"].includes(role)) { return sendJson(res, 403, { error: "غير مصرح" }); }
     const elevatorId = url.searchParams.get("elevatorId") || "";
+    const store = readStore();
+    const learningUser = {id: url.searchParams.get("userId") || "", role, companyOwnerId: url.searchParams.get("companyOwnerId") || ""};
+    seedContinuousLearningFromStore(store, learningUser);
     
     if (!elevatorId) {
       return sendJson(res, 400, {error: "elevatorId parameter required"});
     }
 
     const predictions = continuousLearning.predictIssues(elevatorId);
-    sendJson(res, 200, {elevatorId, predictions, count: predictions.length});
+    const scoped = scopeAiData(store, learningUser);
+    const modelPrediction = deepLearningModels.predictFailureRisk({
+      visits: continuousLearning.exportLearningData().visits.filter(v => String(v.elevatorId || "") === String(elevatorId)),
+      tickets: scoped.tickets.filter(t => String(t.elevatorId || t.contractId || "general") === String(elevatorId)),
+      reports: scoped.reports.filter(r => String(r.elevatorId || r.contractId || r.buildingName || "general") === String(elevatorId))
+    });
+    sendJson(res, 200, {elevatorId, predictions, modelPrediction, count: predictions.predictions?.length || 0});
     return;
   }
 
@@ -6907,12 +7002,27 @@ ${JSON.stringify(rows, null, 2)}
       if (pendingReports > 3) insights.push("هناك " + pendingReports + " تقارير بانتظار اعتماد العملاء");
       if (activeContracts > 0 && availableTeam === 0) insights.push("لا يوجد فريق متاح حالياً - يوصى بإعادة توزيع المهام");
       
+      const learningSeed = continuousLearning.seedFromOperationalData({reports, visits, tickets});
+      const deepRisk = deepLearningModels.predictFailureRisk({
+        visits: continuousLearning.exportLearningData().visits,
+        tickets,
+        reports
+      });
+      if (deepRisk.risk === "critical" || deepRisk.risk === "high") {
+        insights.push("Deep AI risk score: " + Math.round(deepRisk.score * 100) + "% - " + deepRisk.recommendations[0]);
+      }
+      
       sendJson(res, 200, {
         stats: {
           activeContracts, openTickets, pendingReports,
           upcomingVisits, lowStockParts, availableTeam,
           totalContracts: contracts.length,
           totalReports: reports.length
+        },
+        deepLearning: {
+          mode: deepLearningModels.mode,
+          risk: deepRisk,
+          learningSeed
         },
         insights: insights.length > 0 ? insights : ["جميع المؤشرات جيدة. النظام يعمل بكفاءة."],
         analyzedAt: new Date().toISOString()
@@ -6925,7 +7035,24 @@ ${JSON.stringify(rows, null, 2)}
 
   if (req.url.startsWith("/api/ai/learning/report") && req.method === "GET") {
     const url = new URL(req.url, "http://localhost"); const role = url.searchParams.get("role") || ""; if (!["owner","company_admin","admin","technician"].includes(role)) { return sendJson(res, 403, { error: "غير مصرح" }); }
+    const store = readStore();
+    const learningUser = {id: url.searchParams.get("userId") || "", role, companyOwnerId: url.searchParams.get("companyOwnerId") || ""};
+    seedContinuousLearningFromStore(store, learningUser);
+    const scoped = scopeAiData(store, learningUser);
     const report = continuousLearning.generateLearningReport();
+    report.deepLearning = {
+      status: deepLearningModels.available ? "active" : "inactive",
+      mode: deepLearningModels.mode,
+      failureRisk: deepLearningModels.predictFailureRisk({
+        visits: continuousLearning.exportLearningData().visits,
+        tickets: scoped.tickets,
+        reports: scoped.reports
+      }),
+      partDemand: deepLearningModels.predictPartDemand({
+        visits: continuousLearning.exportLearningData().visits,
+        reports: scoped.reports
+      })
+    };
     sendJson(res, 200, report);
     return;
   }

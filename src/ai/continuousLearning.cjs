@@ -6,26 +6,81 @@ const continuousLearning = {
   _visits: [],
   _feedback: [],
   _patterns: [],
+  _seededIds: new Set(),
   _nextPatternId: 1,
 
   recordVisit: function(visit) {
+    const faults = this._normalizeList(visit.faults && visit.faults.length ? visit.faults : [visit.findings, visit.issues, visit.faultCodes].flat());
+    const parts = this._normalizeList(visit.parts && visit.parts.length ? visit.parts : [visit.partsReplaced, visit.partsUsed, visit.parts].flat());
     const storedVisit = {
       id: visit.id || `visit_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       elevatorId: visit.elevatorId,
       technicianId: visit.technicianId,
-      faults: visit.faults || [],
-      parts: visit.parts || [],
+      faults,
+      parts,
       date: visit.date || new Date().toISOString(),
       duration: visit.duration || 0,
-      resolved: visit.resolved !== undefined ? visit.resolved : true,
+      resolved: visit.resolved !== undefined ? visit.resolved : !/fail|failed|unresolved|pending|متابعة|لم يتم|تعذر|فشل/i.test(String(visit.outcome || visit.status || "")),
       cost: visit.cost || 0,
-      notes: visit.notes || '',
-      severity: visit.severity || 'low',
+      notes: visit.notes || visit.findings || visit.issues || '',
+      severity: visit.severity || this._inferSeverity([visit.findings, visit.issues, visit.notes, visit.outcome].join(" ")),
       createdAt: new Date().toISOString()
     };
     this._visits.push(storedVisit);
     this._analyzeForPatterns(storedVisit);
     return storedVisit;
+  },
+
+  seedFromOperationalData: function(data) {
+    const reports = Array.isArray(data && data.reports) ? data.reports : [];
+    const visits = Array.isArray(data && data.visits) ? data.visits : [];
+    const tickets = Array.isArray(data && data.tickets) ? data.tickets : [];
+    let added = 0;
+
+    reports.forEach(report => {
+      const id = `report:${report.id || report.reportId || report.visitId || JSON.stringify(report).slice(0, 80)}`;
+      if (this._seededIds.has(id) || this._visits.some(v => v.sourceId === id)) return;
+      const relatedVisit = visits.find(v => String(v.id || "") === String(report.visitId || ""));
+      const text = [report.description, report.workDone, report.issues, report.parts, report.recommendations, report.details, report.notes].filter(Boolean).join(" ");
+      const stored = this.recordVisit({
+        id: report.id || report.visitId || id,
+        elevatorId: this._elevatorId(report, relatedVisit),
+        technicianId: report.technicianId || report.createdBy || relatedVisit?.technicianId || relatedVisit?.assignedTo || "",
+        faults: this._extractFaults(text),
+        parts: this._extractParts(report.parts || text),
+        date: report.createdAt || relatedVisit?.date || relatedVisit?.scheduledAt,
+        duration: Number(report.duration || relatedVisit?.duration || 0),
+        resolved: !/توصية|يلزم|متابعة|بانتظار|pending|follow/i.test(text),
+        cost: Number(report.cost || report.value || 0),
+        notes: text,
+        severity: this._inferSeverity(text)
+      });
+      stored.sourceId = id;
+      this._seededIds.add(id);
+      added++;
+    });
+
+    tickets.forEach(ticket => {
+      const id = `ticket:${ticket.id || JSON.stringify(ticket).slice(0, 80)}`;
+      if (this._seededIds.has(id) || this._visits.some(v => v.sourceId === id)) return;
+      const text = [ticket.title, ticket.description, ticket.details, ticket.notes].filter(Boolean).join(" ");
+      const stored = this.recordVisit({
+        id: ticket.id || id,
+        elevatorId: this._elevatorId(ticket),
+        technicianId: ticket.assignedTo || "",
+        faults: this._extractFaults(text),
+        parts: this._extractParts(text),
+        date: ticket.createdAt || ticket.updatedAt,
+        resolved: /مغلق|منجز|تم|closed|done/i.test(String(ticket.status || "")),
+        notes: text,
+        severity: this._inferSeverity([text, ticket.priority].join(" "))
+      });
+      stored.sourceId = id;
+      this._seededIds.add(id);
+      added++;
+    });
+
+    return {added, totalVisits: this._visits.length, totalPatterns: this._patterns.length};
   },
 
   recordRecommendationFeedback: function(feedback) {
@@ -204,14 +259,73 @@ const continuousLearning = {
   },
 
   importLearningData: function(data) {
+    if (typeof data === 'string') {
+      try { data = JSON.parse(data); } catch { return false; }
+    }
     if (!data || !Array.isArray(data.visits) || !Array.isArray(data.feedback) || !Array.isArray(data.patterns)) {
       return false;
     }
     this._visits = data.visits;
     this._feedback = data.feedback;
     this._patterns = data.patterns;
+    this._seededIds = new Set(this._visits.map(v => v.sourceId).filter(Boolean));
     if (data.nextPatternId) this._nextPatternId = data.nextPatternId;
     return true;
+  },
+
+  _normalizeList: function(value) {
+    return (Array.isArray(value) ? value : [value])
+      .flat()
+      .filter(Boolean)
+      .join(",")
+      .split(/[,،\n؛;]+/)
+      .map(x => String(x).trim())
+      .filter(x => x.length > 1)
+      .slice(0, 12);
+  },
+
+  _extractFaults: function(text) {
+    text = String(text || "").toLowerCase();
+    const rules = [
+      ["المحرك", /محرك|موتور|motor|machine/],
+      ["الأبواب", /باب|ابواب|أبواب|door/],
+      ["الكنترول", /كنترول|لوحة|كارتة|control|board/],
+      ["الإنفرتر", /انفرتر|إنفرتر|inverter|vfd/],
+      ["الحبال", /حبل|حبال|كابل|rope|cable/],
+      ["الفرامل", /فرامل|brake/],
+      ["حساس الباب", /حساس|sensor|safety edge/],
+      ["قضبان التوجيه", /قضبان|سكة|rail|guide/],
+      ["اهتزاز أو صوت", /اهتزاز|صوت|ضوضاء|noise|vibration/],
+      ["توقف المصعد", /توقف|عطل|لا يعمل|stuck|shutdown|failure/]
+    ];
+    const found = rules.filter(([, re]) => re.test(text)).map(([name]) => name);
+    return found.length ? found : this._normalizeList(text).slice(0, 3);
+  },
+
+  _extractParts: function(text) {
+    text = String(text || "").toLowerCase();
+    const rules = [
+      ["حساس باب", /حساس|sensor/],
+      ["كارتة كنترول", /كارتة|board|pcb/],
+      ["إنفرتر", /انفرتر|إنفرتر|inverter|vfd/],
+      ["فرامل", /فرامل|brake/],
+      ["حبال", /حبال|حبل|rope/],
+      ["رولر باب", /رولر|roller/],
+      ["زيت وتشحيم", /زيت|تشحيم|oil|grease/]
+    ];
+    return rules.filter(([, re]) => re.test(text)).map(([name]) => name);
+  },
+
+  _inferSeverity: function(text) {
+    text = String(text || "").toLowerCase();
+    if (/محبوس|احتجاز|خطر|طارئ|critical|emergency|danger/.test(text)) return "critical";
+    if (/توقف|لا يعمل|فشل|high|urgent|عاجل/.test(text)) return "high";
+    if (/متابعة|توصية|medium|متوسط/.test(text)) return "medium";
+    return "low";
+  },
+
+  _elevatorId: function(record, related) {
+    return String(record?.elevatorId || record?.assetId || record?.contractId || record?.buildingName || related?.elevatorId || related?.contractId || "general");
   },
 
   _analyzeForPatterns: function(visit) {
