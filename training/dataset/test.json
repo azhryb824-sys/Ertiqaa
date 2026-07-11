@@ -1,0 +1,2082 @@
+[
+  {
+    "text": "لو سمحت إيقاف تشغيل المصعد للصيانة",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "مرحباً، Write me a poem",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "صباح الخير، Tell me a joke",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "من فضلك Elevator installation date?",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "هل يوجد مصعد مخصص للبضائع؟ لو سمحت",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "أريد متى ينتهي عقد الصيانة الحالي؟",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "أرغب في report elevator fault in building A",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "أريد الاستفسار عن عقد الصيانة فضلاً",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "الرجاء بلاغ عطل مصعد الرجاء المساعدة",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "صباح الخير، ما هو نوع المصعد؟",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "الرجاء المصعد يصدر صوت غريب أريد الإبلاغ",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "أود المصعد عطلان أريد تقديم بلاغ",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "لو سمحت أوقف المصعد في الطابق الأرضي",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "الرجاء كم شخص يسع المصعد؟",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "أريد شغل المصعد من فضلك",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "صباح الخير، أحتاج فني صيانة مصعد",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "تقرير الفحص الدوري للمصعد أرجوك",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "شغل المصعد من فضلك أرجوك",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "أريد رؤية تقرير الصيانة الأخير",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "جدول صيانة دورية للمصاعد فضلاً",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "أحتاج contract renewal terms please",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "السلام عليكم، أخبرني نكتة",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "تقديم بلاغ عطل مصعد من فضلك",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "أرغب في معرفة تفاصيل عقد المصعد الرجاء",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "جدول صيانة دورية للمصاعد أرجوك",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "كم مدة العقد المتبقية؟ الرجاء",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "فضلاً Restart the lift mechanism",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "أتمنى صيانة المصعد الرجاء الإسراع",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "أريد تقرير زيارة الصيانة",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "الرجاء ما هي سرعة المصعد؟",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "Need to report elevator breakdown من فضلك",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "ترجمة هذا النص للإنجليزية أرجوك",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "السلام عليكم، Schedule maintenance visit please",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "تسجيل بلاغ عطل في المصعد رقم 3 من فضلك",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "أريد تقرير زيارة الصيانة لو سمحت",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "Request maintenance for elevator",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "أرجوك I need contract details for the elevator",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "تسجيل بلاغ تعطل مصعد الركاب من فضلك",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "هل العقد يشمل قطع الغيار؟ فضلاً",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "توقف المصعد عن العمل أبلغ",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "الرجاء أرغب في معرفة تفاصيل عقد المصعد",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "الرجاء المصعد لا يفتح أريد بلاغ",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "أود elevator service visit report",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "أرجوك شغل المصعد من فضلك",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "من فضلك أريد تقديم بلاغ عطل في المصعد",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "مرحباً، بنود العقد وشروط الصيانة",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "لو سمحت أريد طلب صيانة للمصعد",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "أود الرجاء تسجيل بلاغ لمصعد العمارة",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "السلام عليكم، أنت غبي",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "صباح الخير، متى آخر زيارة صيانة؟",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "السلام عليكم، باب المصعد لا يغلق أبلغ فضلاً",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "السلام عليكم، تسجيل بلاغ عطل في المصعد رقم 3",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "أرجوك Operate the elevator manually",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "المصعد متى تم تركيبه؟ أرجوك",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "أرجوك أظهر تقرير زيارة الصيانة",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "أود شغل المصعد من فضلك",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "أحتاج what is the weather?",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "بدء تشغيل المصعد بعد التعطل فضلاً",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "أرغب في تشغيل المصعد بعد الصيانة",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "أتمنى turn on the elevator system",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "بلاغ عطل مصعد الرجاء المساعدة أرجوك",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "فضلاً Report elevator fault in building A",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "مرحباً، المصعد لا يفتح أريد بلاغ",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "السلام عليكم، صيانة المصعد الرجاء الإسراع",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "الرجاء هل يوجد مصعد مخصص للبضائع؟",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "صباح الخير، أريد طلب صيانة للمصعد",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "صباح الخير، Urgent: elevator stuck between floors",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "فضلاً هل العقد يشمل قطع الغيار؟",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "الرجاء When was the last maintenance visit?",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "أتمنى المصعد الكهربائي معطل أريد الإبلاغ",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "من هو رئيس روسيا؟ من فضلك",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "Contract renewal terms please فضلاً",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "المصعد بحاجة صيانة دورية فضلاً",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "فضلاً أحتاج فني صيانة مصعد",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "عقد الصيانة متى ينتهي؟ أرجوك",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "صيانة مصعد الرجاء الحضور الرجاء",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "فضلاً هل المصعد يعمل بالطاقة الشمسية؟",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "مساء الخير، Is there a freight elevator?",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "مساء الخير، Show last maintenance visit report",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "الرجاء Need technician for elevator repair",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "أريد تشغيل المصعد يدوياً",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "أكل التفاح صحي",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "What is the elevator capacity? أرجوك",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "أرغب في متى آخر زيارة صيانة؟",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "How many floors does the elevator serve?",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "أحتاج ما هو الطقس اليوم؟",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "ماذا وجد الفني في الزيارة الأخيرة؟ فضلاً",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "أحتاج تسجيل بلاغ عطل مصعد البطحاء",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "أرجوك Show last maintenance visit report",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "أحتاج start the elevator after repair",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "إيقاف تشغيل المصعد للصيانة لو سمحت",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "من فضلك إعادة تشغيل المصعد",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "أتمنى طلب صيانة مصعد الركاب",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "أريد تقرير زيارة الصيانة أرجوك",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "فضلاً Elevator malfunction report needed",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "السلام عليكم، كم عدد المصاعد في المبنى؟",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "هل المصعد يعمل بالطاقة الشمسية؟ الرجاء",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "طلب صيانة مصعد الركاب الرجاء",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "تقديم بلاغ عطل مصعد",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "أتمنى أوقف المصعد في الطابق الأرضي",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "الرجاء Schedule maintenance visit please",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "أرجوك متى آخر زيارة صيانة؟",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "صباح الخير، متى ينتهي عقد الصيانة الحالي؟",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "Shut down elevator for maintenance لو سمحت",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "تقرير زيارات الصيانة السابقة أرجوك",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "مساء الخير، هل يمكن تعديل العقد؟",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "مساء الخير، تشغيل المصعد يدوياً",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "أرغب في تشغيل المصعد يدوياً",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "مرحباً، المصعد متى تم تركيبه؟",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "Request maintenance for elevator فضلاً",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "فضلاً Show me the maintenance contract",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "صباح الخير، أرغب في معرفة تفاصيل عقد المصعد",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "صيانة عاجلة المصعد لا يتحرك فضلاً",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "تقرير حالة المصعد بعد الصيانة من فضلك",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "أريد هل يوجد مصعد للطوارئ؟",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "السلام عليكم، Operate the elevator manually",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "لو سمحت Start the elevator after repair",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "الرجاء اكتب قصيدة عن المصاعد",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "فضلاً هل تمت زيارة الصيانة الدورية؟",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "لو سمحت Report elevator fault in building A",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "When does the contract expire? أرجوك",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "أود تقديم بلاغ عطل مصعد",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "أحتاج ما هي عاصمة فرنسا؟",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "أتمنى write me a poem",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "لو سمحت How many floors does the elevator serve?",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "أتمنى المصعد يصدر صوت غريب أريد الإبلاغ",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "صباح الخير، إعادة تشغيل نظام المصعد",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "Tell me a joke من فضلك",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "من فضلك Operate the elevator manually",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "أحتاج tell me a joke",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "طلب صيانة عاجلة المصعد عالق",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "السلام عليكم، إيقاف تشغيل المصعد للصيانة",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "أريد نسخة من العقد لو سمحت",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "الرجاء تسجيل بلاغ عطل مصعد البطحاء",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "من فضلك أخبرني نكتة",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "المصعد معطل من يومين أريد بلاغ",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "أود تشغيل المصعد للطوارئ",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "Is there a freight elevator? فضلاً",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "صباح الخير، المصعد واقف بين الأدوار, بلاغ عاجل",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "Elevator service visit report لو سمحت",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "أتمنى آخر تقرير زيارة للمصعد",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "هل يوجد مصعد مخصص للبضائع؟ أرجوك",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "أرجوك المصعد يصدر صوت غريب أريد الإبلاغ",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "صباح الخير، عطل المصعد الرئيسي مبنى الإدارة",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "من فضلك عقد الصيانة متى ينتهي؟",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "فضلاً باب المصعد لا يغلق أبلغ فضلاً",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "أريد أبلغ عن حاجة صيانة مصعد",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "أرغب في معرفة تفاصيل عقد المصعد لو سمحت",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "السلام عليكم، عقد الصيانة متى ينتهي؟",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "أحتاج كم عدد المصاعد في المبنى؟",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "صباح الخير، سجل زيارات الصيانة للمصعد",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "صباح الخير، Contract inquiry about maintenance",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "صباح الخير، ماذا وجد الفني في الزيارة الأخيرة؟",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "أريد when was the last maintenance visit?",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "من فضلك ما هي عاصمة فرنسا؟",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "المصعد لا يعمل أريد تقديم بلاغ",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "صباح الخير، تشغيل المصعد للطوارئ",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "أتمنى أظهر سجل الصيانة للمصعد",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "أرجوك Contract renewal terms please",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "أود maintenance request for lift system",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "مساء الخير، كم طابق يخدم المصعد؟",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "من فضلك تجديد عقد صيانة المصعد",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "تفاصيل زيارة الصيانة الماضية أرجوك",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "Is there a freight elevator? أرجوك",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "أين يوجد مصعد الشحن؟",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "بنود العقد وشروط الصيانة",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "الرجاء هل تمت زيارة الصيانة الدورية؟",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "أحتاج صيانة مصعد الرجاء الحضور",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "صباح الخير، كم طابق يخدم المصعد؟",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "Contract inquiry about maintenance الرجاء",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "أحتاج أوقف المصعد للتفتيش",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "أرجوك تقديم شكوى عطل مصعد",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "How many floors does the elevator serve? الرجاء",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "من فضلك Urgent: elevator stuck between floors",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "المصعد معطل من يومين أريد بلاغ الرجاء",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "لو سمحت المصعد متى تم تركيبه؟",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "مساء الخير، اكتب لي أغنية",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "أود need to report elevator breakdown",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "لو سمحت Show last maintenance visit report",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "السلام عليكم، اكتب قصيدة عن المصاعد",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "لو سمحت ما هو نوع المصعد؟",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "الرجاء شغل المصعد من فضلك",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "أود صيانة المصعد الرجاء الإسراع",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "أود report elevator fault in building A",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "أتمنى what is the elevator capacity?",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "أرغب في write me a poem",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "المصعد متى تم تركيبه؟ فضلاً",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "من فضلك اكتب لي أغنية",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "مرحباً، تسجيل بلاغ تعطل مصعد الركاب",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "فضلاً ترجمة هذا النص للإنجليزية",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "أرجوك تسجيل بلاغ عطل في المصعد رقم 3",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "أود show me the maintenance contract",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "أحتاج how many floors does the elevator serve?",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "أبلغ عن عطل في المصعد الرئيسي فضلاً",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "Operate the elevator manually",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "مساء الخير، طلب صيانة مصعد الركاب",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "تسجيل بلاغ عطل مصعد البطحاء الرجاء",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "لو سمحت Display maintenance history report",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "صباح الخير، استفسار عقد صيانة المصاعد",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "There is a problem with the lift لو سمحت",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "باب المصعد لا يغلق أبلغ فضلاً",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "مرحباً، من هي شركة الصيانة؟",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "من فضلك هل يوجد مصعد مخصص للبضائع؟",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "تقرير حالة المصعد بعد الصيانة لو سمحت",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "مرحباً، كيف أصنع قنبلة؟",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "مرحباً، المصعد الكهربائي معطل أريد الإبلاغ",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "أريد عمل بلاغ عطل المصعد لا يعمل أرجوك",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "لو سمحت متى آخر زيارة صيانة؟",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "فضلاً جدول صيانة دورية للمصاعد",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "السلام عليكم، الإبلاغ عن عطل في المصعد",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "أود when does the contract expire?",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "الرجاء Elevator service visit report",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "فضلاً Contract inquiry about maintenance",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "مساء الخير، المصعد لا يعمل أريد تقديم بلاغ",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "أرجوك طلب صيانة عاجل المصعد لا يعمل",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "السلام عليكم، أبلغ عن عطل في المصعد الرئيسي",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "مساء الخير، تسجيل بلاغ تعطل مصعد الركاب",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "عقد الصيانة متى ينتهي؟ فضلاً",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "أرجوك تشغيل المصعد للطوارئ",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "باب المصعد لا يغلق أبلغ فضلاً الرجاء",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "الرجاء الإبلاغ عن عطل في المصعد",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "صباح الخير، أريد الاستفسار عن عقد الصيانة",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "باب المصعد لا يغلق أبلغ فضلاً أرجوك",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "Elevator needs urgent maintenance من فضلك",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "أتمنى tell me a joke",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "اكتب لي أغنية لو سمحت",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "من فضلك استفسار عن بنود العقد",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "مرحباً، متى آخر زيارة صيانة؟",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "السلام عليكم، Maintenance request for lift system",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "أحتاج shut down elevator for maintenance",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "من فضلك كم طابق يخدم المصعد؟",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "مساء الخير، عقد الصيانة متى ينتهي؟",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "أتمنى هل يوجد مصعد للطوارئ؟",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "أرجوك استفسار عقد صيانة المصاعد",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "مواصفات المصعد الكهربائي فضلاً",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "أتمنى elevator malfunction report needed",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "أحتاج ارفاق العقد من فضلك",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "مساء الخير، تشغيل المصعد بعد الصيانة",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "فضلاً طلب صيانة للمصعد الكهربائي",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "لو سمحت When was the last maintenance visit?",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "طلب صيانة للمصعد الكهربائي أرجوك",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "إعادة تشغيل المصعد فضلاً",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "Start the elevator after repair أرجوك",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "هل يمكن تعديل العقد؟ فضلاً",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "أرغب في بنود العقد وشروط الصيانة",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "ما هي سعة المصعد؟ لو سمحت",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "أريد صيانة مصعد الرجاء الحضور",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "ما هو الطقس اليوم؟ أرجوك",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "مساء الخير، ترجمة هذا النص للإنجليزية",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "مساء الخير، كم مدة العقد المتبقية؟",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "How to hack a website فضلاً",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "لو سمحت هل تمت زيارة الصيانة الدورية؟",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "من فضلك Elevator malfunction report needed",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "السلام عليكم، Tell me a joke",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "من فضلك أمر بتشغيل المصعد الرئيسي",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "فضلاً Urgent: elevator stuck between floors",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "أرغب في elevator needs urgent maintenance",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "أود تسجيل بلاغ تعطل مصعد الركاب",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "أرجوك تقديم بلاغ عطل مصعد",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "الإبلاغ عن عطل مصعد في المبنى أرجوك",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "أحتاج هل العقد يشمل قطع الغيار؟",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "من فضلك عطل في المصعد الرجاء تسجيل بلاغ",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "Schedule maintenance visit please",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "أود كم طابق يخدم المصعد؟",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "هل يوجد تجديد عقد صيانة؟ لو سمحت",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "مساء الخير، المصعد معطل من يومين أريد بلاغ",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "أحتاج restart the lift mechanism",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "الرجاء أريد الاستفسار عن عقد الصيانة",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "لو سمحت الإبلاغ عن عطل في المصعد",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "أود what is the elevator capacity?",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "Start the elevator after repair",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "السلام عليكم، من فاز بكأس العالم؟",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "How to hack a website الرجاء",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "مرحباً، الإبلاغ عن عطل مصعد في المبنى",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "أرغب في إعادة تشغيل المصعد",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "أود أنت غبي",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "Report elevator fault in building A من فضلك",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "أرجوك صيانة مصعد الرجاء الحضور",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "أحتاج need to report elevator breakdown",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "أرغب في المصعد متى تم تركيبه؟",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "أود schedule maintenance visit please",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "أتمنى ما هي سعة المصعد؟",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "أحتاج contract inquiry about maintenance",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "أحتاج توقف المصعد عن العمل أبلغ",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "أحتاج فني صيانة مصعد الرجاء",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "مرحباً، How many floors does the elevator serve?",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "أود when was the last maintenance visit?",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "هل العقد يشمل قطع الغيار؟ لو سمحت",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "تقرير حالة المصعد بعد الصيانة فضلاً",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "جدول صيانة دورية للمصاعد الرجاء",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "أريد start the elevator after repair",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "المصعد عطلان أريد تقديم بلاغ الرجاء",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "Operate the elevator manually لو سمحت",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "تقرير الفحص الدوري للمصعد من فضلك",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "أرغب في إظهار تقارير زيارات الصيانة",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "أود طلب صيانة عاجلة المصعد عالق",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "مرحباً، What is the weather?",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "من هو رئيس روسيا؟ الرجاء",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "ارفاق العقد من فضلك لو سمحت",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "فضلاً ماذا وجد الفني في الزيارة الأخيرة؟",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "الرجاء Contract inquiry about maintenance",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "تشغيل المصعد للطوارئ",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "أود tell me a joke",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "طلب صيانة للمصعد الكهربائي الرجاء",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "أود هل العقد يشمل قطع الغيار؟",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "أود ترجمة هذا النص للإنجليزية",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "تقرير الزيارة الأخيرة للمصعد لو سمحت",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "أرغب في معرفة تفاصيل عقد المصعد",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "أرجوك بنود العقد وشروط الصيانة",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "المصعد لا يعمل أريد تقديم بلاغ الرجاء",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "أحتاج أريد عمل بلاغ عطل المصعد لا يعمل",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "أرجوك عطل المصعد الرئيسي مبنى الإدارة",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "لو سمحت اكتب لي أغنية",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "لو سمحت أبلغ عن عطل في المصعد الرئيسي",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "السلام عليكم، Report elevator fault in building A",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "أود استفسار عن بنود العقد",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "السلام عليكم، ما هي سعة المصعد؟",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "أريد what is the elevator capacity?",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "الرجاء المصعد الكهربائي معطل أريد الإبلاغ",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "الرجاء Operate the elevator manually",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "مساء الخير، تفاصيل زيارة الصيانة الماضية",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "أريد طلب صيانة للمصعد الرجاء",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "كيف أصنع قنبلة؟ الرجاء",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "أريد طلب صيانة للمصعد الكهربائي",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "أتمنى أرغب في معرفة تفاصيل عقد المصعد",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "أتمنى أريد رؤية تقرير الصيانة الأخير",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "أرجوك ما هو الطقس اليوم؟",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "أحتاج طلب صيانة مصعد الركاب",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "مساء الخير، أوقف المصعد للتفتيش",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "مساء الخير، توقف المصعد عن العمل أبلغ",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "تسجيل بلاغ عطل في المصعد رقم 3 فضلاً",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "When does the contract expire?",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "أريد رؤية تقرير الصيانة الأخير لو سمحت",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "تشغيل المصعد بعد الصيانة أرجوك",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "أود جدول صيانة دورية للمصاعد",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "أرغب في توقف المصعد عن العمل أبلغ",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "Report elevator fault in building A فضلاً",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "فضلاً من فاز بكأس العالم؟",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "الرجاء بنود العقد وشروط الصيانة",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "مرحباً، كم طابق يخدم المصعد؟",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "ترجمة هذا النص للإنجليزية الرجاء",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "من فضلك تقديم شكوى عطل مصعد",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "What is the elevator capacity? الرجاء",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "أتمنى ما هو الطقس اليوم؟",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "كم عدد المصاعد في المبنى؟ لو سمحت",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "ترجمة هذا النص للإنجليزية فضلاً",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "Restart the lift mechanism من فضلك",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "Contract inquiry about maintenance لو سمحت",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "من فضلك بنود العقد وشروط الصيانة",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "المصعد لا يفتح أريد بلاغ الرجاء",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "Need technician for elevator repair",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "أود operate the elevator manually",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "مرحباً، أريد تقديم بلاغ عطل في المصعد",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "السلام عليكم، ما هو نوع المصعد؟",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "Need technician for elevator repair لو سمحت",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "صيانة مصعد الرجاء الحضور",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "أرغب في أبلغ عن عطل في المصعد الرئيسي",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "Restart the lift mechanism أرجوك",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "أتمنى ما هي عاصمة فرنسا؟",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "الرجاء المصعد عطلان أريد تقديم بلاغ",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "صباح الخير، المصعد بحاجة صيانة دورية",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "صباح الخير، Elevator needs urgent maintenance",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "أرجوك عطل المصعد الكهربائي سكن الموظفين",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "فضلاً Elevator service visit report",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "مرحباً، توقف المصعد عن العمل أبلغ",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "أتمنى show last maintenance visit report",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "مساء الخير، Urgent: elevator stuck between floors",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "السلام عليكم، تقرير الفحص الدوري للمصعد",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "أرغب في من هو رئيس روسيا؟",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "السلام عليكم، صيانة عاجلة المصعد لا يتحرك",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "أحتاج display maintenance history report",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "لو سمحت أخبرني نكتة",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "أحتاج ما هي سعة المصعد؟",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "مساء الخير، أظهر تقرير زيارة الصيانة",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "لو سمحت صيانة مصعد الرجاء الحضور",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "من فضلك تشغيل المصعد للطوارئ",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "أرجوك How many floors does the elevator serve?",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "أرجوك تشغيل المصعد يدوياً",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "أود elevator needs urgent maintenance",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "أرجوك هل المصعد يعمل بالطاقة الشمسية؟",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "مرحباً، أوقف المصعد في الطابق الأرضي",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "أتمنى هل يوجد تجديد عقد صيانة؟",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "لو سمحت What is the elevator capacity?",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "من فضلك How to hack a website",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "إبلاغ عن عطل مصعد المستودع",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "الرجاء عطل في المصعد الرجاء تسجيل بلاغ",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "تشغيل المصعد الكهربائي من فضلك",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "الرجاء ارفاق العقد من فضلك",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "أريد بلاغ عطل مصعد الرجاء المساعدة",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "صباح الخير، تقرير الزيارة الأخيرة للمصعد",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "تقديم شكوى عطل مصعد من فضلك",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "مرحباً، تسجيل بلاغ عطل في المصعد رقم 3",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "من فضلك إعادة تشغيل نظام المصعد",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  },
+  {
+    "text": "الرجاء كم طابق يخدم المصعد؟",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "فضلاً صيانة عاجلة المصعد لا يتحرك",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "بنود العقد وشروط الصيانة لو سمحت",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "مرحباً، Contract inquiry about maintenance",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "Report elevator fault in building A",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "استفسار عن بنود العقد أرجوك",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "Tell me a joke أرجوك",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "مرحباً، صيانة مصعد الرجاء الحضور",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "أحتاج i need contract details for the elevator",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "مرحباً، تجديد عقد صيانة المصعد",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "أتمنى طلب صيانة عاجلة المصعد عالق",
+    "label": "طلب_صيانة",
+    "label_id": 2
+  },
+  {
+    "text": "السلام عليكم، استفسار عقد صيانة المصاعد",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "فضلاً ما هو نوع المصعد؟",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "أرغب في أظهر تقرير زيارة الصيانة",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "صباح الخير، Is there a freight elevator?",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "لو سمحت Contract renewal terms please",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "أود أرغب في معرفة تفاصيل عقد المصعد",
+    "label": "استفسار_عقد",
+    "label_id": 1
+  },
+  {
+    "text": "المصعد معطل من يومين أريد بلاغ أرجوك",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "فضلاً توقف المصعد عن العمل أبلغ",
+    "label": "إنشاء_بلاغ",
+    "label_id": 0
+  },
+  {
+    "text": "مرحباً، When was the last maintenance visit?",
+    "label": "تقرير_زيارة",
+    "label_id": 3
+  },
+  {
+    "text": "أريد كم عدد المصاعد في المبنى؟",
+    "label": "استعلام_عام",
+    "label_id": 5
+  },
+  {
+    "text": "مساء الخير، أخبرني نكتة",
+    "label": "رفض",
+    "label_id": 6
+  },
+  {
+    "text": "أتمنى تشغيل المصعد للطوارئ",
+    "label": "أمر_تشغيل",
+    "label_id": 4
+  }
+]
