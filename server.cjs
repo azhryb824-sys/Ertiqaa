@@ -802,6 +802,26 @@ function writeVoiceCache(key, audio, contentType) {
   } catch {}
 }
 
+function renderVoiceText(text, options = {}) {
+  const maxChars = Math.max(120, Math.min(900, Number(options.maxChars || process.env.RENDER_VOICE_MAX_CHARS || 420)));
+  let clean = String(text || "")
+    .replace(/\[EXECUTE:[\s\S]*?\]/g, " ")
+    .replace(/https?:\/\/\S+/g, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/[*#_>`~|{}\[\]()]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!clean) return "";
+  const parts = clean.split(/(?<=[.!؟?])\s+/).filter(Boolean);
+  let out = "";
+  for (const part of parts) {
+    if ((out + " " + part).trim().length > maxChars) break;
+    out = (out + " " + part).trim();
+  }
+  if (!out) out = clean.slice(0, maxChars).replace(/\s+\S*$/, "");
+  return out || clean.slice(0, maxChars);
+}
+
 function jameelVoiceRoot() {
   const configured = process.env.JAMEEL_VOICE_ROOT || "D:\\البرمجيات - نسخ احتياطية\\jameel-ai";
   return fs.existsSync(path.join(configured, "inference", "voice.py")) ? configured : "";
@@ -5189,7 +5209,8 @@ ${JSON.stringify(rows, null, 2)}
     req.on("end", async () => {
       try {
         const input = JSON.parse(body || "{}");
-        const text = String(input.text || "").replace(/<[^>]+>/g, " ").trim();
+        const rawText = String(input.text || "").replace(/<[^>]+>/g, " ").trim();
+        const text = renderVoiceText(rawText, {maxChars: input.maxChars});
         if (!text) return sendJson(res, 400, {error: "Missing text"});
         if (!jameelVoiceReady().ready) {
           return sendJson(res, 503, {
@@ -5198,8 +5219,17 @@ ${JSON.stringify(rows, null, 2)}
           });
         }
         try {
+          const samples = voiceSampleList();
+          const key = voiceCacheKey(text, "render-fast-jameel", samples);
+          const cached = readVoiceCache(key);
+          if (cached) {
+            res.writeHead(200, {"Content-Type": cached.contentType, "Cache-Control": "private, max-age=86400", "X-Voice-Source": "cache", "X-Voice-Text-Length": String(text.length)});
+            res.end(cached.audio);
+            return;
+          }
           const {audio, contentType} = await jameelSynthesize(text);
-          res.writeHead(200, {"Content-Type": contentType, "Cache-Control": "private, max-age=86400", "X-Voice-Source": "jameel-ai"});
+          writeVoiceCache(key, audio, contentType);
+          res.writeHead(200, {"Content-Type": contentType, "Cache-Control": "private, max-age=86400", "X-Voice-Source": "jameel-ai", "X-Voice-Text-Length": String(text.length)});
           res.end(audio);
         } catch (err) {
           return sendJson(res, 502, {error: "تعذر توليد الصوت من jameel-ai: " + (err.message || "خطأ غير معروف")});
@@ -5619,9 +5649,10 @@ ${JSON.stringify(rows, null, 2)}
         addMessageToConversation(store, conversationId, "assistant", cleanAnswer);
         
         const memory = aiMemoryList(store);
-        memory.unshift({id: `AIM-${Date.now()}`, userId, role, question, answer: cleanAnswer, plan, model: result.model, provider: result.provider, linguisticProfile: result.linguisticProfile || null, conversationId, executions, createdAt: new Date().toISOString(), rating: "unrated"});
+        const memoryId = `AIM-${Date.now()}`;
+        memory.unshift({id: memoryId, userId, role, question, answer: cleanAnswer, plan, model: result.model, provider: result.provider, linguisticProfile: result.linguisticProfile || null, conversationId, executions, createdAt: new Date().toISOString(), rating: "unrated"});
         saveAiMemory(store, memory);
-        sendJson(res, 200, {...result, answer: cleanAnswer, conversationId, contextCounts: filteredContext.counts, executions});
+        sendJson(res, 200, {...result, answer: cleanAnswer, memoryId, conversationId, contextCounts: filteredContext.counts, executions});
       } catch {
         sendJson(res, 400, {error: "Invalid AI request"});
       }
@@ -5826,10 +5857,10 @@ ${JSON.stringify(rows, null, 2)}
                 if (aiPlan.action && aiPlan.data) {
                   const execR = executeAiAction({action: aiPlan.action, data: Object.assign({}, aiPlan.data, {userId}), userId, role, companyOwnerId: input.companyOwnerId}, store);
                   logAiOperation(store, aiPlan.action, {id: userId, name: userName, role}, {action: aiPlan.action, data: aiPlan.data, result: execR.message});
-                  return sendJson(res, 200, {executed: true, message: aiResult.answer + "\n\n✅ تم تنفيذ الأمر.", action: aiPlan.action, data: execR, model: aiResult.model, provider: aiResult.provider});
+                  return sendJson(res, 200, {executed: true, message: aiResult.answer + "\n\n✅ تم تنفيذ الأمر.", action: aiPlan.action, data: execR, model: aiResult.model, provider: aiResult.provider, linguisticProfile: aiResult.linguisticProfile});
                 }
               }
-              return sendJson(res, 200, {executed: true, message: aiResult.answer, action: "answer", model: aiResult.model, provider: aiResult.provider});
+              return sendJson(res, 200, {executed: true, message: aiResult.answer, action: "answer", model: aiResult.model, provider: aiResult.provider, linguisticProfile: aiResult.linguisticProfile});
             }
           } catch {}
           const local = searchLocalData(question, store, {id: userId, role, name: userName, companyOwnerId: input.companyOwnerId});
@@ -5967,7 +5998,7 @@ ${JSON.stringify(rows, null, 2)}
         try {
           const aiResult = await askUnifiedAi(question, context, {id: userId, role, name: userName});
           if (aiResult.answer && !aiResult.error) {
-            return sendJson(res, 200, {executed: true, message: aiResult.answer, action: "answer", model: aiResult.model, provider: aiResult.provider});
+            return sendJson(res, 200, {executed: true, message: aiResult.answer, action: "answer", model: aiResult.model, provider: aiResult.provider, linguisticProfile: aiResult.linguisticProfile});
           }
         } catch {}
         const local = searchLocalData(question, store, {id: userId, role, name: userName, companyOwnerId: input.companyOwnerId});

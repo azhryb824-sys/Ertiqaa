@@ -970,6 +970,31 @@ const unlinkUser=e.target.closest("[data-unlink-user]");if(unlinkUser){const uid
     } catch { msg.textContent = "تعذر الاتصال بالخادم"; msg.style.color = "#c85c59"; }
   };
   // ===== End Visit Approval & Rating System =====
+  function injectAiModelControls(){
+    var chat=document.querySelector(".ai-unified-panel .voice-chat-container");
+    if(!chat||document.getElementById("aiModelControls"))return;
+    chat.insertAdjacentHTML("beforebegin",'<div id="aiModelControls" class="ai-model-controls"><label>وضع نموذج الخدمة<select id="aiServiceMode" class="field"><option value="customer">موظف خدمة عميل</option><option value="operations">موظف عمليات</option><option value="technical">مساعد فني</option><option value="voice">رد صوتي سريع</option></select></label><label>اختبار التعلم اللغوي<input id="aiLearningProbe" class="field" placeholder="اكتب عبارة لاختبار تنويع الردود"></label><button class="action-btn primary" type="button" data-ai-learning-test>اختبار النموذج المتطور</button><button class="action-btn" type="button" data-ai-feedback="good">الرد ممتاز</button><button class="action-btn" type="button" data-ai-feedback="repeated">الرد مكرر</button><button class="action-btn" type="button" data-ai-feedback="customer-tone">حسّن أسلوب خدمة العميل</button><div id="aiLearningVisibleStatus" class="ai-learning-visible">جاري قراءة حالة التعلم العميق...</div></div>');
+    refreshAiLearningVisibleStatus();
+  }
+  function refreshAiLearningVisibleStatus(){
+    var box=document.getElementById("aiLearningVisibleStatus");if(!box)return;
+    fetch(`/api/ai/agent/status?userId=${encodeURIComponent(session.id)}&role=${encodeURIComponent(session.role)}`,{cache:"no-store"}).then(r=>r.json()).then(d=>{
+      var l=d.linguisticLearning||{},sig=l.learnedSignals||{},recent=d.recentMemory||[];
+      box.dataset.latestMemoryId=recent[0]?.id||"";
+      box.innerHTML=`<b>نموذج التعلم اللغوي: ${esc(l.persona||"service_employee")}</b><span>النبرة: ${esc(l.tone||"professional")} · الثقة: ${Math.round((l.confidence||0)*100)}% · ذاكرة الردود: ${sig.memorySamples||0}</span><small>يستخدم هذا النموذج لتنويع الردود والعمل كموظف ذكاء اصطناعي حسب دور المستخدم.</small>`;
+    }).catch(()=>{box.textContent="تعذر تحميل حالة التعلم العميق."});
+  }
+  window.sendAiResponseFeedback=function(value){
+    var box=document.getElementById("aiLearningVisibleStatus"),id=box?.dataset.latestMemoryId||"";if(!id){toast("لا يوجد رد محفوظ لتقييمه بعد.");return}
+    fetch("/api/ai/response-feedback",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({memoryId:id,rating:value,feedback:value})}).then(r=>r.json()).then(d=>{toast(d.ok?"تم حفظ تقييم الرد في التعلم اللغوي":"تعذر حفظ التقييم");refreshAiLearningVisibleStatus()}).catch(()=>toast("تعذر إرسال تقييم الرد"));
+  };
+  document.addEventListener("click",function(e){var fb=e.target.closest("[data-ai-feedback]");if(fb){sendAiResponseFeedback(fb.dataset.aiFeedback);return}var test=e.target.closest("[data-ai-learning-test]");if(test){var q=document.getElementById("aiLearningProbe")?.value||"اختبر التعلم العميق في الردود كموظف خدمة عملاء";runUnifiedAiCommand(q)}});
+  new MutationObserver(injectAiModelControls).observe(document.body,{childList:true,subtree:true});
+  setTimeout(injectAiModelControls,0);
+  setInterval(function(){if(document.getElementById("aiModelControls"))refreshAiLearningVisibleStatus()},15000);
+  function voiceFastClientText(text){var t=String(text||"").replace(/\[EXECUTE:[\s\S]*?\]/g," ").replace(/https?:\/\/\S+/g," ").replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim();if(t.length<=420)return t;var parts=t.split(/(?<=[.!؟?])\s+/),out="";for(var i=0;i<parts.length;i++){if((out+" "+parts[i]).trim().length>420)break;out=(out+" "+parts[i]).trim()}return out||t.slice(0,420)}
+  var __speakArabicBase=speakArabic;speakArabic=function(text){return __speakArabicBase(voiceFastClientText(text))};
+  var __runUnifiedAiCommandBase=runUnifiedAiCommand;runUnifiedAiCommand=async function(text){var d=await __runUnifiedAiCommandBase(text);var p=d&&d.linguisticProfile;if(p){var box=document.getElementById("aiAnswer");if(box)box.insertAdjacentHTML("beforeend",`<div class="ai-learning-visible"><b>تمت الصياغة عبر نموذج التعلم اللغوي</b><span>${esc(p.persona||"service_employee")} · ${esc(p.tone||"professional")} · ثقة ${Math.round((p.confidence||0)*100)}%</span></div>`)}refreshAiLearningVisibleStatus();return d};
   document.addEventListener("keydown",function(e){var inp=e.target.closest("#aiTextInput");if(inp&&e.key==="Enter"){var btn=document.getElementById("aiSendBtn");if(btn)btn.click()}});
 
   // Export bridge for pdfmake-gen.js
