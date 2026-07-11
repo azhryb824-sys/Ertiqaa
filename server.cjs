@@ -14,7 +14,6 @@ const { continuousLearning } = require("./src/ai/continuousLearning.cjs");
 // Import advanced AI modules
 const { modelSelectionSystem } = require("./src/ai/modelSelectionSystem.cjs");
 const { deepLearningModels } = require("./src/ai/deepLearningModels.cjs");
-const { deepLearningModels } = require("./src/ai/deepLearningModels.cjs");
 const { nlpProcessor } = require("./src/ai/nlpProcessor.cjs");
 const { explainableAI } = require("./src/ai/explainableAI.cjs");
 
