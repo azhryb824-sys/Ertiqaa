@@ -74,7 +74,7 @@ const huggingFacePipeline = {
     const ready = await this.ready();
     return {
       available: ready,
-      models: ["Xenova/distilbert-base-uncased-mnli (zero-shot)", "Xenova/all-MiniLM-L6-v2 (embeddings)", "Xenova/distilbart-cnn-6-6 (summarization)"],
+      models: ["Xenova/distilbert-base-uncased-mnli (zero-shot)", "Xenova/all-MiniLM-L6-v2 (embeddings)", "Xenova/distilbart-cnn-6-6 (summarization)", "Xenova/LaBSE (Arabic embeddings)"],
       loadedPipelines: Object.keys(pipeCache).filter(k => k !== "_pipeline"),
       backend: ready ? (typeof WebAssembly !== "undefined" && typeof WebAssembly.validate === "function" ? "wasm" : "cpu") : "none"
     };

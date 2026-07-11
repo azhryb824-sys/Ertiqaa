@@ -17,6 +17,7 @@ const { deepLearningModels } = require("./src/ai/deepLearningModels.cjs");
 const { nlpProcessor } = require("./src/ai/nlpProcessor.cjs");
 const { explainableAI } = require("./src/ai/explainableAI.cjs");
 const { huggingFacePipeline } = require("./src/ai/huggingFacePipeline.cjs");
+const { vectorSearch } = require("./src/ai/vectorSearch.cjs");
 
 const root = __dirname;
 const port = Number(process.env.PORT || 4173);
@@ -5254,71 +5255,7 @@ ${JSON.stringify(rows, null, 2)}
   }
 
   if (pathname === "/api/voice/samples/train" && req.method === "POST") {
-    let body = "";
-    req.on("data", chunk => body += chunk);
-    req.on("end", async () => {
-      let uploaded = [];
-      try { const input = JSON.parse(body || "{}"); if (Array.isArray(input.samples)) uploaded = input.samples; } catch {}
-      if (!uploaded.length) {
-        uploaded = fs.existsSync(voiceSamplesDir) ? fs.readdirSync(voiceSamplesDir).filter(f => /\.(wav|mp3|m4a|ogg|flac|webm)$/i.test(f)) : [];
-      }
-      if (!uploaded.length) return sendJson(res, 400, {error: "لا توجد عينات صوتية مرفوعة للتدريب.", trainStarted: false});
-      const jameel = jameelVoiceReady();
-      const localJameel = localJameelVoiceReady();
-      if (jameel.remote && jameel.endpoint && !localJameel.root) {
-        try {
-          const dirSamples = fs.existsSync(voiceSamplesDir) ? fs.readdirSync(voiceSamplesDir).filter(f => /\.(wav|mp3|m4a|ogg|flac|webm)$/i.test(f)) : [];
-          const results = await Promise.allSettled(dirSamples.map(async f => {
-            const audioBuffer = fs.readFileSync(path.join(voiceSamplesDir, f));
-            const resp = await fetch(`${jameel.endpoint}/training/voice`, {
-              method: "POST",
-              headers: {"Content-Type": "application/json"},
-              body: JSON.stringify({audio: audioBuffer.toString("base64"), name: f})
-            });
-            const data = await resp.json();
-            return data.ok === true;
-          }));
-          const okCount = results.filter(r => r.status === "fulfilled" && r.value === true).length;
-          if (okCount === 0) {
-            return sendJson(res, 200, {ok: false, trainStarted: false, samplesCopied: 0, error: "لم تقبل jameel-ai أي عينة. تأكد من تشغيلها وإعداد JAMEEL_VOICE_ENDPOINT."});
-          }
-          return sendJson(res, 200, {ok: true, trainStarted: true, samplesCopied: okCount, message: `تم تدريب ${okCount} عينة في jameel-ai بنجاح.`});
-        } catch (err) {
-          return sendJson(res, 500, {error: "فشل إرسال العينات: " + err.message, trainStarted: false});
-        }
-      }
-      const trainRoot = localJameel.root || jameel.root;
-      if (!trainRoot) {
-        return sendJson(res, 503, {error: "خدمة jameel-ai المحلية غير متوفرة.", trainStarted: false});
-      }
-      const wavDir = path.join(trainRoot, "voice_samples", "wav");
-      try {
-        fs.mkdirSync(wavDir, {recursive: true});
-        let copied = 0;
-        uploaded.forEach(f => {
-          try {
-            const src = path.join(voiceSamplesDir, f);
-            const base = path.basename(f, path.extname(f)) + ".wav";
-            const dest = path.join(wavDir, `user_${base}`);
-            fs.copyFileSync(src, dest);
-            copied++;
-          } catch {}
-        });
-        const refsPath = path.join(trainRoot, "voice_samples", "selected_references.json");
-        let refs = {references: []};
-        try { refs = JSON.parse(fs.readFileSync(refsPath, "utf8") || "{}"); } catch {}
-        const newRefs = uploaded.map(f => `user_${path.basename(f, path.extname(f))}.wav`);
-        refs.references = [...new Set([...newRefs, ...(refs.references || [])])];
-        fs.writeFileSync(refsPath, JSON.stringify(refs, null, 2), "utf8");
-        clearVoiceCache();
-        const after = localJameelVoiceReady();
-        const refresh = await refreshJameelVoiceService();
-        return sendJson(res, 200, {ok: copied > 0 && after.references > 0, trainStarted: copied > 0, samplesCopied: copied, localVoice: after, refresh, message: `تم تدريب ${copied} عينة وربطها بصوتك. المراجع الحالية: ${after.references}.`});
-      } catch (err) {
-        return sendJson(res, 500, {error: "فشل التدريب المحلي: " + err.message, trainStarted: false});
-      }
-    });
-    return;
+    return sendJson(res, 403, {error: "التدريب معطل. النظام يعمل في وضع الاستدلال فقط (Inference-Only).", trainStarted: false});
   }
 
   if (pathname === "/api/voice/samples/delete" && req.method === "POST") {
@@ -6603,7 +6540,6 @@ ${JSON.stringify(rows, null, 2)}
     }
     const store = readStore();
     const reports = parseStoredJson(store, "misadVisitReports") || [];
-    const predictions = [];
     const faultCounts = {};
     const brandCounts = {};
     const partUsage = {};
@@ -6684,13 +6620,29 @@ ${JSON.stringify(rows, null, 2)}
       recommendations.push("لا توجد بيانات كافية للتحليل - يوصى بتعبئة تقارير الزيارات بشكل أكثر تفصيلاً");
     }
 
+    var semanticResultsArr = [];
+    var enrichedRecs = recommendations;
+    try {
+      await (vectorSearch.init());
+      semanticResultsArr = await vectorSearch.query("أعطال مصاعد متكررة", 3);
+      if (semanticResultsArr.length) semanticResultsArr.forEach(function(sr) {
+        enrichedRecs.push("[بحث دلالي] " + sr.text.slice(0, 120) + " (تشابه: " + (sr.score*100).toFixed(0) + "%)");
+      });
+    } catch(e) {}
+
     res.setHeader("Content-Type", "application/json");
     res.end(JSON.stringify({
       totalReports: totalReports,
       topFaults: topFaults,
       topParts: topParts,
       brandStats: Object.entries(brandCounts).sort(function(a,b){ return b[1] - a[1]; }).slice(0, 5).map(function(b){ return { brand: b[0], count: b[1] }; }),
-      recommendations: recommendations,
+      recommendations: enrichedRecs,
+      semanticSearch: semanticResultsArr,
+      dlAnalysis: deepLearningModels.predictFailureRisk({
+        visits: reports.slice(-20).map(function(r) { return { id: r.id, date: r.createdAt, severity: r.severity || "medium", resolved: !/توصية|يلزم|متابعة/i.test(r.notes||""), faults: [], notes: r.notes || r.description || "" }; }),
+        tickets: [], reports: reports.slice(-20).map(function(r) { return { id: r.id, severity: r.severity || "low" }; }),
+        lastMaintenanceDate: reports.length ? reports[reports.length - 1].createdAt : null
+      }),
       analyzedAt: new Date().toISOString()
     }));
     return;
@@ -7211,20 +7163,7 @@ ${JSON.stringify(rows, null, 2)}
   }
 
   if (req.url === "/api/ai/deep-learning/train" && req.method === "POST") {
-    let body = "";
-    req.on("data", chunk => body += chunk);
-    req.on("end", async () => {
-      try {
-        const input = JSON.parse(body || "{}");
-        const task = String(input.task || "").trim();
-        if (!task) return sendJson(res, 400, { error: "مهمة التدريب مطلوبة (voice / prediction)." });
-        const result = await deepLearningModels.train(task, input);
-        return sendJson(res, result.error ? 400 : 200, result);
-      } catch (err) {
-        return sendJson(res, 500, { error: "فشل تدريب النموذج: " + err.message });
-      }
-    });
-    return;
+    return sendJson(res, 403, { error: "التدريب معطل. النظام يعمل في وضع الاستدلال فقط (Inference-Only)." });
   }
 
   if (req.url === "/api/ai/deep-learning/predict" && req.method === "POST") {
@@ -7242,6 +7181,70 @@ ${JSON.stringify(rows, null, 2)}
     });
     return;
   }
+  if (req.url === "/api/ai/vector-search" && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", async () => {
+      try {
+        const input = JSON.parse(body || "{}");
+        const query = String(input.query || "").trim();
+        const topK = Number(input.topK) || 5;
+        if (!query) return sendJson(res, 400, { error: "الاستعلام مطلوب." });
+        await vectorSearch.init();
+        const results = await vectorSearch.query(query, topK);
+        return sendJson(res, 200, { ok: true, results, count: results.length });
+      } catch (err) {
+        return sendJson(res, 500, { error: "فشل البحث الدلالي: " + err.message });
+      }
+    });
+    return;
+  }
+
+  if (req.url === "/api/ai/nlp/status" && req.method === "GET") {
+    try {
+      const status = await nlpProcessor.status();
+      return sendJson(res, 200, status);
+    } catch (err) {
+      return sendJson(res, 200, { ready: false, error: err.message });
+    }
+  }
+
+  if (req.url === "/api/ai/nlp/classify" && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", async () => {
+      try {
+        const input = JSON.parse(body || "{}");
+        const text = String(input.text || "").trim();
+        if (!text) return sendJson(res, 400, { error: "النص مطلوب." });
+        const intent = await nlpProcessor.classifyIntent(text);
+        const entities = await nlpProcessor.extractEntities(text);
+        return sendJson(res, 200, { ok: true, intent, entities, text });
+      } catch (err) {
+        return sendJson(res, 500, { error: "فشل تحليل النص: " + err.message });
+      }
+    });
+    return;
+  }
+
+  if (req.url === "/api/ai/semantic-similarity" && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", async () => {
+      try {
+        const input = JSON.parse(body || "{}");
+        const a = String(input.a || "").trim();
+        const b = String(input.b || "").trim();
+        if (!a || !b) return sendJson(res, 400, { error: "كلا النصين مطلوبان." });
+        const sim = await nlpProcessor.semanticSimilarity(a, b);
+        return sendJson(res, 200, { ok: true, similarity: sim, a: a.slice(0, 100), b: b.slice(0, 100) });
+      } catch (err) {
+        return sendJson(res, 500, { error: "فشل حساب التشابه: " + err.message });
+      }
+    });
+    return;
+  }
+
   // ==================== END NEW AI ENDPOINTS ====================
 
   if (req.url.startsWith("/api/invite/current")) {

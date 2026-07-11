@@ -1,6 +1,4 @@
-// Continuous Learning Module
-// Maintains in-memory datasets for visits, feedback, patterns, and metrics
-// Analyzes visit data to discover patterns and predict issues
+const { vectorSearch } = require("./vectorSearch.cjs");
 
 const continuousLearning = {
   _visits: [],
@@ -9,7 +7,7 @@ const continuousLearning = {
   _seededIds: new Set(),
   _nextPatternId: 1,
 
-  recordVisit: function(visit) {
+  recordVisit: async function(visit) {
     const faults = this._normalizeList(visit.faults && visit.faults.length ? visit.faults : [visit.findings, visit.issues, visit.faultCodes].flat());
     const parts = this._normalizeList(visit.parts && visit.parts.length ? visit.parts : [visit.partsReplaced, visit.partsUsed, visit.parts].flat());
     const storedVisit = {
@@ -28,21 +26,22 @@ const continuousLearning = {
     };
     this._visits.push(storedVisit);
     this._analyzeForPatterns(storedVisit);
+    try { await vectorSearch.addVisit(storedVisit); } catch {}
     return storedVisit;
   },
 
-  seedFromOperationalData: function(data) {
+  seedFromOperationalData: async function(data) {
     const reports = Array.isArray(data && data.reports) ? data.reports : [];
     const visits = Array.isArray(data && data.visits) ? data.visits : [];
     const tickets = Array.isArray(data && data.tickets) ? data.tickets : [];
     let added = 0;
 
-    reports.forEach(report => {
+    for (const report of reports) {
       const id = `report:${report.id || report.reportId || report.visitId || JSON.stringify(report).slice(0, 80)}`;
       if (this._seededIds.has(id) || this._visits.some(v => v.sourceId === id)) return;
       const relatedVisit = visits.find(v => String(v.id || "") === String(report.visitId || ""));
       const text = [report.description, report.workDone, report.issues, report.parts, report.recommendations, report.details, report.notes].filter(Boolean).join(" ");
-      const stored = this.recordVisit({
+      const stored = await this.recordVisit({
         id: report.id || report.visitId || id,
         elevatorId: this._elevatorId(report, relatedVisit),
         technicianId: report.technicianId || report.createdBy || relatedVisit?.technicianId || relatedVisit?.assignedTo || "",
@@ -58,13 +57,13 @@ const continuousLearning = {
       stored.sourceId = id;
       this._seededIds.add(id);
       added++;
-    });
+    }
 
-    tickets.forEach(ticket => {
+    for (const ticket of tickets) {
       const id = `ticket:${ticket.id || JSON.stringify(ticket).slice(0, 80)}`;
       if (this._seededIds.has(id) || this._visits.some(v => v.sourceId === id)) return;
       const text = [ticket.title, ticket.description, ticket.details, ticket.notes].filter(Boolean).join(" ");
-      const stored = this.recordVisit({
+      const stored = await this.recordVisit({
         id: ticket.id || id,
         elevatorId: this._elevatorId(ticket),
         technicianId: ticket.assignedTo || "",
@@ -78,7 +77,7 @@ const continuousLearning = {
       stored.sourceId = id;
       this._seededIds.add(id);
       added++;
-    });
+    }
 
     return {added, totalVisits: this._visits.length, totalPatterns: this._patterns.length};
   },
@@ -132,7 +131,7 @@ const continuousLearning = {
     return this._patterns;
   },
 
-  predictIssues: function(elevatorId) {
+  predictIssues: async function(elevatorId) {
     const elevatorVisits = this._visits.filter(v => v.elevatorId === elevatorId);
     if (elevatorVisits.length === 0) {
       return { risk: 'unknown', message: 'No visit history for this elevator', predictions: [] };
@@ -152,20 +151,20 @@ const continuousLearning = {
     });
 
     const predictions = [];
-    Object.entries(faultFrequency)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .forEach(([fault, count]) => {
-        const risk = count / recentVisits.length;
-        predictions.push({
-          type: 'fault',
-          item: fault,
-          probability: Math.round(risk * 100) / 100,
-          riskLevel: risk > 0.5 ? 'high' : risk > 0.25 ? 'medium' : 'low',
-          basedOn: count,
-          totalVisits: recentVisits.length
-        });
+    for (const [fault, count] of Object.entries(faultFrequency).sort((a, b) => b[1] - a[1]).slice(0, 5)) {
+      const risk = count / recentVisits.length;
+      const semanticBoost = await this._semanticBoost(fault, recentVisits);
+      const adjusted = Math.min(1, risk + semanticBoost);
+      predictions.push({
+        type: 'fault',
+        item: fault,
+        probability: Math.round(adjusted * 100) / 100,
+        riskLevel: adjusted > 0.5 ? 'high' : adjusted > 0.25 ? 'medium' : 'low',
+        basedOn: count,
+        semanticBoost: Math.round(semanticBoost * 100) / 100,
+        totalVisits: recentVisits.length
       });
+    }
 
     Object.entries(partFrequency)
       .sort((a, b) => b[1] - a[1])
@@ -193,6 +192,19 @@ const continuousLearning = {
       totalVisitsAnalyzed: recentVisits.length,
       predictions
     };
+  },
+
+  _semanticBoost: async function(fault, recentVisits) {
+    try {
+      const similar = await vectorSearch.query(fault, 3, 0.5);
+      if (similar.length) return similar.reduce((s, r) => s + r.score, 0) / similar.length * 0.15;
+      const notes = recentVisits.map(v => v.notes).filter(Boolean).join(" ");
+      if (notes) {
+        const sim = await nlpProcessor.semanticSimilarity(fault, notes);
+        if (sim !== null && sim > 0.5) return sim * 0.1;
+      }
+    } catch {}
+    return 0;
   },
 
   generateLearningReport: function() {
@@ -328,7 +340,33 @@ const continuousLearning = {
     return String(record?.elevatorId || record?.assetId || record?.contractId || record?.buildingName || related?.elevatorId || related?.contractId || "general");
   },
 
-  _analyzeForPatterns: function(visit) {
+  findSemanticallySimilar: async function (text, threshold) {
+    if (threshold === undefined) threshold = 0.6;
+    const results = await vectorSearch.query(text, 3, threshold);
+    if (results.length) return results;
+    const visits = this._visits.slice(-50);
+    let topScore = 0;
+    let topVisit = null;
+    for (const v of visits) {
+      const jsim = this._jaccardSimilarity(text, [v.notes, ...(v.faults || [])].join(" "));
+      if (jsim > topScore) { topScore = jsim; topVisit = v; }
+    }
+    return topScore >= threshold ? [{ score: topScore, id: topVisit.id, text: topVisit.notes }] : [];
+  },
+
+  _jaccardSimilarity: function(a, b) {
+    if (!a || !b) return 0;
+    const w1 = this._normalizeList(a.split(/\s+/)).filter(w => w.length > 2);
+    const w2 = this._normalizeList(b.split(/\s+/)).filter(w => w.length > 2);
+    if (!w1.length || !w2.length) return 0;
+    const s1 = new Set(w1);
+    let intersection = 0;
+    w2.forEach(w => { if (s1.has(w)) intersection++; });
+    const union = new Set([...w1, ...w2]).size;
+    return union > 0 ? intersection / union : 0;
+  },
+
+  _analyzeForPatterns: async function(visit) {
     (visit.faults || []).forEach(fault => {
       const existing = this._patterns.find(p => p.type === 'recurring_fault' && p.fault === fault);
       if (existing) {

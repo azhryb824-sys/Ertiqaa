@@ -27,6 +27,8 @@ function fetchJson(endpoint, options = {}) {
 }
 
 const { huggingFacePipeline } = require("./huggingFacePipeline.cjs");
+const { vectorSearch } = require("./vectorSearch.cjs");
+const { nlpProcessor } = require("./nlpProcessor.cjs");
 const deepLearningModels = {
   available: true,
   connected: false,
@@ -62,20 +64,8 @@ const deepLearningModels = {
       note: "Using built-in operational predictor + remote jameel-ai for deep learning." };
   },
 
-  train: async function (task, data) {
-    const ep = jameelEndpoint();
-    if (task === "voice") {
-      const samples = data?.samples || [];
-      if (!samples.length) return { error: "لا توجد عينات للتدريب." };
-      const results = [];
-      for (const s of samples) {
-        const r = await fetchJson(`${ep}/training/voice`, { method: "POST", body: { audio: s.audio, name: s.name }, timeout: 30000 });
-        results.push(r);
-      }
-      const okCount = results.filter(r => r.ok === true).length;
-      return { ok: okCount > 0, trained: okCount, total: samples.length, details: results };
-    }
-    return { error: `Deep learning task "${task}" غير مدعومة.` };
+  train: async function () {
+    return { error: "تم تعطيل التدريب. النظام يعمل في وضع الاستدلال فقط (Inference-Only)." };
   },
 
   predict: function (modelId, input) {
@@ -88,6 +78,13 @@ const deepLearningModels = {
 
   classifyWithHF: async function (text, labels) {
     try { return await huggingFacePipeline.classifyText(text, labels); } catch { return null; }
+  },
+
+  semanticSearch: async function (query, topK) {
+    try {
+      await vectorSearch.init();
+      return await vectorSearch.query(query, topK || 5);
+    } catch { return []; }
   },
 
   getStatus: async function () {
@@ -116,12 +113,14 @@ const deepLearningModels = {
     const negativeSignals = memory.filter(m => /bad|ضعيف|غير|مكرر|لم يعجب|negative|rejected/i.test(String(m.rating || m.feedback || m.question || ""))).length;
     const repeatedOpenings = this._topOpenings(memory.map(m => m.answer).filter(Boolean));
     const isVoice = /صوت|voice|مايك|تحدث|اسمع/i.test(question) || input.voiceMode === true;
-    const isCustomer = role === "client" || /عميل|خدمة|بلاغ|اعتماد|تقرير|عقدي|زيارتي/i.test(question);
-    const isTechnical = /عطل|مصعد|باب|محرك|حساس|فرامل|انفرتر|فني|زيارة/i.test(question);
+    const isCustomer = role === "client" || /عميل|خدمة|بلاغ|اعتماد|عقدي|زيارتي/i.test(question);
+    const isTechnical = /عطل|مصعد|باب|محرك|حساس|فرامل|انفرتر|فني/i.test(question);
     const isManager = ["owner", "company_admin", "admin"].includes(role);
+    const isReportQuery = /تقرير|إحصاء|أداء|شهري/i.test(question) && isManager;
     const needsAction = /سوي|اعمل|أنشئ|افتح|سجل|ارسل|جدول|نفذ|اعتمد/i.test(question) || intent.startsWith("create_");
     let persona = "service_employee";
-    if (isCustomer) persona = "customer_success_employee";
+    if (isReportQuery) persona = "operations_employee";
+    else if (isCustomer) persona = "customer_success_employee";
     else if (isTechnical && role === "technician") persona = "technical_dispatch_employee";
     else if (isManager) persona = "operations_employee";
     let tone = "professional_warm";
