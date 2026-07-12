@@ -79,7 +79,7 @@
       ? { image: stamp, width: 120, height: 90, alignment: 'center', margin: [0, 4, 0, 0] }
       : { text: 'التوقيع: ........................', fontSize: 10, color: '#8b9f99', alignment: 'center' };
     return [
-      { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.5, lineColor: '#e2e8e5' }], margin: [0, 0, 0, 6] },
+      { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.5, lineColor: '#a0b8ad' }], margin: [0, 0, 0, 6] },
       {
         columns: [
           {
@@ -113,8 +113,8 @@
       layout: {
         hLineWidth: function(i){ return i === 0 ? 0 : 0.5; },
         vLineWidth: function(){ return 0.5; },
-        hLineColor: function(){ return '#dce5e1'; },
-        vLineColor: function(){ return '#dce5e1'; },
+        hLineColor: function(){ return '#a0b8ad'; },
+        vLineColor: function(){ return '#a0b8ad'; },
         paddingLeft: function(){ return 8; },
         paddingRight: function(){ return 8; },
         paddingTop: function(){ return 6; },
@@ -164,8 +164,8 @@
         layout: {
           hLineWidth: function(){ return 0.5; },
           vLineWidth: function(){ return 0.5; },
-          hLineColor: function(){ return '#dce5e1'; },
-          vLineColor: function(){ return '#dce5e1'; },
+          hLineColor: function(){ return '#a0b8ad'; },
+          vLineColor: function(){ return '#a0b8ad'; },
           paddingLeft: function(){ return 8; },
           paddingRight: function(){ return 8; },
           paddingTop: function(){ return 5; },
@@ -209,8 +209,8 @@
         layout: {
           hLineWidth: function(){ return 0.5; },
           vLineWidth: function(){ return 0.5; },
-          hLineColor: function(){ return '#dce5e1'; },
-          vLineColor: function(){ return '#dce5e1'; },
+          hLineColor: function(){ return '#a0b8ad'; },
+          vLineColor: function(){ return '#a0b8ad'; },
           paddingLeft: function(){ return 6; },
           paddingRight: function(){ return 6; },
           paddingTop: function(){ return 4; },
@@ -256,8 +256,8 @@
         layout: {
           hLineWidth: function(){ return 0.5; },
           vLineWidth: function(){ return 0.5; },
-          hLineColor: function(){ return '#dce5e1'; },
-          vLineColor: function(){ return '#dce5e1'; },
+          hLineColor: function(){ return '#a0b8ad'; },
+          vLineColor: function(){ return '#a0b8ad'; },
           paddingLeft: function(){ return 6; },
           paddingRight: function(){ return 6; },
           paddingTop: function(){ return 4; },
@@ -471,8 +471,8 @@
         layout: {
           hLineWidth: function(){ return 0.5; },
           vLineWidth: function(){ return 0.5; },
-          hLineColor: function(){ return '#dce5e1'; },
-          vLineColor: function(){ return '#dce5e1'; },
+          hLineColor: function(){ return '#a0b8ad'; },
+          vLineColor: function(){ return '#a0b8ad'; },
           paddingLeft: function(){ return 8; },
           paddingRight: function(){ return 8; },
           paddingTop: function(){ return 4; },
@@ -503,8 +503,8 @@
         layout: {
           hLineWidth: function(){ return 0.5; },
           vLineWidth: function(){ return 0.5; },
-          hLineColor: function(){ return '#dce5e1'; },
-          vLineColor: function(){ return '#dce5e1'; },
+          hLineColor: function(){ return '#a0b8ad'; },
+          vLineColor: function(){ return '#a0b8ad'; },
           paddingLeft: function(){ return 8; },
           paddingRight: function(){ return 8; },
           paddingTop: function(){ return 5; },
@@ -547,8 +547,8 @@
           layout: {
             hLineWidth: function(){ return 0.5; },
             vLineWidth: function(){ return 0.5; },
-            hLineColor: function(){ return '#dce5e1'; },
-            vLineColor: function(){ return '#dce5e1'; },
+            hLineColor: function(){ return '#a0b8ad'; },
+            vLineColor: function(){ return '#a0b8ad'; },
             paddingLeft: function(){ return 8; },
             paddingRight: function(){ return 8; },
             paddingTop: function(){ return 5; },
@@ -820,8 +820,8 @@
           layout: {
             hLineWidth: function(){ return 0.5; },
             vLineWidth: function(){ return 0.5; },
-            hLineColor: function(){ return '#e2e8e5'; },
-            vLineColor: function(){ return '#e2e8e5'; },
+            hLineColor: function(){ return '#a0b8ad'; },
+            vLineColor: function(){ return '#a0b8ad'; },
             paddingLeft: function(){ return 6; },
             paddingRight: function(){ return 6; },
             paddingTop: function(){ return 4; },
