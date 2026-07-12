@@ -365,7 +365,7 @@
       { stack: [
           { text: [{ text: 'الطرف الأول: ', bold: true, fontSize: 11, color: '#0d312f' }, { text: p1, fontSize: 11, color: '#3b564f' }], margin: [0, 2, 0, 1], alignment: 'right' },
           { text: [{ text: 'الطرف الثاني: ', bold: true, fontSize: 11, color: '#0d312f' }, { text: p2, fontSize: 11, color: '#3b564f' }], margin: [0, 0, 0, 4], alignment: 'right' }
-
+      ]},
       { text: actionText, fontSize: 11, bold: true, color: '#0d312f', margin: [0, 0, 0, 10], alignment: 'right' }
     ];
   }
