@@ -327,10 +327,18 @@
     if (_sharedDd.pageBreakBefore) dd.pageBreakBefore = _sharedDd.pageBreakBefore;
     if (opts && opts.clean) {
       dd.header = function(){
-        return { text: ' ', fontSize: 7, margin: [0, 6, 0, 0] };
+        return {
+          stack: [
+            { text: '.', fontSize: 7, color: '#ffffff', alignment: 'center', margin: [0, 6, 0, 0] },
+            { canvas: [{ type: 'line', x1: 28, y1: 0, x2: 568, y2: 0, lineWidth: 0.3, lineColor: '#ffffff' }] }
+          ]
+        };
       };
-      dd.footer = function(){
-        return { text: ' ', fontSize: 7, margin: [0, 0, 0, 6] };
+      dd.footer = function(cp, pc){
+        var f = [];
+        f.push({ canvas: [{ type: 'line', x1: 28, y1: 0, x2: 568, y2: 0, lineWidth: 0.3, lineColor: '#ffffff' }], margin: [0, 0, 0, 2] });
+        f.push({ text: '.', fontSize: 7, color: '#ffffff', alignment: 'center' });
+        return { stack: f, margin: [28, 0, 28, 6] };
       };
     } else {
       dd.header = function(){ return _sharedDd.header(); };
