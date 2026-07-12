@@ -326,8 +326,12 @@
     dd.content = content;
     if (_sharedDd.pageBreakBefore) dd.pageBreakBefore = _sharedDd.pageBreakBefore;
     if (opts && opts.clean) {
-      dd.header = function(){ return { text: '', margin: [0, 6, 0, 0] }; };
-      dd.footer = function(){ return { text: '', margin: [0, 0, 0, 6] }; };
+      dd.header = function(){
+        return { text: ' ', fontSize: 7, margin: [0, 6, 0, 0] };
+      };
+      dd.footer = function(){
+        return { text: ' ', fontSize: 7, margin: [0, 0, 0, 6] };
+      };
     } else {
       dd.header = function(){ return _sharedDd.header(); };
       dd.footer = function(cp, pc){ return _sharedDd.footer(cp, pc, cleanFooter); };
