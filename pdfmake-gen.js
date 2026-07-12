@@ -326,20 +326,9 @@
     dd.content = content;
     if (_sharedDd.pageBreakBefore) dd.pageBreakBefore = _sharedDd.pageBreakBefore;
     if (opts && opts.clean) {
-      dd.header = function(){
-        return {
-          stack: [
-            { text: '.', fontSize: 7, color: '#ffffff', alignment: 'center', margin: [0, 6, 0, 0] },
-            { canvas: [{ type: 'line', x1: 28, y1: 0, x2: 568, y2: 0, lineWidth: 0.3, lineColor: '#ffffff' }] }
-          ]
-        };
-      };
-      dd.footer = function(cp, pc){
-        var f = [];
-        f.push({ canvas: [{ type: 'line', x1: 28, y1: 0, x2: 568, y2: 0, lineWidth: 0.3, lineColor: '#ffffff' }], margin: [0, 0, 0, 2] });
-        f.push({ text: '.', fontSize: 7, color: '#ffffff', alignment: 'center' });
-        return { stack: f, margin: [28, 0, 28, 6] };
-      };
+      dd.pageMargins = [28, 56, 28, 56];
+      dd.header = function(){ return null; };
+      dd.footer = function(){ return null; };
     } else {
       dd.header = function(){ return _sharedDd.header(); };
       dd.footer = function(cp, pc){ return _sharedDd.footer(cp, pc, cleanFooter); };
@@ -637,9 +626,7 @@
 
     console.log("PDFGEN", "contract type:", c.type, "is install:", isInstall);
 
-    if (opts && opts.clean) {
-      content.push({ text: '', margin: [0, 0, 0, 34] });
-    } else {
+    if (!(opts && opts.clean)) {
       Array.prototype.push.apply(content, buildHeader(logoData));
     }
 
@@ -778,9 +765,7 @@
     var companyName = activeCompanyName();
     var cf = safeFooter();
     var content = [];
-    if (opts && opts.clean) {
-      content.push({ text: '', margin: [0, 0, 0, 34] });
-    } else {
+    if (!(opts && opts.clean)) {
       Array.prototype.push.apply(content, buildHeader(logoData));
     }
 
@@ -897,9 +882,7 @@
     var companyName = activeCompanyName();
     var cf = safeFooter();
     var content = [];
-    if (opts && opts.clean) {
-      content.push({ text: '', margin: [0, 0, 0, 34] });
-    } else {
+    if (!(opts && opts.clean)) {
       Array.prototype.push.apply(content, buildHeader(logoData));
     }
 
@@ -967,9 +950,7 @@
     var companyName = activeCompanyName();
     var cf = safeFooter();
     var content = [];
-    if (opts && opts.clean) {
-      content.push({ text: '', margin: [0, 0, 0, 34] });
-    } else {
+    if (!(opts && opts.clean)) {
       Array.prototype.push.apply(content, buildHeader(logoData));
     }
 
@@ -1011,9 +992,7 @@
     var companyName = activeCompanyName();
     var cf = safeFooter();
     var content = [];
-    if (opts && opts.clean) {
-      content.push({ text: '', margin: [0, 0, 0, 34] });
-    } else {
+    if (!(opts && opts.clean)) {
       Array.prototype.push.apply(content, buildHeader(logoData));
     }
 
