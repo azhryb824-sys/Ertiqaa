@@ -561,7 +561,7 @@
   }
 
   function sectionBlock(num, heading, body){
-    var label = 'البند ' + num + ': ' + heading;
+    var label = num + ': ' + heading;
     var title = sectionTitle(label, [0, 0, 0, 2]);
     if (Array.isArray(body)) {
       if (body.length > 0) {
@@ -580,30 +580,30 @@
 
   function maintenancePdfClauses(){
     return [
-      { text: 'البند خامساً: الضمان على أعمال الصيانة', fontSize: 14, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
+      { text: 'خامساً: الضمان على أعمال الصيانة', fontSize: 14, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
       { text: 'تتحمل الشركة المصنعة أو الموردة أو الشركة المنفذة لأعمال الصيانة (الطرف الأول) مسؤولية ضمان أعمال الصيانة التي تقوم بها وتكون مسؤولة عن أي عيوب أو أخطاء في تلك الأعمال.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] },
       { text: 'يكون الضمان ساري المفعول لمدة عام من تاريخ بداية العقد على الأجزاء التي تمت صيانتها أو استبدالها في حالة الصيانة الناتجة عن سوء التركيب أو التصنيع أو عدم سلامة التصنيع.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] },
       { text: 'مدة الضمان لعملية الصيانة تكون عاماً من تاريخ التنفيذ، وفي حال وجود أي عيوب في أعمال الصيانة يجب على الطرف الأول إعادة الصيانة أو إصلاح العيوب خلال مدة لا تتجاوز خمسة عشر يوماً من تاريخ الإشعار وبما لا يخل بضمان أعمال الصيانة.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] },
       { text: 'في حالة وجود أي عيوب أو أخطاء في الصيانة من وجهة نظر الطرف الثاني، عليه إخطار الطرف الأول بذلك ويجب أن يتضمن الإخطار وصفاً كاملاً للعيوب أو الأخطاء.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 8] },
-      { text: 'البند سادساً: التزامات الطرف الثاني', fontSize: 14, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
+      { text: 'سادساً: التزامات الطرف الثاني', fontSize: 14, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
       { text: 'يلتزم الطرف الثاني بتوفير متطلبات السلامة لحماية العاملين في الموقع، وتوفير مساحة عمل آمنة ومناسبة لفريق الصيانة، مع توفير الإضاءة والطاقة الكهربائية اللازمة لتنفيذ أعمالهم بأمان وسلامة.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] },
       { text: 'إخلاء مسؤولية الطرف الأول عن أي حوادث أو إصابات أو أضرار تلحق بالغير أو بالعاملين في الموقع نتيجة إهمال الطرف الثاني أو عدم توفير بيئة عمل آمنة.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] },
       { text: 'يلتزم الطرف الثاني بإبلاغ الطرف الأول فوراً في حال حدوث أي عطل مفاجئ في المصعد.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] },
       { text: 'في حال عدم قيام الطرف الثاني بالتزاماته، يحق للطرف الأول تعليق الخدمة حتى يتم الالتزام.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 8] },
-      { text: 'البند سابعاً: المسؤولية والسلامة', fontSize: 14, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
+      { text: 'سابعاً: المسؤولية والسلامة', fontSize: 14, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
       { text: 'يكون الطرف الأول مسؤولاً عن سلامة تنفيذ أعمال الصيانة وفقاً لأصول المهنة والشروط المتفق عليها.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] },
       { text: 'يكون الطرف الثاني مسؤولاً عن سلامة الموقع وتوفير بيئة عمل آمنة وفقاً للوائح وأنظمة السلامة المهنية.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] },
       { text: 'يكون الطرف الأول مسؤولاً عن سلامة وأداء المصعد (المصاعد) بعد الصيانة.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 8] },
-      { text: 'البند ثامناً: التأخير أو التقصير', fontSize: 14, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
+      { text: 'ثامناً: التأخير أو التقصير', fontSize: 14, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
       { text: [{ text: 'التأخير أو التقصير: ', bold: true, fontSize: 11, color: '#17413e' }, { text: 'في حال تقصير أو تأخير الطرف الأول في تنفيذ أعمال الصيانة الدورية، يجب عليه إخطار الطرف الثاني بأسباب التأخير.', fontSize: 11, color: '#3b564f' }], alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] },
       { text: [{ text: 'الإخلال بالالتزامات: ', bold: true, fontSize: 11, color: '#17413e' }, { text: 'في حال إخلال الطرف الأول بالتزاماته الجوهرية، يحق للطرف الثاني تعليق استحقاق الدفعات المستحقة للطرف الأول.', fontSize: 11, color: '#3b564f' }], alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] },
       { text: [{ text: 'حدود المسؤولية: ', bold: true, fontSize: 11, color: '#17413e' }, { text: 'لا يتحمل الطرف الأول المسؤولية عن الأضرار غير المباشرة (سواء كانت مادية أو معنوية) مثل فقدان الأرباح أو توقف العمل أو غيرها، وتكون المسؤولية في جميع الأحوال محصورة بقيمة العقد المدفوعة من الطرف الثاني للطرف الأول.', fontSize: 11, color: '#3b564f' }], alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] },
       { text: [{ text: 'إيقاف العقد: ', bold: true, fontSize: 11, color: '#17413e' }, { text: 'يحق للطرف الأول إيقاف العقد في حال عدم قيام الطرف الثاني بدفع الدفعات المستحقة في مواعيدها، على أن يكون الإيقاف بعد إنذار خطي لمدة لا تقل عن 7 أيام.', fontSize: 11, color: '#3b564f' }], alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 8] },
-      { text: 'البند تاسعاً: فسخ العقد', fontSize: 14, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
+      { text: 'تاسعاً: فسخ العقد', fontSize: 14, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
       { text: 'يحق لأي من الطرفين فسخ العقد في حال إخلال الطرف الآخر بالتزاماته الجوهرية مع إنذار خطي لمدة لا تقل عن 30 يوماً.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] },
       { text: 'في حال فسخ العقد، يستحق الطرف الأول قيمة الأعمال التي تم تنفيذها فعلاً.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] },
       { text: 'لا يحق للطرف الثاني فسخ العقد بسبب ظروفه المادية أو الإدارية أو تغير موقفه المالي، أو لأي سبب غير مبرر، وإلا أعتبر ذلك إخلالاً بالتزاماته.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 8] },
-      { text: 'البند عاشراً: المسؤولية عن الأعطال التي تتطلب قطع غيار', fontSize: 14, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
+      { text: 'عاشراً: المسؤولية عن الأعطال التي تتطلب قطع غيار', fontSize: 14, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
       { text: [{ text: 'الأعطال التي تتطلب قطع غيار: ', bold: true, fontSize: 11, color: '#17413e' }, { text: 'في حال وجود عطل بالمصعد يتطلب تغيير قطعة غيار، تتحمل الطرف الثاني قيمة القطعة وتكاليف الشحن والتركيب والنقل والخدمات اللوجستية، على أن تقوم الطرف الأول بتوفير القطعة وتنفيذ أعمال الاستبدال بأسرع وقت ممكن، ويتم وضع خطة لتفادي توقف المصعد لفترات طويلة.', fontSize: 11, color: '#3b564f' }], alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] },
       { text: [{ text: 'الأعطال غير المشمولة: ', bold: true, fontSize: 11, color: '#17413e' }, { text: 'أما الأعطال الناتجة عن سوء الاستخدام أو التعديلات غير المصرح بها من قبل الطرف الثاني أو الغير، أو الأعطال الناتجة عن سوء التركيب أو التصنيع من قبل الغير والشركات المنفذة للتركيب أو التصنيع، أو ظروف قاهرة مثل كوارث طبيعية أو حرائق أو فيضانات أو سرقات وتخريب، أو انقطاع التيار الكهربائي أو عدم استقرار الجهد الكهربائي، أو عدم تنفيذ الصيانة الوقائية الدورية المتفق عليها في العقد، أو وجود أي تعديلات هيكلية في المبنى تؤثر على سلامة المصعد، فلا تكون الطرف الأول مسؤولة عنها وتتحمل الطرف الثاني أي تكاليف إضافية لإعادة التأهيل والصيانة.', fontSize: 11, color: '#3b564f' }], alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 8] },
       { text: 'نسخ العقد', fontSize: 14, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
@@ -668,18 +668,21 @@
       Array.prototype.push.apply(content, sectionBlock('أولاً', 'نطاق التوريد والتركيب', scopeText(c.details, scopeDefault)));
 
       var st = specTable(c.elevatorInfo, 'البند ثانياً: المواصفات الفنية للمصعد');
-      if (st) Array.prototype.push.apply(content, st);
+      if (st && st.length) {
+        st[0].pageBreak = 'before';
+        Array.prototype.push.apply(content, st);
+      }
 
       var pt = paymentPlanTable(c.value);
       if (pt) {
         Array.prototype.push.apply(content, sectionBlock('ثالثاً', 'شروط الدفع', pt));
       }
 
-      var ti = renderItems(c.items, 'البند رابعاً: البنود الافتراضية');
+      var ti = renderItems(c.items, 'رابعاً: البنود الافتراضية');
       if (ti) Array.prototype.push.apply(content, ti);
-      var ci = renderItems(c.customItems, 'البند خامساً: البنود الإضافية');
+      var ci = renderItems(c.customItems, 'خامساً: البنود الإضافية');
       if (ci) Array.prototype.push.apply(content, ci);
-      else if (!ti) content.push(sectionTitle('البند رابعاً: البنود'));
+      else if (!ti) content.push(sectionTitle('رابعاً: البنود'));
 
       var buildings = c.buildings || [];
       if (buildings.length > 0) {
@@ -707,7 +710,10 @@
       Array.prototype.push.apply(content, sectionBlock('أولاً', 'نطاق الصيانة', scopeText(c.details, scopeDefault)));
 
       var st = maintenanceSpecTable(c.elevatorInfo, 'البند ثانياً: المواصفات الفنية للمصعد');
-      if (st) Array.prototype.push.apply(content, st);
+      if (st && st.length) {
+        st[0].pageBreak = 'before';
+        Array.prototype.push.apply(content, st);
+      }
 
       var mt = maintenanceTable(c.maintenanceChecklist);
       if (mt) Array.prototype.push.apply(content, sectionBlock('ثالثاً', 'بنود الصيانة الدورية', mt));
