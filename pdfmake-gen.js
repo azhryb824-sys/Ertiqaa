@@ -625,7 +625,11 @@
 
     console.log("PDFGEN", "contract type:", c.type, "is install:", isInstall);
 
-    if (!(opts && opts.clean)) Array.prototype.push.apply(content, buildHeader(logoData));
+    if (opts && opts.clean) {
+      content.push({ text: '', margin: [0, 0, 0, 34] });
+    } else {
+      Array.prototype.push.apply(content, buildHeader(logoData));
+    }
 
     content.push({
       table: {
@@ -762,7 +766,11 @@
     var companyName = activeCompanyName();
     var cf = safeFooter();
     var content = [];
-    if (!(opts && opts.clean)) Array.prototype.push.apply(content, buildHeader(logoData));
+    if (opts && opts.clean) {
+      content.push({ text: '', margin: [0, 0, 0, 34] });
+    } else {
+      Array.prototype.push.apply(content, buildHeader(logoData));
+    }
 
     content.push({
       columns: [
@@ -877,7 +885,11 @@
     var companyName = activeCompanyName();
     var cf = safeFooter();
     var content = [];
-    if (!(opts && opts.clean)) Array.prototype.push.apply(content, buildHeader(logoData));
+    if (opts && opts.clean) {
+      content.push({ text: '', margin: [0, 0, 0, 34] });
+    } else {
+      Array.prototype.push.apply(content, buildHeader(logoData));
+    }
 
     content.push({
       columns: [
@@ -943,7 +955,11 @@
     var companyName = activeCompanyName();
     var cf = safeFooter();
     var content = [];
-    if (!(opts && opts.clean)) Array.prototype.push.apply(content, buildHeader(logoData));
+    if (opts && opts.clean) {
+      content.push({ text: '', margin: [0, 0, 0, 34] });
+    } else {
+      Array.prototype.push.apply(content, buildHeader(logoData));
+    }
 
     content.push({
       columns: [
@@ -983,7 +999,11 @@
     var companyName = activeCompanyName();
     var cf = safeFooter();
     var content = [];
-    if (!(opts && opts.clean)) Array.prototype.push.apply(content, buildHeader(logoData));
+    if (opts && opts.clean) {
+      content.push({ text: '', margin: [0, 0, 0, 34] });
+    } else {
+      Array.prototype.push.apply(content, buildHeader(logoData));
+    }
 
     content.push({
       columns: [
