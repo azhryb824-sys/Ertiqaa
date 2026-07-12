@@ -352,7 +352,7 @@
     if (dateRef) {
       var dd = new Date(dateRef);
       if (!isNaN(dd.getTime())) {
-        datePart = dd.toLocaleDateString('ar-SA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        datePart = dd.toLocaleDateString('ar-SA-u-nu-latn', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
       }
     }
 
