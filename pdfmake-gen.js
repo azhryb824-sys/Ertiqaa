@@ -293,7 +293,7 @@
       summaryLabel: { fontSize: 10, color: '#5c7670', bold: true },
       summaryValue: { fontSize: 13, color: '#0d312f', bold: true }
     },
-    defaultStyle: { font: 'Cairo', fontSize: 13, lineHeight: 1.7, color: '#1a2e2b' },
+    defaultStyle: { font: 'Cairo', fontSize: 13, lineHeight: 1.7, color: '#1a2e2b', bold: true },
     pageSize: 'A4',
     pageMargins: [28, 36, 28, 36],
     pageBreakBefore: function(currentNode, followingNodesOnPage){
