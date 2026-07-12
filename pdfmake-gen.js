@@ -319,14 +319,19 @@
     }
   };
 
-  function makeDd(content, cleanFooter){
+  function makeDd(content, cleanFooter, opts){
     var dd = JSON.parse(JSON.stringify(_sharedDd, function(k, v){
       return typeof v === 'function' ? undefined : v;
     }));
     dd.content = content;
     if (_sharedDd.pageBreakBefore) dd.pageBreakBefore = _sharedDd.pageBreakBefore;
-    dd.header = function(){ return _sharedDd.header(); };
-    dd.footer = function(cp, pc){ return _sharedDd.footer(cp, pc, cleanFooter); };
+    if (opts && opts.clean) {
+      dd.header = function(){ return { text: '', margin: [0, 6, 0, 0] }; };
+      dd.footer = function(){ return { text: '', margin: [0, 0, 0, 6] }; };
+    } else {
+      dd.header = function(){ return _sharedDd.header(); };
+      dd.footer = function(cp, pc){ return _sharedDd.footer(cp, pc, cleanFooter); };
+    }
     return dd;
   }
 
@@ -612,7 +617,7 @@
   }
 
   // ==================== CONTRACT ====================
-  function contractPdfDefinition(c, logoData){
+  function contractPdfDefinition(c, logoData, opts){
     var companyName = (c.company && c.company.name) || activeCompanyName();
     var cf = safeFooter();
     var content = [];
@@ -620,7 +625,7 @@
 
     console.log("PDFGEN", "contract type:", c.type, "is install:", isInstall);
 
-    Array.prototype.push.apply(content, buildHeader(logoData));
+    if (!(opts && opts.clean)) Array.prototype.push.apply(content, buildHeader(logoData));
 
     content.push({
       table: {
@@ -746,18 +751,18 @@
       unbreakable: true,
       margin: [0, 0, 0, 0]
     });
-    return makeDd(content, cf);
+    return makeDd(content, cf, opts);
   }
 
   // ==================== QUOTE ====================
-  function quotePdfDefinition(q, logoData){
+  function quotePdfDefinition(q, logoData, opts){
     var total = Number(q.totalWithTax != null ? q.totalWithTax : (q.subtotal != null ? q.subtotal : (q.value || 0)));
     var party = q.client || q.clientCompanyName || q.clientName || "غير محدد";
     var isInstall = q.type === "تركيب";
     var companyName = activeCompanyName();
     var cf = safeFooter();
     var content = [];
-    Array.prototype.push.apply(content, buildHeader(logoData));
+    if (!(opts && opts.clean)) Array.prototype.push.apply(content, buildHeader(logoData));
 
     content.push({
       columns: [
@@ -864,15 +869,15 @@
       unbreakable: true,
       margin: [0, 0, 0, 0]
     });
-    return makeDd(content, cf);
+    return makeDd(content, cf, opts);
   }
 
   // ==================== REPORT ====================
-  function reportPdfDefinition(r, logoData){
+  function reportPdfDefinition(r, logoData, opts){
     var companyName = activeCompanyName();
     var cf = safeFooter();
     var content = [];
-    Array.prototype.push.apply(content, buildHeader(logoData));
+    if (!(opts && opts.clean)) Array.prototype.push.apply(content, buildHeader(logoData));
 
     content.push({
       columns: [
@@ -930,15 +935,15 @@
       unbreakable: true,
       margin: [0, 0, 0, 0]
     });
-    return makeDd(content, cf);
+    return makeDd(content, cf, opts);
   }
 
   // ==================== TICKET ====================
-  function ticketPdfDefinition(t, logoData){
+  function ticketPdfDefinition(t, logoData, opts){
     var companyName = activeCompanyName();
     var cf = safeFooter();
     var content = [];
-    Array.prototype.push.apply(content, buildHeader(logoData));
+    if (!(opts && opts.clean)) Array.prototype.push.apply(content, buildHeader(logoData));
 
     content.push({
       columns: [
@@ -970,15 +975,15 @@
       unbreakable: true,
       margin: [0, 0, 0, 0]
     });
-    return makeDd(content, cf);
+    return makeDd(content, cf, opts);
   }
 
   // ==================== CLAIM ====================
-  function claimPdfDefinition(cl, logoData){
+  function claimPdfDefinition(cl, logoData, opts){
     var companyName = activeCompanyName();
     var cf = safeFooter();
     var content = [];
-    Array.prototype.push.apply(content, buildHeader(logoData));
+    if (!(opts && opts.clean)) Array.prototype.push.apply(content, buildHeader(logoData));
 
     content.push({
       columns: [
@@ -1022,13 +1027,13 @@
       unbreakable: true,
       margin: [0, 0, 0, 0]
     });
-    return makeDd(content, cf);
+    return makeDd(content, cf, opts);
   }
 
   // ==================== MAIN ENTRY ====================
   function pdfLog(msg){ console.log("PDFGEN", msg); if (A.toast) A.toast(msg); }
 
-  window.generatePdf = async function(type, id){
+  window.generatePdf = async function(type, id, opts){
     console.log("PDFGEN", "pdfmake attempt", type, id, "ready:", pdfmakeReady);
     if (!pdfmakeReady) {
       console.warn("PDFGEN", "pdfmake not ready — trying old method");
@@ -1051,7 +1056,7 @@
         var contract;
         if (A.visibleContracts) contract = A.visibleContracts().find(function(x){ return x.id === id; });
         if (!contract) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
-        dd = contractPdfDefinition(contract, logoData);
+        dd = contractPdfDefinition(contract, logoData, opts);
 
       } else if (type === 'quote') {
         var quote;
@@ -1059,7 +1064,7 @@
           quote = A.quotes.filter(function(q){ return A.sameCompany ? A.sameCompany(q) : true; }).find(function(x){ return x.id === id; });
         }
         if (!quote) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
-        dd = quotePdfDefinition(quote, logoData);
+        dd = quotePdfDefinition(quote, logoData, opts);
 
       } else if (type === 'report') {
         var report;
@@ -1067,13 +1072,13 @@
           report = A.reports.filter(function(r){ return A.sameCompany ? A.sameCompany(r) : true; }).find(function(x){ return x.id === id; });
         }
         if (!report) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
-        dd = reportPdfDefinition(report, logoData);
+        dd = reportPdfDefinition(report, logoData, opts);
 
       } else if (type === 'ticket') {
         var ticket;
         if (A.visibleTickets) ticket = A.visibleTickets().find(function(x){ return x.id === id; });
         if (!ticket) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
-        dd = ticketPdfDefinition(ticket, logoData);
+        dd = ticketPdfDefinition(ticket, logoData, opts);
 
       } else if (type === 'claim') {
         var claims;
@@ -1081,7 +1086,7 @@
         if (!claims || !claims.length) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
         var claim = claims.filter(function(c){ return A.sameCompany ? A.sameCompany(c) : true; }).find(function(x){ return x.id === id; });
         if (!claim) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
-        dd = claimPdfDefinition(claim, logoData);
+        dd = claimPdfDefinition(claim, logoData, opts);
 
       } else {
         if (A.downloadPdf) A.downloadPdf(type, id);
@@ -1090,7 +1095,8 @@
 
       if (!dd) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
 
-      pdfMake.createPdf(dd).download(p.title + '.pdf');
+      var suffix = (opts && opts.clean) ? ' (بدون ترويسة)' : '';
+      pdfMake.createPdf(dd).download(p.title + suffix + '.pdf');
       pdfLog('تم تحميل PDF بنجاح');
 
     } catch(err) {
@@ -1105,7 +1111,9 @@
     if (btn) {
       e.preventDefault();
       e.stopPropagation();
-      window.generatePdf(btn.dataset.pdfDoc, btn.dataset.pdfId);
+      var opts = {};
+      if (btn.dataset.pdfClean === 'true') opts.clean = true;
+      window.generatePdf(btn.dataset.pdfDoc, btn.dataset.pdfId, opts);
     }
   }, true);
 
