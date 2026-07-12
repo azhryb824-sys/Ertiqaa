@@ -271,7 +271,7 @@
 
   function renderItems(arr, title){
     if (!arr || !arr.length) return null;
-    var out = [{ text: title, fontSize: 12, bold: true, color: '#0d312f', margin: [0, 0, 0, 4] }];
+    var items = [];
     arr.forEach(function(item){
       var t = '', d = '';
       if (typeof item === 'string') { t = item; }
@@ -279,11 +279,17 @@
       else if (item && item.title) { t = item.title; d = item.description || ''; }
       else if (item && item.name) { t = item.name; d = item.description || item.desc || ''; }
       else { try { t = JSON.stringify(item); } catch(e){} }
-      out.push({ text: t, bold: true, fontSize: 11, color: '#17413e', margin: [0, 0, 0, 1], alignment: 'right' });
-      if (d) out.push({ text: d, fontSize: 11, color: '#3b564f', margin: [0, 0, 0, 4], alignment: 'right' });
+      items.push({ text: t, bold: true, fontSize: 11, color: '#17413e', margin: [0, 0, 0, 1], alignment: 'right' });
+      if (d) items.push({ text: d, fontSize: 11, color: '#3b564f', margin: [0, 0, 0, 4], alignment: 'right' });
     });
-    out.push({ text: '', margin: [0, 0, 0, 4] });
-    return out;
+    var titleEl = { text: title, fontSize: 14, bold: true, color: '#0d312f', margin: [0, 0, 0, 4] };
+    if (items.length > 0) {
+      return [{
+        stack: [titleEl, items[0]],
+        unbreakable: true
+      }].concat(items.slice(1)).concat({ text: '', margin: [0, 0, 0, 4] });
+    }
+    return [titleEl, { text: '', margin: [0, 0, 0, 4] }];
   }
 
   var _sharedDd = {
@@ -296,15 +302,6 @@
     defaultStyle: { font: 'Cairo', fontSize: 13, lineHeight: 1.7, color: '#1a2e2b', bold: true },
     pageSize: 'A4',
     pageMargins: [28, 36, 28, 36],
-    pageBreakBefore: function(currentNode, followingNodesOnPage){
-      var text = currentNode && currentNode.text;
-      if (text && typeof text === 'string' && currentNode.bold) {
-        if (/^البند\s/.test(text) || /^بنود\s/.test(text) || /^(الضمان|التزامات|المسؤولية|نسخ\s)/.test(text)) {
-          return followingNodesOnPage.length <= 2;
-        }
-      }
-      return false;
-    },
     header: function(){
       return {
         stack: [
@@ -567,7 +564,13 @@
     var label = 'البند ' + num + ': ' + heading;
     var title = sectionTitle(label, [0, 0, 0, 2]);
     if (Array.isArray(body)) {
-      return [title].concat(body);
+      if (body.length > 0) {
+        return [{
+          stack: [title, body[0]],
+          unbreakable: true
+        }].concat(body.slice(1));
+      }
+      return [title];
     }
     return [{
       stack: [title, body],
