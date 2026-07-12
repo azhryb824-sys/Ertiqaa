@@ -198,6 +198,7 @@
       {
         table: {
           headerRows: 1,
+          keepWithHeader: true,
           widths: [22, '*', 70],
           body: [[
             { text: '#', bold: true, color: '#fff', fillColor: '#0d312f', alignment: 'center' },
@@ -248,6 +249,7 @@
       {
         table: {
           headerRows: 1,
+          keepWithHeader: true,
           widths: [60, '*', 40, 70],
           body: body
         },
@@ -552,15 +554,15 @@
   }
 
   function sectionBlock(num, heading, body){
-    var out = [];
     var label = 'البند ' + num + ': ' + heading;
-    out.push(sectionTitle(label, [0, 0, 0, 2]));
+    var title = sectionTitle(label, [0, 0, 0, 2]);
     if (Array.isArray(body)) {
-      out = out.concat(body);
-    } else {
-      out.push(body);
+      return [title].concat(body);
     }
-    return out;
+    return [{
+      stack: [title, body],
+      unbreakable: true
+    }];
   }
 
   function maintenancePdfClauses(){
@@ -721,11 +723,8 @@
     }
 
     content.push({
-      table: {
-        widths: ['*'],
-        body: [[{ stack: buildSignature(companyName, safeLabel(c)) }]]
-      },
-      layout: 'noBorders',
+      stack: buildSignature(companyName, safeLabel(c)),
+      unbreakable: true,
       margin: [0, 0, 0, 0]
     });
     return makeDd(content, cf);
@@ -807,7 +806,7 @@
         ]);
         content.push({ text: 'جدول الدفعات', fontSize: 12, bold: true, color: '#0d312f', margin: [0, 0, 0, 4] });
         content.push({
-          table: { headerRows: 1, widths: ['*', '*', 80], body: planRows },
+          table: { headerRows: 1, keepWithHeader: true, widths: ['*', '*', 80], body: planRows },
           layout: {
             hLineWidth: function(){ return 0.5; },
             vLineWidth: function(){ return 0.5; },
@@ -842,8 +841,9 @@
     }
 
     content.push({
-      table: { widths: ['*'], body: [[{ stack: buildSignature(companyName, party) }]] },
-      layout: 'noBorders', margin: [0, 0, 0, 0]
+      stack: buildSignature(companyName, party),
+      unbreakable: true,
+      margin: [0, 0, 0, 0]
     });
     return makeDd(content, cf);
   }
@@ -907,8 +907,9 @@
     if (s3) Array.prototype.push.apply(content, s3);
 
     content.push({
-      table: { widths: ['*'], body: [[{ stack: buildSignature(companyName, r.clientName || r.clientCompanyName || 'العميل') }]] },
-      layout: 'noBorders', margin: [0, 0, 0, 0]
+      stack: buildSignature(companyName, r.clientName || r.clientCompanyName || 'العميل'),
+      unbreakable: true,
+      margin: [0, 0, 0, 0]
     });
     return makeDd(content, cf);
   }
@@ -946,8 +947,9 @@
     if (et) Array.prototype.push.apply(content, et);
 
     content.push({
-      table: { widths: ['*'], body: [[{ stack: buildSignature(companyName, t.clientCompanyName || t.clientName || 'العميل') }]] },
-      layout: 'noBorders', margin: [0, 0, 0, 0]
+      stack: buildSignature(companyName, t.clientCompanyName || t.clientName || 'العميل'),
+      unbreakable: true,
+      margin: [0, 0, 0, 0]
     });
     return makeDd(content, cf);
   }
@@ -997,8 +999,9 @@
     });
 
     content.push({
-      table: { widths: ['*'], body: [[{ stack: buildSignature(companyName, cl.clientName || safeLabel(cl) || 'الطرف الثاني') }]] },
-      layout: 'noBorders', margin: [0, 0, 0, 0]
+      stack: buildSignature(companyName, cl.clientName || safeLabel(cl) || 'الطرف الثاني'),
+      unbreakable: true,
+      margin: [0, 0, 0, 0]
     });
     return makeDd(content, cf);
   }
