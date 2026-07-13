@@ -325,10 +325,20 @@
     }));
     dd.content = content;
     if (_sharedDd.pageBreakBefore) dd.pageBreakBefore = _sharedDd.pageBreakBefore;
-    if (opts && opts.clean) {
+    if (opts && (opts.clean || opts.letterhead)) {
       dd.pageMargins = [28, 56, 28, 56];
       dd.header = function(){ return null; };
       dd.footer = function(){ return null; };
+      if (opts.letterhead) {
+        var bg = A.companyLetterhead ? A.companyLetterhead() : '';
+        if (!bg) {
+          if (A.toast) A.toast('ارفع صورة مطبوعات الشركة من بيانات المنشأة أولا');
+          return null;
+        }
+        dd.background = function(){
+          return { image: bg, width: 595, height: 842, absolutePosition: { x: 0, y: 0 } };
+        };
+      }
     } else {
       dd.header = function(){ return _sharedDd.header(); };
       dd.footer = function(cp, pc){ return _sharedDd.footer(cp, pc, cleanFooter); };
@@ -1106,7 +1116,7 @@
 
       if (!dd) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
 
-      var suffix = (opts && opts.clean) ? ' (بدون ترويسة)' : '';
+      var suffix = (opts && opts.letterhead) ? ' (على مطبوعات الشركة)' : ((opts && opts.clean) ? ' (بدون ترويسة)' : '');
       pdfMake.createPdf(dd).download(p.title + suffix + '.pdf');
       pdfLog('تم تحميل PDF بنجاح');
 
@@ -1124,6 +1134,7 @@
       e.stopPropagation();
       var opts = {};
       if (btn.dataset.pdfClean === 'true') opts.clean = true;
+      if (btn.dataset.pdfLetterhead === 'true') opts.letterhead = true;
       window.generatePdf(btn.dataset.pdfDoc, btn.dataset.pdfId, opts);
     }
   }, true);

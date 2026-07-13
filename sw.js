@@ -1,4 +1,4 @@
-const CACHE = "shumoos-v2";
+const CACHE = "shumoos-v20260713-render-ai-letterhead";
 const ASSETS = [
   "/", "/index.html", "/login.html", "/register.html", "/dashboard.html",
   "/styles.css", "/app.js", "/manifest.json", "/pdfmake-gen.js",

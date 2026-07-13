@@ -38,3 +38,9 @@ services:
         value: "0"
       - key: AI_INTERNET_REFRESH_HOURS
         value: "24"
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: llama-3.3-70b-versatile
+      - key: AI_MODEL_TIMEOUT_MS
+        value: "15000"
