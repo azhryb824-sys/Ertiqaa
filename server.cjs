@@ -3119,13 +3119,21 @@ function inferAiPlan(question, context, user = {}) {
     }
   }
 
+  if (!matchedEntity && /عرض\s+(?:تركيب|صيانة|توريد)/i.test(q)) {
+    matchedEntity = {intent: "create_quote", type: "quotes", isInstall: false};
+  }
+
   if (matchedEntity) {
-    const bareCreationRequest = !hasQueryWord && !hasCreateWord && q.split(/\s+/).filter(Boolean).length <= 4;
-    if (hasQueryWord) {
+    const conversationalCreate = /^(?:أبي|ابي|أبغى|ابغى|ابغا|أريد|اريد|بدي|نبي|نبغى)\s+(?:(?:إنشاء|انشاء|إضافة|اضافة)\s+)?(?:عقد|عرض(?:\s+سعر)?|بلاغ|زيارة|فني|مهندس|مورد)(?:\s+جديد(?:ة)?)?/i.test(q);
+    const spokenCreate = /^(?:سج[لّ]|افتح)\s+(?:عقد|عرض(?:\s+سعر)?|بلاغ|زيارة|فني|مهندس|مورد)/i.test(q);
+    const effectiveCreateWord = hasCreateWord || conversationalCreate || spokenCreate;
+    const effectiveQueryWord = hasQueryWord && !conversationalCreate;
+    const bareCreationRequest = !effectiveQueryWord && !effectiveCreateWord && q.split(/\s+/).filter(Boolean).length <= 4;
+    if (effectiveQueryWord) {
       // User explicitly asked for info → query
       plan.intent = "query";
       plan.data = {entity: matchedEntity.type, query: q};
-    } else if (hasCreateWord || bareCreationRequest) {
+    } else if (effectiveCreateWord || bareCreationRequest) {
       // User explicitly wants to create
       plan.intent = matchedEntity.intent;
       if (matchedEntity.isInstall) plan.intent = "create_installation_contract";
