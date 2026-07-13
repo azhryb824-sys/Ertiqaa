@@ -320,6 +320,34 @@
     return dd;
   }
 
+  function applyPdfVariant(dd, variant){
+    if (!variant || variant === 'default') return dd;
+    if (!(A.canUsePdfStationery && A.canUsePdfStationery())) {
+      if (A.toast) A.toast('هذه النسخ متاحة للمالك والإداري فقط');
+      return null;
+    }
+
+    dd.header = function(){ return { text: '' }; };
+    dd.footer = function(){ return { text: '' }; };
+    dd.pageMargins = [28, 90, 28, 70];
+    if (Array.isArray(dd.content) && dd.content.length >= 2 && dd.content[0].columns && dd.content[1].canvas) {
+      dd.content = dd.content.slice(2);
+    }
+
+    if (variant === 'letterhead') {
+      var bg = A.companyLetterhead ? A.companyLetterhead() : '';
+      if (!bg) {
+        if (A.toast) A.toast('ارفع صورة مطبوعات الشركة من بيانات المنشأة أولا');
+        return null;
+      }
+      dd.background = function(){
+        return { image: bg, width: 595, height: 842, absolutePosition: { x: 0, y: 0 } };
+      };
+    }
+
+    return dd;
+  }
+
   function contractIntroParagraph(c, isInstall){
     var co = (A.activeOwnerCompany && A.activeOwnerCompany()) || null;
     var party1Name = (c.company && c.company.name) || (co && co.name) || activeCompanyName();
@@ -1007,8 +1035,9 @@
   // ==================== MAIN ENTRY ====================
   function pdfLog(msg){ console.log("PDFGEN", msg); if (A.toast) A.toast(msg); }
 
-  window.generatePdf = async function(type, id){
-    console.log("PDFGEN", "pdfmake attempt", type, id, "ready:", pdfmakeReady);
+  window.generatePdf = async function(type, id, variant){
+    variant = variant || 'default';
+    console.log("PDFGEN", "pdfmake attempt", type, id, variant, "ready:", pdfmakeReady);
     if (!pdfmakeReady) {
       console.warn("PDFGEN", "pdfmake not ready — trying old method");
       if (A.downloadPdf) { A.downloadPdf(type, id); return; }
@@ -1068,8 +1097,11 @@
       }
 
       if (!dd) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
+      dd = applyPdfVariant(dd, variant);
+      if (!dd) return;
 
-      pdfMake.createPdf(dd).download(p.title + '.pdf');
+      var suffix = variant === 'blank' ? ' - ترويسة وذيل فارغان' : (variant === 'letterhead' ? ' - على مطبوعات الشركة' : '');
+      pdfMake.createPdf(dd).download(p.title + suffix + '.pdf');
       pdfLog('تم تحميل PDF بنجاح');
 
     } catch(err) {
@@ -1084,7 +1116,7 @@
     if (btn) {
       e.preventDefault();
       e.stopPropagation();
-      window.generatePdf(btn.dataset.pdfDoc, btn.dataset.pdfId);
+      window.generatePdf(btn.dataset.pdfDoc, btn.dataset.pdfId, btn.dataset.pdfVariant || 'default');
     }
   }, true);
 
