@@ -325,20 +325,19 @@
     }));
     dd.content = content;
     if (_sharedDd.pageBreakBefore) dd.pageBreakBefore = _sharedDd.pageBreakBefore;
-    if (opts && (opts.clean || opts.letterhead)) {
+    if (opts && opts.letterhead) {
+      dd.pageMargins = [28, 141.73, 28, 56];
+      dd.header = function(){ return null; };
+      dd.footer = function(){ return null; };
+      var bg = A.companyLetterhead ? A.companyLetterhead() : '';
+      if (!bg) return null;
+      dd.background = function(){
+        return { image: bg, width: 595, height: 842, absolutePosition: { x: 0, y: 0 } };
+      };
+    } else if (opts && opts.clean) {
       dd.pageMargins = [28, 56, 28, 56];
       dd.header = function(){ return null; };
       dd.footer = function(){ return null; };
-      if (opts.letterhead) {
-        var bg = A.companyLetterhead ? A.companyLetterhead() : '';
-        if (!bg) {
-          if (A.toast) A.toast('ارفع صورة مطبوعات الشركة من بيانات المنشأة أولا');
-          return null;
-        }
-        dd.background = function(){
-          return { image: bg, width: 595, height: 842, absolutePosition: { x: 0, y: 0 } };
-        };
-      }
     } else {
       dd.header = function(){ return _sharedDd.header(); };
       dd.footer = function(cp, pc){ return _sharedDd.footer(cp, pc, cleanFooter); };
@@ -1056,7 +1055,19 @@
 
   window.generatePdf = async function(type, id, opts){
     console.log("PDFGEN", "pdfmake attempt", type, id, "ready:", pdfmakeReady);
+    if (opts && opts.letterhead && A.canUseCompanyLetterhead && !A.canUseCompanyLetterhead()) {
+      pdfLog('غير مصرح باستخدام مطبوعات الشركة');
+      return;
+    }
+    if (opts && opts.letterhead && !(A.companyLetterhead && A.companyLetterhead())) {
+      pdfLog('ارفع صورة مطبوعات الشركة من بيانات المنشأة أولا');
+      return;
+    }
     if (!pdfmakeReady) {
+      if (opts && opts.letterhead) {
+        pdfLog('تعذر توليد PDF على مطبوعات الشركة حالياً');
+        return;
+      }
       console.warn("PDFGEN", "pdfmake not ready — trying old method");
       if (A.downloadPdf) { A.downloadPdf(type, id); return; }
       pdfLog("PDF غير متاح حالياً");
@@ -1114,7 +1125,11 @@
         return;
       }
 
-      if (!dd) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
+      if (!dd) {
+        if (opts && opts.letterhead) { pdfLog('تعذر توليد PDF على مطبوعات الشركة'); return; }
+        if (A.downloadPdf) A.downloadPdf(type, id);
+        return;
+      }
 
       var suffix = (opts && opts.letterhead) ? ' (على مطبوعات الشركة)' : ((opts && opts.clean) ? ' (بدون ترويسة)' : '');
       pdfMake.createPdf(dd).download(p.title + suffix + '.pdf');
@@ -1122,6 +1137,10 @@
 
     } catch(err) {
       console.error("PDFGEN", "pdfmake error:", err);
+      if (opts && opts.letterhead) {
+        pdfLog('تعذر توليد PDF على مطبوعات الشركة');
+        return;
+      }
       pdfLog('PDF — خطأ في التوليد، تجربة الطريقة القديمة');
       if (A.downloadPdf) A.downloadPdf(type, id);
     }
