@@ -748,7 +748,6 @@
 
       var st = specTable(c.elevatorInfo, 'البند ثانياً: المواصفات الفنية للمصعد');
       if (st && st.length) {
-        st[0].pageBreak = 'before';
         Array.prototype.push.apply(content, st);
       }
 
