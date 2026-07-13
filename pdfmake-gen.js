@@ -76,7 +76,6 @@
   function appendDocumentHeader(content, logoData, opts){
     if (opts && opts.clean) return;
     if (opts && opts.letterhead) {
-      content.push({ text: '', fontSize: 28, lineHeight: 1, margin: [0, 0, 0, 10] });
       return;
     }
     Array.prototype.push.apply(content, buildHeader(logoData));
@@ -351,7 +350,7 @@
     dd.content = content;
     if (_sharedDd.pageBreakBefore) dd.pageBreakBefore = _sharedDd.pageBreakBefore;
     if (opts && opts.letterhead) {
-      dd.pageMargins = [28, 141.73, 28, 56];
+      dd.pageMargins = [28, 179.73, 28, 56];
       dd.header = function(){ return null; };
       dd.footer = function(){ return null; };
       var bg = A.companyLetterhead ? A.companyLetterhead() : '';
