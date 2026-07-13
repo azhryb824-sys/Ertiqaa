@@ -66,15 +66,48 @@ async function run() {
   }
 
   const executions = readOnly ? [] : [
-    ["فتح نموذج عقد", "أنشئ عقداً، النوع: صيانة، اسم العميل: أحمد محمد، اسم منشأة العميل: شركة اختبار الجودة، القيمة: 12000 ريال، مدة العقد: سنة واحدة، تاريخ البداية: 2026-07-13، التفاصيل: صيانة دورية شاملة"],
-    ["فتح نموذج عرض سعر", "أنشئ عرض سعر، النوع: تركيب، اسم العميل: أحمد محمد، اسم منشأة العميل: شركة اختبار الجودة، العنوان: توريد وتركيب مصعد، القيمة: 25000 ريال، التفاصيل: توريد وتركيب مصعد كامل"],
-    ["إنشاء بلاغ", "أنشئ بلاغاً، العنوان: توقف مصعد الاختبار، الوصف: المصعد لا يعمل، الأولوية: عاجل، اسم العميل: أحمد محمد، اسم منشأة العميل: شركة اختبار الجودة"],
-    ["إنشاء مورد", "أضف مورداً، الاسم: مورد اختبار الجودة، المدينة: الرياض، الجوال: 0500000000، البريد الإلكتروني: test@example.com، التصنيف: قطع غيار"],
-    ["تحليل العمليات التنفيذي", "حلل العمليات وحدد أعلى ثلاث أولويات"],
-    ["إعادة توزيع الزيارات", "أعد توزيع جميع الزيارات على الفنيين المتاحين"]
+    ["معاينة عقد مكتمل", "أنشئ عقداً، النوع: صيانة، اسم العميل: أحمد محمد، اسم منشأة العميل: شركة اختبار الجودة، القيمة: 12000 ريال، مدة العقد: سنة واحدة، تاريخ البداية: 2026-07-13، التفاصيل: صيانة دورية شاملة", true],
+    ["معاينة عرض سعر مكتمل", "أنشئ عرض سعر، النوع: تركيب، اسم العميل: أحمد محمد، اسم منشأة العميل: شركة اختبار الجودة، العنوان: توريد وتركيب مصعد، القيمة: 25000 ريال، التفاصيل: توريد وتركيب مصعد كامل", true],
+    ["معاينة بلاغ مكتمل", "أنشئ بلاغاً، العنوان: توقف مصعد الاختبار، الوصف: المصعد لا يعمل، الأولوية: عاجل، اسم العميل: أحمد محمد، اسم منشأة العميل: شركة اختبار الجودة", true],
+    ["معاينة مورد مكتمل", "أضف مورداً، الاسم: مورد اختبار الجودة، المدينة: الرياض، الجوال: 0500000000، البريد الإلكتروني: test@example.com، التصنيف: قطع غيار", true],
+    ["معاينة زيارة مكتملة", "أنشئ زيارة، اسم العميل: أحمد محمد، اسم منشأة العميل: شركة اختبار الجودة، اسم المبنى: برج الجودة، الحي: العليا، موعد الزيارة: 2026-07-20 09:00، الملاحظات: فحص شامل", true],
+    ["معاينة فني مكتمل", "أضف فني، اسم الفني: محمد المختبر، رقم الهوية: 2123456789، الدور: فني", true],
+    ["تحليل العمليات التنفيذي", "حلل العمليات وحدد أعلى ثلاث أولويات", false],
+    ["إعادة توزيع الزيارات", "أعد توزيع جميع الزيارات على الفنيين المتاحين", false]
   ];
-  for (const [name, question] of executions) {
-    await request(name, "/api/ai/execute", post({...owner, question}), d => d && (d.executed===true || d.openForm===true || d.action==="answer") && hasArabicAnswer(d));
+  for (const [name, question, preview] of executions) {
+    await request(name, "/api/ai/execute", post({...owner, question}), d => d && (preview
+      ? d.preview===true && d.requiresApproval===true && d.openForm===true && d.executed===false && d.formType
+      : (d.executed===true || d.action==="answer")) && hasArabicAnswer(d));
+  }
+
+  if (!readOnly) {
+    const answerFor = {
+      type:"صيانة", clientName:"أحمد محمد", clientCompanyName:"شركة اختبار الجودة",
+      value:"12000", contractYears:"1", startDate:"2026-07-13", details:"صيانة دورية شاملة",
+      title:"توقف المصعد", description:"المصعد لا يعمل", priority:"عاجل",
+      buildingName:"برج الجودة", buildingDistrict:"العليا", scheduledAt:"2026-07-20 09:00", notes:"فحص شامل",
+      name:"محمد المختبر", identity:"2123456789", role:"فني",
+      phone:"0500000000", email:"test@example.com", city:"الرياض", category:"قطع غيار"
+    };
+    const sequences = [
+      ["تسلسل عقد ناقص","أنشئ عقد"],
+      ["تسلسل عرض ناقص","أنشئ عرض سعر"],
+      ["تسلسل بلاغ ناقص","أنشئ بلاغ"],
+      ["تسلسل زيارة ناقصة","أنشئ زيارة"],
+      ["تسلسل فني ناقص","أضف فني"],
+      ["تسلسل مورد ناقص","أضف مورد"]
+    ];
+    for (const [sequenceName, firstQuestion] of sequences) {
+      let state = await request(`${sequenceName} - بدء`, "/api/ai/execute", post({...owner, question:firstQuestion}), d => d && d.executed===false && d.missingFields?.length===1);
+      let steps = 0;
+      while (state?.missingFields?.length && steps < 12) {
+        const field = state.missingFields[0].field;
+        state = await request(`${sequenceName} - استكمال ${field}`, "/api/ai/execute", post({...owner, question:answerFor[field]||"بيانات اختبار", _pendingAction:state.action, _pendingData:state.data}), d => d && (d.missingFields?.length===1 || d.preview===true));
+        steps++;
+      }
+      results.push({name:`${sequenceName} - معاينة نهائية`, ok:Boolean(state?.preview && state?.requiresApproval && state?.openForm && !state?.executed), status:200, ms:0, detail:state?.message||"لم تصل المحادثة إلى المعاينة"});
+    }
   }
 
   if (!readOnly) await request("منع العميل من إجراء إداري", "/api/ai/execute", {...post({...client, question:"أعد توزيع جميع الزيارات"}), expectError:true}, (d,r) => r.status===403 && /صلاحية/.test(String(d.message||d.error||"")));

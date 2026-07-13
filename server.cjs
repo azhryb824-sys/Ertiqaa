@@ -3012,6 +3012,10 @@ function extractExplicitArabicFields(question) {
   const yearsText = valueAfter(["مدة العقد", "المدة"]);
   const startDate = valueAfter(["تاريخ البداية", "تاريخ بدء العقد", "بداية العقد"]);
   const amountText = valueAfter(["القيمة", "المبلغ", "قيمة العقد", "قيمة عرض السعر"]);
+  const buildingName = valueAfter(["اسم المبنى", "المبنى"]);
+  const buildingDistrict = valueAfter(["الحي", "حي المبنى"]);
+  const scheduledAt = valueAfter(["موعد الزيارة", "تاريخ الزيارة", "الموعد"]);
+  const notes = valueAfter(["الملاحظات", "ملاحظات الزيارة"]);
 
   if (clientName) data.clientName = clientName;
   if (clientCompanyName) data.clientCompanyName = clientCompanyName;
@@ -3019,6 +3023,10 @@ function extractExplicitArabicFields(question) {
   if (title) data.title = title;
   if (description) data.description = description;
   if (details) data.details = details;
+  if (buildingName) data.buildingName = buildingName;
+  if (buildingDistrict) data.buildingDistrict = buildingDistrict;
+  if (scheduledAt) data.scheduledAt = scheduledAt.replace(/\//g, "-");
+  if (notes) data.notes = notes;
   if (startDate) data.startDate = startDate.match(/\d{4}[-/]\d{1,2}[-/]\d{1,2}/)?.[0]?.replace(/\//g, "-") || startDate;
 
   const amount = Number(arabicNumber(amountText).replace(/[^\d.]/g, ""));
@@ -3033,12 +3041,16 @@ function extractExplicitArabicFields(question) {
   else if (/منخفض|منخفضة/i.test(priorityText)) data.priority = "low";
   else if (/متوسط|متوسطة/i.test(priorityText)) data.priority = "medium";
 
-  const supplierName = valueAfter(["اسم المورد", "الاسم"]);
+  const supplierName = valueAfter(["اسم المورد", "اسم الفني", "اسم المهندس", "الاسم"]);
+  const identity = valueAfter(["رقم الهوية", "الهوية", "هوية الفني"]);
+  const role = valueAfter(["الدور", "دور الفني"]);
   const phone = valueAfter(["الجوال", "جوال المورد", "الهاتف"]);
   const email = valueAfter(["البريد الإلكتروني", "البريد الالكتروني", "البريد"]);
   const city = valueAfter(["المدينة", "مدينة المورد"]);
   const category = valueAfter(["التصنيف", "التخصص", "تصنيف المورد"]);
   if (supplierName) data.name = supplierName;
+  if (identity) data.identity = arabicNumber(identity).replace(/\D/g, "");
+  if (role) data.role = /مهندس|engineer/i.test(role) ? "engineer" : "technician";
   if (phone) data.phone = arabicNumber(phone).replace(/\s+/g, "");
   if (email) data.email = email;
   if (city) data.city = city;
@@ -3892,6 +3904,74 @@ function getMissingFields(action, data) {
   const fields = required[action] || [];
   const missing = fields.filter(f => !f.check(d[f.field]));
   return missing.length > 0 ? [missing[0]] : [];
+}
+
+function creationFormType(action) {
+  return ({
+    create_contract: "contract",
+    create_quote: "quote",
+    create_ticket: "ticket",
+    create_visit: "visit",
+    add_staff: "staff",
+    create_supplier: "supplier"
+  })[action] || "";
+}
+
+function creationPreview(action, data) {
+  const labels = {
+    create_contract: "العقد",
+    create_quote: "عرض السعر",
+    create_ticket: "البلاغ",
+    create_visit: "الزيارة",
+    add_staff: "عضو الفريق",
+    create_supplier: "المورد"
+  };
+  return {
+    executed: false,
+    openForm: true,
+    preview: true,
+    requiresApproval: true,
+    formType: creationFormType(action),
+    message: `اكتملت بيانات ${labels[action] || "الملف"}. افتتحت المعاينة للمراجعة، ولن يتم الحفظ أو الاعتماد حتى تؤكد ذلك من النموذج.`,
+    action,
+    data
+  };
+}
+
+function applyBarePendingAnswer(action, data, question) {
+  const q = String(question || "").trim();
+  if (!q || /[:：،,]/.test(q)) return;
+  const missing = getMissingFields(action, data);
+  if (!missing.length) return;
+  const field = missing[0].field;
+  if (field === "value" || field === "contractYears") {
+    const number = Number(q.replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(/[۰-۹]/g, d => "۰۱۲۳۴۵۶۷۸۹".indexOf(d)).replace(/[^\d.]/g, ""));
+    if (number > 0) data[field] = number;
+    return;
+  }
+  if (field === "priority") {
+    if (/عاجل|طارئ/i.test(q)) data.priority = "urgent";
+    else if (/عالي/i.test(q)) data.priority = "high";
+    else if (/منخفض/i.test(q)) data.priority = "low";
+    else data.priority = "medium";
+    return;
+  }
+  if (field === "startDate" || field === "scheduledAt") {
+    const date = q.match(/\d{4}[-/]\d{1,2}[-/]\d{1,2}(?:[ T]\d{1,2}:\d{2})?/);
+    if (date) data[field] = date[0].replace(/\//g, "-");
+    return;
+  }
+  data[field] = q;
+}
+
+function sanitizeCreationData(action, data) {
+  const d = data || {};
+  const invalidEntityValue = /^(?:عقد|عقود|عرض|عرض سعر|بلاغ|زيارة|فني|مهندس|مورد|صيانة|تركيب|جديد|جديدة)$/i;
+  if (invalidEntityValue.test(String(d.clientName || "").trim())) delete d.clientName;
+  if (invalidEntityValue.test(String(d.clientCompanyName || "").trim())) delete d.clientCompanyName;
+  if (invalidEntityValue.test(String(d.name || "").trim())) delete d.name;
+  if ((action === "create_contract" || action === "create_quote") && /^(?:أنشئ|انشئ|سوي|اعمل)\s+(?:عقد|عرض(?:\s+سعر)?)\s*$/i.test(String(d.details || "").trim())) delete d.details;
+  return d;
 }
 
 function executeAiAction(actionData, store) {
@@ -5726,29 +5806,24 @@ ${JSON.stringify(rows, null, 2)}
           if (/تركيب|توريد/i.test(q)) pendingData.type = "تركيب";
           else if (/صيانة/i.test(q)) pendingData.type = "صيانة";
 
+          Object.assign(pendingData, extractExplicitArabicFields(q));
+          applyBarePendingAnswer(pendingAction, pendingData, q);
+          sanitizeCreationData(pendingAction, pendingData);
+
           const missing = getMissingFields(pendingAction, pendingData);
           if (missing.length) {
             return sendJson(res, 200, {
               executed: false,
-              openForm: true,
-              formType: formMap[plan.intent] || "",
+              openForm: false,
+              formType: creationFormType(pendingAction),
               missingFields: missing,
-              message: missing.length === 1
-                ? `ينقصني ${missing[0].label}. تفضل بذكره.`
-                : `ينقصني ${missing.map(m => m.label).join(" و ")}. اذكرهم لو تكرمت.`,
+              message: `ينقصني ${missing[0].label}. تفضل بذكره.`,
               data: pendingData,
               action: pendingAction
             });
           }
 
-          const execResult = executeAiAction({action: pendingAction, data: pendingData, userId, role, companyOwnerId: input.companyOwnerId}, store);
-          logAiOperation(store, pendingAction, {id: userId, name: userName, role}, {action: pendingAction, data: pendingData, result: execResult.message});
-          return sendJson(res, 200, {
-            executed: execResult.executed,
-            message: execResult.message || (execResult.executed ? `تم التنفيذ بنجاح.` : "لم أتمكن من تنفيذ الأمر."),
-            action: pendingAction,
-            data: execResult
-          });
+          return sendJson(res, 200, creationPreview(pendingAction, pendingData));
           } // end else (pending follow-up processing)
         }
 
@@ -5884,7 +5959,8 @@ ${JSON.stringify(rows, null, 2)}
         }
 
         // Build data from plan extraction
-        var d = Object.assign({}, plan.data, {details: question, userId});
+        var d = Object.assign({}, plan.data, {userId});
+        if (!/^create_|^add_staff$/.test(String(action || ""))) d.details = question;
 
         // Map intent to form type that client will open
         const formMap = {
@@ -5912,26 +5988,20 @@ ${JSON.stringify(rows, null, 2)}
         const isCreation = creationActions.includes(action);
 
         if (isCreation && (formMap[plan.intent] || input._pendingAction)) {
+          sanitizeCreationData(action, d);
           const missing = getMissingFields(action, d);
           if (missing.length) {
             return sendJson(res, 200, {
               executed: false,
+              openForm: false,
+              formType: creationFormType(action),
               missingFields: missing,
-              message: missing.length === 1
-                ? `ينقصني ${missing[0].label}. تفضل بذكره.`
-                : `ينقصني ${missing.map(m => m.label).join(" و ")}. اذكرهم لو تكرمت.`,
+              message: `ينقصني ${missing[0].label}. تفضل بذكره.`,
               data: d,
               action
             });
           }
-          const execResult = executeAiAction({action, data: d, userId, role, companyOwnerId: input.companyOwnerId}, store);
-          logAiOperation(store, action, {id: userId, name: userName, role}, {action, data: d, result: execResult.message});
-          return sendJson(res, 200, {
-            executed: execResult.executed,
-            message: execResult.message || (execResult.executed ? `تم تنفيذ ${actionLabels[action] || "الأمر"}.` : "لم أتمكن من تنفيذ الأمر."),
-            action,
-            data: execResult
-          });
+          return sendJson(res, 200, creationPreview(action, d));
         }
 
         // --- Execute-only actions (assign, redistribute, notify) ---
