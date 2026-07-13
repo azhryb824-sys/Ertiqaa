@@ -532,6 +532,23 @@ function sendJson(res, status, payload) {
   res.end(JSON.stringify(payload));
 }
 
+function sendCompressedJson(req, res, status, payload) {
+  const json = JSON.stringify(payload);
+  if (!/\bgzip\b/i.test(String(req.headers["accept-encoding"] || "")) || Buffer.byteLength(json) < 2048) {
+    return sendJson(res, status, payload);
+  }
+  zlib.gzip(json, {level: zlib.constants.Z_BEST_SPEED}, (error, compressed) => {
+    if (error) return sendJson(res, status, payload);
+    res.writeHead(status, {
+      "Content-Type": "application/json; charset=utf-8",
+      "Content-Encoding": "gzip",
+      "Cache-Control": "no-store",
+      "Vary": "Accept-Encoding"
+    });
+    res.end(compressed);
+  });
+}
+
 function internetKnowledgeSources() {
   const envSources = String(process.env.AI_INTERNET_SOURCES || "").split(/\r?\n|,/).map(s => s.trim()).filter(Boolean);
   return envSources.length ? envSources : [
@@ -7744,9 +7761,24 @@ ${JSON.stringify(rows, null, 2)}
 
   if (req.url.startsWith("/api/storage")) {
     if (req.method === "GET") {
-      const key = new URL(req.url, "http://localhost").searchParams.get("key");
+      const storageUrl = new URL(req.url, "http://localhost");
+      const key = storageUrl.searchParams.get("key");
+      const keys = String(storageUrl.searchParams.get("keys") || "").split(",").map(x => x.trim()).filter(Boolean).slice(0, 100);
       const store = readStore();
       if (key) return sendJson(res, 200, Object.prototype.hasOwnProperty.call(store, key) ? {key, value: store[key]} : {});
+      if (keys.length) {
+        const values = {};
+        const summaries = {};
+        keys.forEach(name => {
+          if (!Object.prototype.hasOwnProperty.call(store, name)) return;
+          if (name === "misadCompanyDocs") {
+            summaries[name] = parseStoredJson(store, name).map(({fileData, ...document}) => ({...document, hasFile: Boolean(fileData)}));
+          } else {
+            values[name] = store[name];
+          }
+        });
+        return sendCompressedJson(req, res, 200, {values, summaries});
+      }
       const adminToken = new URL(req.url, "http://localhost").searchParams.get("admin");
       const nowMin = Math.floor(Date.now() / 60000);
       const valid = [0, -1].some(off => {
@@ -7768,13 +7800,16 @@ ${JSON.stringify(rows, null, 2)}
       req.on("data", chunk => body += chunk);
       req.on("end", () => {
         try {
-          const {key, value, remove} = JSON.parse(body || "{}");
-          if (!key) return sendJson(res, 400, {error: "Missing key"});
+          const input = JSON.parse(body || "{}");
+          const updates = Array.isArray(input.updates) ? input.updates.slice(0, 100) : [input];
+          if (!updates.length || updates.some(update => !update || !update.key)) return sendJson(res, 400, {error: "Missing key"});
           const store = readStore();
-          if (remove) delete store[key];
-          else store[key] = value;
+          updates.forEach(({key, value, remove}) => {
+            if (remove) delete store[key];
+            else store[key] = value;
+          });
           writeStore(store);
-          sendJson(res, 200, {ok: true});
+          sendJson(res, 200, {ok: true, updated: updates.length});
         } catch {
           sendJson(res, 400, {error: "Invalid JSON"});
         }
