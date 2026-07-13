@@ -108,16 +108,16 @@
         columns: [
           {
             stack: [
-              { text: 'الطرف الأول', bold: true, fontSize: 14, color: '#748481', alignment: 'center' },
-              { text: side1, fontSize: 13, color: '#0d312f', alignment: 'center', margin: [0, 2, 0, 2] },
-              sig1
+              { text: 'الطرف الثاني', bold: true, fontSize: 14, color: '#748481', alignment: 'center' },
+              { text: side2, fontSize: 13, color: '#0d312f', alignment: 'center', margin: [0, 2, 0, 2] },
+              { text: 'التوقيع: ........................', fontSize: 10, color: '#8b9f99', alignment: 'center' }
             ]
           },
           {
             stack: [
-              { text: 'الطرف الثاني', bold: true, fontSize: 14, color: '#748481', alignment: 'center' },
-              { text: side2, fontSize: 13, color: '#0d312f', alignment: 'center', margin: [0, 2, 0, 2] },
-              { text: 'التوقيع: ........................', fontSize: 10, color: '#8b9f99', alignment: 'center' }
+              { text: 'الطرف الأول', bold: true, fontSize: 14, color: '#748481', alignment: 'center' },
+              { text: side1, fontSize: 13, color: '#0d312f', alignment: 'center', margin: [0, 2, 0, 2] },
+              sig1
             ]
           }
         ],
