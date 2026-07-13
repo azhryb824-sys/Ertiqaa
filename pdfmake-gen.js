@@ -84,8 +84,24 @@
 
   function buildSignature(side1, side2){
     var stamp = (A.companyStamp && A.companyStamp()) || '';
-    var sig1 = stamp
-      ? { image: stamp, width: 120, height: 90, alignment: 'center', margin: [0, 4, 0, 0] }
+    var signature = (A.companySignature && A.companySignature()) || '';
+    var partyOneApproval = [];
+    if (signature) partyOneApproval.push({
+      stack: [
+        { text: 'التوقيع', fontSize: 8, color: '#8b9f99', alignment: 'center' },
+        { image: signature, fit: [100, 55], alignment: 'center', margin: [0, 2, 0, 0] }
+      ],
+      width: '*'
+    });
+    if (stamp) partyOneApproval.push({
+      stack: [
+        { text: 'الختم', fontSize: 8, color: '#8b9f99', alignment: 'center' },
+        { image: stamp, fit: [82, 62], alignment: 'center', margin: [0, 2, 0, 0] }
+      ],
+      width: '*'
+    });
+    var sig1 = partyOneApproval.length
+      ? { columns: partyOneApproval, columnGap: 6, margin: [0, 4, 0, 0] }
       : { text: 'التوقيع: ........................', fontSize: 10, color: '#8b9f99', alignment: 'center' };
     return [
       { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.5, lineColor: '#a0b8ad' }], margin: [0, 0, 0, 6] },
