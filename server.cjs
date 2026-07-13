@@ -2973,6 +2973,63 @@ function searchLocalData(query, store, user = {}) {
   return results.length > 0 ? results.join("\n") : null;
 }
 
+function extractExplicitArabicFields(question) {
+  const q = String(question || "");
+  const data = {};
+  const valueAfter = labels => {
+    const escaped = labels.map(label => label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
+    const match = q.match(new RegExp(`(?:${escaped})\\s*[:：]\\s*([^،,;\\n]+)`, "i"));
+    return match ? match[1].trim().replace(/[.؛]+$/, "").trim() : "";
+  };
+  const arabicNumber = value => String(value || "")
+    .replace(/[٠-٩]/g, digit => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)))
+    .replace(/[۰-۹]/g, digit => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)));
+
+  const clientName = valueAfter(["اسم العميل"]);
+  const clientCompanyName = valueAfter(["اسم منشأة العميل", "منشأة العميل", "شركة العميل", "مؤسسة العميل"]);
+  const type = valueAfter(["النوع", "نوع العقد", "نوع عرض السعر"]);
+  const title = valueAfter(["العنوان", "عنوان البلاغ", "عنوان عرض السعر"]);
+  const description = valueAfter(["الوصف", "وصف البلاغ"]);
+  const details = valueAfter(["التفاصيل", "تفاصيل العقد", "تفاصيل عرض السعر"]);
+  const priorityText = valueAfter(["الأولوية", "اولوية البلاغ"]);
+  const yearsText = valueAfter(["مدة العقد", "المدة"]);
+  const startDate = valueAfter(["تاريخ البداية", "تاريخ بدء العقد", "بداية العقد"]);
+  const amountText = valueAfter(["القيمة", "المبلغ", "قيمة العقد", "قيمة عرض السعر"]);
+
+  if (clientName) data.clientName = clientName;
+  if (clientCompanyName) data.clientCompanyName = clientCompanyName;
+  if (type) data.type = type;
+  if (title) data.title = title;
+  if (description) data.description = description;
+  if (details) data.details = details;
+  if (startDate) data.startDate = startDate.match(/\d{4}[-/]\d{1,2}[-/]\d{1,2}/)?.[0]?.replace(/\//g, "-") || startDate;
+
+  const amount = Number(arabicNumber(amountText).replace(/[^\d.]/g, ""));
+  if (amount > 0) data.value = amount;
+  const years = /سنة\s+واحدة|عام\s+واحد/i.test(yearsText)
+    ? 1
+    : Number(arabicNumber(yearsText).match(/\d+(?:\.\d+)?/)?.[0]);
+  if (years > 0) data.contractYears = years;
+
+  if (/عاجل|طارئ|طارئة/i.test(priorityText)) data.priority = "urgent";
+  else if (/عالي|عالية/i.test(priorityText)) data.priority = "high";
+  else if (/منخفض|منخفضة/i.test(priorityText)) data.priority = "low";
+  else if (/متوسط|متوسطة/i.test(priorityText)) data.priority = "medium";
+
+  const supplierName = valueAfter(["اسم المورد", "الاسم"]);
+  const phone = valueAfter(["الجوال", "جوال المورد", "الهاتف"]);
+  const email = valueAfter(["البريد الإلكتروني", "البريد الالكتروني", "البريد"]);
+  const city = valueAfter(["المدينة", "مدينة المورد"]);
+  const category = valueAfter(["التصنيف", "التخصص", "تصنيف المورد"]);
+  if (supplierName) data.name = supplierName;
+  if (phone) data.phone = arabicNumber(phone).replace(/\s+/g, "");
+  if (email) data.email = email;
+  if (city) data.city = city;
+  if (category) data.category = category;
+
+  return data;
+}
+
 function inferAiPlan(question, context, user = {}) {
   const q = String(question || "");
   const role = String(user.role || "");
@@ -3168,9 +3225,9 @@ function inferAiPlan(question, context, user = {}) {
   // --- Validation ---
   if (plan.intent === "can_do") {
     // preserve the action field set earlier
-    plan.data = Object.assign({action: plan.data?.action || ""}, extract);
+    plan.data = Object.assign({action: plan.data?.action || ""}, extract, extractExplicitArabicFields(q));
   } else {
-    plan.data = extract;
+    plan.data = Object.assign(extract, extractExplicitArabicFields(q));
   }
 
   if (plan.intent !== "answer") {
