@@ -88,19 +88,19 @@
     if (signature) partyOneApproval.push({
       stack: [
         { text: 'التوقيع', fontSize: 8, color: '#8b9f99', alignment: 'center' },
-        { image: signature, fit: [100, 55], alignment: 'center', margin: [0, 2, 0, 0] }
+        { image: signature, fit: [150, 88], alignment: 'center', margin: [0, 3, 0, 0] }
       ],
       width: '*'
     });
     if (stamp) partyOneApproval.push({
       stack: [
         { text: 'الختم', fontSize: 8, color: '#8b9f99', alignment: 'center' },
-        { image: stamp, fit: [82, 62], alignment: 'center', margin: [0, 2, 0, 0] }
+        { image: stamp, fit: [135, 96], alignment: 'center', margin: [0, 3, 0, 0] }
       ],
       width: '*'
     });
     var sig1 = partyOneApproval.length
-      ? { columns: partyOneApproval, columnGap: 6, margin: [0, 4, 0, 0] }
+      ? { columns: partyOneApproval, columnGap: 3, margin: [0, 5, 0, 0] }
       : { text: 'التوقيع: ........................', fontSize: 10, color: '#8b9f99', alignment: 'center' };
     return [
       { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.5, lineColor: '#a0b8ad' }], margin: [0, 0, 0, 6] },

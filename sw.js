@@ -1,4 +1,4 @@
-const CACHE = "shumoos-v20260713-pdf-layout-polish";
+const CACHE = "shumoos-v20260713-large-approvals";
 const ASSETS = [
   "/", "/index.html", "/login.html", "/register.html", "/dashboard.html",
   "/styles.css", "/app.js", "/manifest.json", "/pdfmake-gen.js",
