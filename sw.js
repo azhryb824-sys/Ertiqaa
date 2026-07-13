@@ -1,4 +1,4 @@
-const CACHE = "shumoos-v20260713-letterhead-5cm";
+const CACHE = "shumoos-v20260713-letterhead-clean-brand";
 const ASSETS = [
   "/", "/index.html", "/login.html", "/register.html", "/dashboard.html",
   "/styles.css", "/app.js", "/manifest.json", "/pdfmake-gen.js",

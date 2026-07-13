@@ -73,6 +73,15 @@
     ];
   }
 
+  function appendDocumentHeader(content, logoData, opts){
+    if (opts && opts.clean) return;
+    if (opts && opts.letterhead) {
+      content.push({ text: '', fontSize: 28, lineHeight: 1, margin: [0, 0, 0, 10] });
+      return;
+    }
+    Array.prototype.push.apply(content, buildHeader(logoData));
+  }
+
   function buildSignature(side1, side2){
     var stamp = (A.companyStamp && A.companyStamp()) || '';
     var sig1 = stamp
@@ -635,9 +644,7 @@
 
     console.log("PDFGEN", "contract type:", c.type, "is install:", isInstall);
 
-    if (!(opts && opts.clean)) {
-      Array.prototype.push.apply(content, buildHeader(logoData));
-    }
+    appendDocumentHeader(content, logoData, opts);
 
     content.push({
       table: {
@@ -774,9 +781,7 @@
     var companyName = activeCompanyName();
     var cf = safeFooter();
     var content = [];
-    if (!(opts && opts.clean)) {
-      Array.prototype.push.apply(content, buildHeader(logoData));
-    }
+    appendDocumentHeader(content, logoData, opts);
 
     content.push({
       columns: [
@@ -891,9 +896,7 @@
     var companyName = activeCompanyName();
     var cf = safeFooter();
     var content = [];
-    if (!(opts && opts.clean)) {
-      Array.prototype.push.apply(content, buildHeader(logoData));
-    }
+    appendDocumentHeader(content, logoData, opts);
 
     content.push({
       columns: [
@@ -959,9 +962,7 @@
     var companyName = activeCompanyName();
     var cf = safeFooter();
     var content = [];
-    if (!(opts && opts.clean)) {
-      Array.prototype.push.apply(content, buildHeader(logoData));
-    }
+    appendDocumentHeader(content, logoData, opts);
 
     content.push({
       columns: [
@@ -1001,9 +1002,7 @@
     var companyName = activeCompanyName();
     var cf = safeFooter();
     var content = [];
-    if (!(opts && opts.clean)) {
-      Array.prototype.push.apply(content, buildHeader(logoData));
-    }
+    appendDocumentHeader(content, logoData, opts);
 
     content.push({
       columns: [
