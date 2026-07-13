@@ -135,15 +135,15 @@
         body: [header, values]
       },
       layout: {
-        hLineWidth: function(i){ return i === 0 ? 0 : 0.5; },
-        vLineWidth: function(){ return 0.5; },
-        hLineColor: function(){ return '#a0b8ad'; },
-        vLineColor: function(){ return '#a0b8ad'; },
+        hLineWidth: function(i){ return i === 0 ? 0 : 0.35; },
+        vLineWidth: function(){ return 0; },
+        hLineColor: function(){ return '#c9d8d2'; },
+        vLineColor: function(){ return '#c9d8d2'; },
         paddingLeft: function(){ return 8; },
         paddingRight: function(){ return 8; },
-        paddingTop: function(){ return 6; },
-        paddingBottom: function(){ return 6; },
-        fillColor: function(i){ return i === 0 ? null : '#e6f0ea'; }
+        paddingTop: function(){ return 4; },
+        paddingBottom: function(){ return 4; },
+        fillColor: function(i){ return i === 0 ? null : '#f1f6f3'; }
       },
       margin: [0, 0, 0, 10]
     };
@@ -222,7 +222,8 @@
       {
         table: {
           headerRows: 1,
-          keepWithHeader: true,
+          keepWithHeaderRows: 2,
+          dontBreakRows: true,
           widths: [22, '*', 70],
           body: [[
             { text: '#', bold: true, color: '#fff', fillColor: '#0d312f', alignment: 'center' },
@@ -273,7 +274,8 @@
       {
         table: {
           headerRows: 1,
-          keepWithHeader: true,
+          keepWithHeaderRows: 2,
+          dontBreakRows: true,
           widths: [60, '*', 40, 70],
           body: body
         },
@@ -323,9 +325,9 @@
       summaryLabel: { fontSize: 10, color: '#5c7670', bold: true },
       summaryValue: { fontSize: 13, color: '#0d312f', bold: true }
     },
-    defaultStyle: { font: 'Cairo', fontSize: 13, lineHeight: 1.7, color: '#1a2e2b', bold: true },
+    defaultStyle: { font: 'Cairo', fontSize: 13, lineHeight: 1.5, color: '#1a2e2b', bold: true },
     pageSize: 'A4',
-    pageMargins: [28, 36, 28, 36],
+    pageMargins: [28, 64.35, 28, 85.04],
     header: function(){
       return {
         stack: [
@@ -343,14 +345,52 @@
     }
   };
 
+  function normalizePdfNodes(nodes){
+    if (!nodes) return;
+    if (Array.isArray(nodes)) {
+      nodes.forEach(normalizePdfNodes);
+      return;
+    }
+    if (typeof nodes !== 'object') return;
+
+    if (Number(nodes.lineHeight) > 1.55) nodes.lineHeight = 1.55;
+    if (nodes.bold && Number(nodes.fontSize) >= 12 && typeof nodes.text !== 'undefined') {
+      nodes.headlineLevel = 1;
+    }
+
+    if (nodes.table && Array.isArray(nodes.table.body)) {
+      if (Number(nodes.table.headerRows) > 0) {
+        nodes.table.keepWithHeaderRows = Math.min(2, Math.max(1, nodes.table.body.length - Number(nodes.table.headerRows)));
+        nodes.table.dontBreakRows = true;
+      }
+      nodes.layout = {
+        hLineWidth: function(i, node){ return (i === 0 || i === node.table.body.length) ? 0.6 : 0.3; },
+        vLineWidth: function(){ return 0; },
+        hLineColor: function(i){ return i === 0 ? '#0d312f' : '#c8d7d1'; },
+        vLineColor: function(){ return '#c8d7d1'; },
+        paddingLeft: function(){ return 6; },
+        paddingRight: function(){ return 6; },
+        paddingTop: function(){ return 3; },
+        paddingBottom: function(){ return 3; },
+        fillColor: function(rowIndex){ return rowIndex > 0 && rowIndex % 2 === 0 ? '#f3f7f5' : null; }
+      };
+    }
+
+    ['stack', 'columns', 'ul', 'ol'].forEach(function(key){ normalizePdfNodes(nodes[key]); });
+    if (nodes.table) normalizePdfNodes(nodes.table.body);
+  }
+
   function makeDd(content, cleanFooter, opts){
     var dd = JSON.parse(JSON.stringify(_sharedDd, function(k, v){
       return typeof v === 'function' ? undefined : v;
     }));
+    normalizePdfNodes(content);
     dd.content = content;
-    if (_sharedDd.pageBreakBefore) dd.pageBreakBefore = _sharedDd.pageBreakBefore;
+    dd.pageBreakBefore = function(currentNode, followingNodesOnPage){
+      return currentNode.headlineLevel === 1 && followingNodesOnPage.length < 2;
+    };
     if (opts && opts.letterhead) {
-      dd.pageMargins = [28, 179.73, 28, 56];
+      dd.pageMargins = [28, 208.08, 28, 85.04];
       dd.header = function(){ return null; };
       dd.footer = function(){ return null; };
       var bg = A.companyLetterhead ? A.companyLetterhead() : '';
@@ -359,7 +399,7 @@
         return { image: bg, width: 595, height: 842, absolutePosition: { x: 0, y: 0 } };
       };
     } else if (opts && opts.clean) {
-      dd.pageMargins = [28, 56, 28, 56];
+      dd.pageMargins = [28, 84.35, 28, 85.04];
       dd.header = function(){ return null; };
       dd.footer = function(){ return null; };
     } else {
@@ -407,11 +447,11 @@
   }
 
   function sectionTitle(text, margin){
-    return { text: text, fontSize: 16, bold: true, color: '#0d312f', margin: margin || [0, 0, 0, 4], alignment: 'right' };
+    return { text: text, fontSize: 15, bold: true, color: '#0d312f', margin: margin || [0, 0, 0, 4], alignment: 'right', headlineLevel: 1 };
   }
 
   function scopeText(text, fallback){
-    return { text: text || fallback, fontSize: 12, color: '#3b564f', margin: [0, 0, 0, 10], alignment: 'right', lineHeight: 1.8 };
+    return { text: text || fallback, fontSize: 12, color: '#3b564f', margin: [0, 0, 0, 8], alignment: 'right', lineHeight: 1.55 };
   }
 
   var specGroups = [
@@ -864,7 +904,7 @@
         ]);
         content.push({ text: 'جدول الدفعات', fontSize: 12, bold: true, color: '#0d312f', margin: [0, 0, 0, 4] });
         content.push({
-          table: { headerRows: 1, keepWithHeader: true, widths: ['*', '*', 80], body: planRows },
+          table: { headerRows: 1, keepWithHeaderRows: 2, dontBreakRows: true, widths: ['*', '*', 80], body: planRows },
           layout: {
             hLineWidth: function(){ return 0.5; },
             vLineWidth: function(){ return 0.5; },
