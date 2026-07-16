@@ -1142,6 +1142,10 @@
         if (A.visibleContracts) contract = A.visibleContracts().find(function(x){ return x.id === id; });
         if (!contract) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
         dd = contractPdfDefinition(contract, logoData, opts);
+        if (String(contract.transferNoticeData || '').startsWith('data:image/')) {
+          dd.content.push({text: 'إشعار التحويل', style: 'sectionTitle', pageBreak: 'before', margin: [0, 20, 0, 14]});
+          dd.content.push({image: contract.transferNoticeData, fit: [470, 680], alignment: 'center'});
+        }
 
       } else if (type === 'quote') {
         var quote;
