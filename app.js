@@ -12,7 +12,8 @@
     const pendingWrites=new Map();let flushTimer=null,writeQueue=Promise.resolve();
     const flush=()=>{flushTimer=null;if(!pendingWrites.size)return;const updates=[...pendingWrites.values()];pendingWrites.clear();writeQueue=writeQueue.catch(()=>{}).then(()=>fetch("/api/storage/batch",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({updates}),keepalive:true})).catch(()=>{updates.forEach(update=>pendingWrites.set(update.key,update));if(!flushTimer)flushTimer=setTimeout(flush,1000)})};
     const saveCritical=(key,value,remove=false)=>{try{const x=new XMLHttpRequest();x.open("POST","/api/storage/batch",false);x.setRequestHeader("Content-Type","application/json");x.send(JSON.stringify({updates:[{key,value,remove}]}));return x.status>=200&&x.status<300}catch{return false}};
-    const save=(key,value,remove=false)=>{if(key==="misadContracts"&&saveCritical(key,value,remove)){pendingWrites.delete(key);return}pendingWrites.set(key,{key,value,remove});if(!flushTimer)flushTimer=setTimeout(flush,60)};
+    const criticalKeys=new Set(["misadContracts","misadCompanyStaff"]);
+    const save=(key,value,remove=false)=>{if(criticalKeys.has(key)&&saveCritical(key,value,remove)){pendingWrites.delete(key);return}pendingWrites.set(key,{key,value,remove});if(!flushTimer)flushTimer=setTimeout(flush,60)};
     addEventListener("pagehide",()=>{if(!pendingWrites.size)return;const updates=[...pendingWrites.values()];pendingWrites.clear();navigator.sendBeacon?.("/api/storage/batch",new Blob([JSON.stringify({updates})],{type:"application/json"}))});
     addEventListener("beforeunload",()=>{if(!pendingWrites.size)return;const updates=[...pendingWrites.values()];try{const x=new XMLHttpRequest();x.open("POST","/api/storage/batch",false);x.setRequestHeader("Content-Type","application/json");x.send(JSON.stringify({updates}));pendingWrites.clear()}catch{}});
     preload();
