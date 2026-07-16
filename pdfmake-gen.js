@@ -160,15 +160,26 @@
   }
 
   function elevatorTable(ei){
-    if (!ei || typeof ei !== 'object' || typeof ei.type === 'undefined') return null;
-    var data = [
-      { label: 'نوع المصعد', value: ei.type },
-      { label: 'السعة', value: ei.capacity },
-      { label: 'السرعة', value: ei.speed },
-      { label: 'عدد التوقفات', value: ei.stops },
-      { label: 'رقم المصعد', value: ei.elevatorId },
-      { label: 'الموقع', value: ei.location }
-    ].filter(function(r){ return r.value; });
+    if (!ei || typeof ei !== 'object') return null;
+    var labels = {
+      elevatorType:'نوع المصعد',usage:'الاستخدام',capacity:'الحمولة',persons:'عدد الأشخاص',stops:'عدد الوقفات',speed:'السرعة',travelHeight:'ارتفاع المشوار',shaftLength:'طول البئر',shaftWidth:'عرض البئر',pitDepth:'عمق الحفرة',overhead:'الارتفاع العلوي',entrances:'عدد المداخل',doorDirection:'اتجاه الأبواب',speedSystem:'نظام السرعة',doorType:'نوع الأبواب',
+      motorType:'نوع المحرك',motorManufacturer:'الشركة المصنعة للمحرك',motorPower:'قدرة المحرك',motorSpeed:'سرعة المحرك',controller:'الكنترول',ropeManufacturer:'الشركة المصنعة للحبال',ropesCount:'عدد الحبال',ropeDiameter:'قطر الحبال',counterweight:'وزن الثقال',railManufacturer:'الشركة المصنعة للسكك',railSize:'مقاس السكك',originCountry:'بلد المنشأ',
+      cabinSize:'أبعاد الكابينة',floorType:'نوع الأرضية',wallType:'نوع الجدران',ceilingType:'نوع السقف',lightingType:'نوع الإنارة',displayType:'نوع شاشة العرض',risotType:'نوع الريشوت',mirrors:'وجود مرايا',fan:'وجود مروحة',voiceAnnouncement:'وجود الإعلان الصوتي',braille:'وجود Braille',
+      doorManufacturer:'الشركة المصنعة للأبواب',doorWidth:'عرض الباب',doorHeight:'ارتفاع الباب',doorOpenTime:'زمن فتح الباب',doorCloseTime:'زمن إغلاق الباب',doorLockType:'نوع أقفال الأبواب',
+      bufferType:'نوع Buffer',rescueSystem:'نظام الإنقاذ',coolingSystem:'نظام التبريد',intercom:'وجود إنتركم',camera:'وجود كاميرا',fireMode:'وجود Fire Mode',
+      voltage:'الجهد',frequency:'التردد',phases:'عدد الفازات',travelCableSize:'مقاس الكيبل المرن',powerConsumption:'استهلاك الكهرباء',warranty:'مدة الضمان',notes:'ملاحظات المواصفات',
+      type:'نوع المصعد',elevatorId:'رقم المصعد',location:'الموقع',count:'العدد',brand:'العلامة التجارية',age:'عدد الوقفات'
+    };
+    var preferredKeys = Object.keys(labels);
+    var seen = {};
+    var data = preferredKeys.filter(function(key){
+      if (seen[key] || ei[key] == null || String(ei[key]).trim() === '') return false;
+      seen[key] = true;
+      if (key === 'type' && ei.elevatorType) return false;
+      if (key === 'brand' && ei.motorManufacturer) return false;
+      if (key === 'age' && ei.stops) return false;
+      return true;
+    }).map(function(key){ return { label: labels[key], value: String(ei[key]) }; });
     if (!data.length) return null;
     return [
       { text: 'بيانات المصعد', fontSize: 12, bold: true, color: '#0d312f', margin: [0, 0, 0, 4] },
@@ -301,12 +312,15 @@
     arr.forEach(function(item){
       var t = '', d = '';
       if (typeof item === 'string') { t = item; }
-      else if (item && item.section) { t = item.section; d = item.description || item.title || ''; }
+      else if (item && item.section) { t = item.title || item.section; d = item.description || ''; }
       else if (item && item.title) { t = item.title; d = item.description || ''; }
       else if (item && item.name) { t = item.name; d = item.description || item.desc || ''; }
       else { try { t = JSON.stringify(item); } catch(e){} }
       items.push({ text: t, bold: true, fontSize: 11, color: '#17413e', margin: [0, 0, 0, 1], alignment: 'right' });
-      if (d) items.push({ text: d, fontSize: 11, color: '#3b564f', margin: [0, 0, 0, 4], alignment: 'right' });
+      if (d) items.push({ text: d, fontSize: 11, color: '#3b564f', margin: [0, 0, 0, 2], alignment: 'right' });
+      if (item && typeof item === 'object' && item.price != null && Number(item.price) !== 0) {
+        items.push({ text: 'القيمة: ' + safeMoney(item.price), fontSize: 10, bold: true, color: '#8b601f', margin: [0, 0, 0, 4], alignment: 'right' });
+      }
     });
     var titleEl = { text: title, fontSize: 14, bold: true, color: '#0d312f', margin: [0, 0, 0, 4] };
     if (items.length > 0) {

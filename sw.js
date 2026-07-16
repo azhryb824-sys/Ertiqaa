@@ -1,4 +1,4 @@
-const CACHE = "shumoos-v20260716-quote-complete-data";
+const CACHE = "shumoos-v20260716-quote-all-details";
 const ASSETS = [
   "/", "/index.html", "/login.html", "/register.html", "/dashboard.html",
   "/styles.css", "/app.js", "/manifest.json", "/pdfmake-gen.js",
