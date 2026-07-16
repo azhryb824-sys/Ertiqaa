@@ -81,7 +81,7 @@
     Array.prototype.push.apply(content, buildHeader(logoData));
   }
 
-  function buildSignature(side1, side2){
+  function buildSignature(side1, side2, companyOnly){
     var stamp = (A.companyStamp && A.companyStamp()) || '';
     var signature = (A.companySignature && A.companySignature()) || '';
     var partyOneApproval = [];
@@ -102,6 +102,26 @@
     var sig1 = partyOneApproval.length
       ? { columns: partyOneApproval, columnGap: 3, margin: [0, 5, 0, 0] }
       : { text: 'التوقيع: ........................', fontSize: 10, color: '#8b9f99', alignment: 'center' };
+    if (companyOnly) {
+      return [
+        { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.5, lineColor: '#a0b8ad' }], margin: [0, 0, 0, 6] },
+        {
+          columns: [
+            { text: '', width: '*' },
+            {
+              width: 280,
+              stack: [
+                { text: 'اعتماد الشركة', bold: true, fontSize: 14, color: '#748481', alignment: 'center' },
+                { text: side1, fontSize: 13, color: '#0d312f', alignment: 'center', margin: [0, 2, 0, 2] },
+                sig1
+              ]
+            },
+            { text: '', width: '*' }
+          ],
+          margin: [0, 0, 0, 10]
+        }
+      ];
+    }
     return [
       { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.5, lineColor: '#a0b8ad' }], margin: [0, 0, 0, 6] },
       {
@@ -359,20 +379,27 @@
     }
   };
 
-  function normalizePdfNodes(nodes){
+  function normalizePdfNodes(nodes, insideTable){
     if (!nodes) return;
     if (Array.isArray(nodes)) {
-      nodes.forEach(normalizePdfNodes);
+      nodes.forEach(function(node){ normalizePdfNodes(node, insideTable); });
       return;
     }
     if (typeof nodes !== 'object') return;
 
     if (Number(nodes.lineHeight) > 1.55) nodes.lineHeight = 1.55;
-    if (nodes.bold && Number(nodes.fontSize) >= 12 && typeof nodes.text !== 'undefined') {
+    var isMainHeading = nodes.bold && Number(nodes.fontSize) >= 12 && typeof nodes.text !== 'undefined';
+    var isGoldSubheading = nodes.bold && Number(nodes.fontSize) >= 10 && nodes.color === '#d4a24e' && typeof nodes.text !== 'undefined';
+    if (!insideTable && (isMainHeading || isGoldSubheading)) {
       nodes.headlineLevel = 1;
     }
 
     if (nodes.table && Array.isArray(nodes.table.body)) {
+      var firstRow = nodes.table.body[0];
+      var hasVisualHeader = Array.isArray(firstRow) && firstRow.length > 0 && firstRow.every(function(cell){
+        return cell && typeof cell === 'object' && (cell.fillColor === '#0d312f' || cell.color === '#fff');
+      });
+      if (!Number(nodes.table.headerRows) && hasVisualHeader) nodes.table.headerRows = 1;
       if (Number(nodes.table.headerRows) > 0) {
         nodes.table.keepWithHeaderRows = Math.min(2, Math.max(1, nodes.table.body.length - Number(nodes.table.headerRows)));
         nodes.table.dontBreakRows = true;
@@ -390,8 +417,8 @@
       };
     }
 
-    ['stack', 'columns', 'ul', 'ol'].forEach(function(key){ normalizePdfNodes(nodes[key]); });
-    if (nodes.table) normalizePdfNodes(nodes.table.body);
+    ['stack', 'columns', 'ul', 'ol'].forEach(function(key){ normalizePdfNodes(nodes[key], insideTable); });
+    if (nodes.table) normalizePdfNodes(nodes.table.body, true);
   }
 
   function makeDd(content, cleanFooter, opts){
@@ -988,7 +1015,7 @@
     }
 
     content.push({
-      stack: buildSignature(companyName, party),
+      stack: buildSignature(companyName, party, true),
       unbreakable: true,
       margin: [0, 0, 0, 0]
     });
