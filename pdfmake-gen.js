@@ -170,6 +170,7 @@
   }
 
   function statusBadge(status){
+    if (status === 'بانتظار المراجعة والاعتماد') status = 'قيد الاعتماد';
     var color = '#3c8b70';
     if (!status) { status = ''; color = '#666'; }
     if (status.indexOf('بانتظار') >= 0) color = '#8b601f';
@@ -421,11 +422,28 @@
     if (nodes.table) normalizePdfNodes(nodes.table.body, true);
   }
 
+  function bindHeadingsToFollowingText(content){
+    if (!Array.isArray(content)) return;
+    for (var i = 0; i < content.length - 1; i++) {
+      var heading = content[i];
+      var next = content[i + 1];
+      if (!heading || heading.headlineLevel !== 1 || heading.unbreakable) continue;
+      if (!next || next.table || next.pageBreak || next.unbreakable) continue;
+      if (typeof next.text === 'undefined') continue;
+      content.splice(i, 2, {
+        stack: [heading, next],
+        unbreakable: true,
+        headlineLevel: 1
+      });
+    }
+  }
+
   function makeDd(content, cleanFooter, opts){
     var dd = JSON.parse(JSON.stringify(_sharedDd, function(k, v){
       return typeof v === 'function' ? undefined : v;
     }));
     normalizePdfNodes(content);
+    bindHeadingsToFollowingText(content);
     dd.content = content;
     dd.pageBreakBefore = function(currentNode, followingNodesOnPage){
       return currentNode.headlineLevel === 1 && followingNodesOnPage.length < 2;

@@ -98,7 +98,7 @@
   const aiRequestUser=()=>({userId:session.id,role:session.role,name:session.name,permissions:Array.isArray(session.permissions)?session.permissions:[],companyOwnerId:session.companyOwnerId||ownerId()});
   function head(t,d,b=""){const aiBtn=aiPagePrompt[currentPage]?`<button class="btn-ai" data-ai-page="${currentPage}">ذكي</button>`:"";const allBtns=aiBtn+b;return `<div class="page-head"><div><h1>${t}</h1><p>${d}</p></div>${allBtns||""}</div>`}
   function empty(t,d,b=""){return `<div class="panel empty-state"><h3>${t}</h3><p>${d}</p>${b}</div>`}
-  const badge=s=>`<span class="badge ${s==="ساري"||s==="مجدولة"||s==="معتمدة"||s==="مكتملة"?"success":s==="منتهيا"?"danger":s==="ملغي"?"cancelled":"pending"}">${s||"غير محدد"}</span>`;
+  const badge=s=>{const label=s==="بانتظار المراجعة والاعتماد"?"قيد الاعتماد":s;return `<span class="badge ${s==="ساري"||s==="مجدولة"||s==="معتمدة"||s==="مكتملة"?"success":s==="منتهيا"?"danger":s==="ملغي"?"cancelled":"pending"}">${label||"غير محدد"}</span>`};
   const inviteAllowedRoles=()=>session.role==="admin"?["owner","company_admin","technician","client"]:session.role==="owner"?["company_admin","technician","client"]:session.role==="company_admin"?["technician","client"]:[];
   function inviteStatus(inv){if(inv.revoked)return "ملغي";if(Number(inv.used||0)>=Number(inv.maxUses||1))return "مستخدم";if(Number(inv.expiresAtMs||0)<Date.now())return "منتهي";return "جاهز"}
   async function createInviteLink(targetRole){
