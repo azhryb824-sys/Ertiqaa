@@ -1107,6 +1107,7 @@
   function pdfLog(msg){ console.log("PDFGEN", msg); if (A.toast) A.toast(msg); }
 
   window.generatePdf = async function(type, id, opts){
+    if (type === 'quote' && !(opts && opts.clean)) opts = Object.assign({}, opts || {}, {letterhead:true});
     console.log("PDFGEN", "pdfmake attempt", type, id, "ready:", pdfmakeReady);
     if (opts && opts.letterhead && A.canUseCompanyLetterhead && !A.canUseCompanyLetterhead()) {
       pdfLog('غير مصرح باستخدام مطبوعات الشركة');
@@ -1117,6 +1118,7 @@
       return;
     }
     if (!pdfmakeReady) {
+      if (type === 'quote') { pdfLog('تعذر تجهيز ملف عرض السعر حالياً، أعد المحاولة'); return; }
       if (opts && opts.letterhead) {
         pdfLog('تعذر توليد PDF على مطبوعات الشركة حالياً');
         return;
@@ -1183,6 +1185,7 @@
       }
 
       if (!dd) {
+        if (type === 'quote') { pdfLog('تعذر توليد ملف عرض السعر'); return; }
         if (opts && opts.letterhead) { pdfLog('تعذر توليد PDF على مطبوعات الشركة'); return; }
         if (A.downloadPdf) A.downloadPdf(type, id);
         return;
@@ -1194,6 +1197,7 @@
 
     } catch(err) {
       console.error("PDFGEN", "pdfmake error:", err);
+      if (type === 'quote') { pdfLog('تعذر توليد ملف عرض السعر، أعد المحاولة'); return; }
       if (opts && opts.letterhead) {
         pdfLog('تعذر توليد PDF على مطبوعات الشركة');
         return;
