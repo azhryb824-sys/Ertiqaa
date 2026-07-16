@@ -829,7 +829,9 @@
 
   // ==================== QUOTE ====================
   function quotePdfDefinition(q, logoData, opts){
-    var total = Number(q.totalWithTax != null ? q.totalWithTax : (q.subtotal != null ? q.subtotal : (q.value || 0)));
+    var total = Number(q.totalWithTax != null ? q.totalWithTax : (q.value != null ? q.value : (q.subtotal || 0)));
+    var subtotal = Number(q.subtotal != null ? q.subtotal : total);
+    var taxAmount = Number(q.taxAmount != null ? q.taxAmount : Math.max(0, total - subtotal));
     var party = q.client || q.clientCompanyName || q.clientName || "غير محدد";
     var isInstall = q.type === "تركيب";
     var companyName = activeCompanyName();
@@ -868,11 +870,45 @@
       ],
       margin: [0, 0, 0, 8]
     });
-    content.push(summaryTable([
+    var quoteSummary = [
       { label: 'العنوان', value: q.title || 'عرض سعر' },
       { label: 'تاريخ الإصدار', value: q.createdAt },
       { label: 'مرجع الكشف', value: q.reportId || '?' }
-    ]));
+    ];
+    if (q.clientName) quoteSummary.push({ label: 'اسم العميل', value: q.clientName });
+    if (q.clientId) quoteSummary.push({ label: 'هوية العميل', value: q.clientId });
+    if (q.clientCompanyName) quoteSummary.push({ label: 'منشأة العميل', value: q.clientCompanyName });
+    if (q.clientCompanyUnifiedNumber) quoteSummary.push({ label: 'الرقم الموحد', value: q.clientCompanyUnifiedNumber });
+    content.push(summaryTable(quoteSummary));
+
+    var financialRows = [
+      [{ text: 'القيمة قبل الضريبة', alignment: 'right' }, { text: safeMoney(subtotal), alignment: 'center', bold: true }]
+    ];
+    if (taxAmount > 0) {
+      financialRows.push([
+        { text: 'ضريبة القيمة المضافة' + (q.taxRate ? ' (' + (Number(q.taxRate) > 1 ? Number(q.taxRate) : Number(q.taxRate) * 100) + '%)' : ''), alignment: 'right' },
+        { text: safeMoney(taxAmount), alignment: 'center', bold: true }
+      ]);
+    }
+    financialRows.push([
+      { text: 'الإجمالي شامل الضريبة', alignment: 'right', bold: true, color: '#8b601f' },
+      { text: safeMoney(total), alignment: 'center', bold: true, color: '#8b601f' }
+    ]);
+    content.push({
+      table: { widths: ['*', 110], body: financialRows },
+      layout: {
+        hLineWidth: function(){ return 0.5; },
+        vLineWidth: function(){ return 0.5; },
+        hLineColor: function(){ return '#c5d9cf'; },
+        vLineColor: function(){ return '#c5d9cf'; },
+        paddingLeft: function(){ return 7; },
+        paddingRight: function(){ return 7; },
+        paddingTop: function(){ return 5; },
+        paddingBottom: function(){ return 5; },
+        fillColor: function(i){ return i === financialRows.length - 1 ? '#fdf6e8' : (i % 2 ? '#f4f9f6' : null); }
+      },
+      margin: [0, 0, 0, 10]
+    });
 
     var et = elevatorTable(q.elevatorInfo);
     if (et) Array.prototype.push.apply(content, et);
