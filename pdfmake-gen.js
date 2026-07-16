@@ -1220,6 +1220,19 @@
     });
   };
 
+  window.generateQuotePdfBlob = async function(id){
+    if (!pdfmakeReady) throw new Error('PDF غير متاح حالياً');
+    if (A.canUseCompanyLetterhead && !A.canUseCompanyLetterhead()) throw new Error('غير مصرح باستخدام مطبوعات الشركة');
+    if (!(A.companyLetterhead && A.companyLetterhead())) throw new Error('ارفع صورة مطبوعات الشركة أولاً');
+    var quote = A.quotes && A.quotes.filter(function(q){ return A.sameCompany ? A.sameCompany(q) : true; }).find(function(x){ return x.id === id; });
+    if (!quote) throw new Error('لم يتم العثور على عرض السعر');
+    var logoData = await loadLogo();
+    var dd = quotePdfDefinition(quote, logoData, {letterhead:true});
+    return await new Promise(function(resolve,reject){
+      try { pdfMake.createPdf(dd).getBlob(resolve); } catch (err) { reject(err); }
+    });
+  };
+
   document.addEventListener('click', function(e){
     var btn = e.target.closest('[data-pdf-doc]');
     if (btn) {
