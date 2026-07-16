@@ -1203,6 +1203,23 @@
     }
   };
 
+  window.generateContractPdfBlob = async function(id){
+    if (!pdfmakeReady) throw new Error('PDF غير متاح حالياً');
+    if (A.canUseCompanyLetterhead && !A.canUseCompanyLetterhead()) throw new Error('غير مصرح باستخدام مطبوعات الشركة');
+    if (!(A.companyLetterhead && A.companyLetterhead())) throw new Error('ارفع صورة مطبوعات الشركة أولاً');
+    var contract = A.visibleContracts && A.visibleContracts().find(function(x){ return x.id === id; });
+    if (!contract) throw new Error('لم يتم العثور على العقد');
+    var logoData = await loadLogo();
+    var dd = contractPdfDefinition(contract, logoData, {letterhead:true});
+    if (String(contract.transferNoticeData || '').startsWith('data:image/')) {
+      dd.content.push({text:'إشعار التحويل',style:'sectionTitle',pageBreak:'before',margin:[0,20,0,14]});
+      dd.content.push({image:contract.transferNoticeData,fit:[470,680],alignment:'center'});
+    }
+    return await new Promise(function(resolve,reject){
+      try { pdfMake.createPdf(dd).getBlob(resolve); } catch (err) { reject(err); }
+    });
+  };
+
   document.addEventListener('click', function(e){
     var btn = e.target.closest('[data-pdf-doc]');
     if (btn) {
