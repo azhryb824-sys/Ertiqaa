@@ -1106,6 +1106,22 @@
   // ==================== MAIN ENTRY ====================
   function pdfLog(msg){ console.log("PDFGEN", msg); if (A.toast) A.toast(msg); }
 
+  function createPdfBlob(dd){
+    return pdfMake.createPdf(dd).getBlob();
+  }
+
+  async function downloadPdfDefinition(dd, filename){
+    var blob = await createPdfBlob(dd);
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+  }
+
   window.generatePdf = async function(type, id, opts){
     if (type === 'quote' && !(opts && opts.clean)) opts = Object.assign({}, opts || {}, {letterhead:true});
     console.log("PDFGEN", "pdfmake attempt", type, id, "ready:", pdfmakeReady);
@@ -1192,7 +1208,7 @@
       }
 
       var suffix = (opts && opts.letterhead) ? ' (على مطبوعات الشركة)' : ((opts && opts.clean) ? ' (بدون ترويسة)' : '');
-      pdfMake.createPdf(dd).download(p.title + suffix + '.pdf');
+      await downloadPdfDefinition(dd, p.title + suffix + '.pdf');
       pdfLog('تم تحميل PDF بنجاح');
 
     } catch(err) {
@@ -1219,9 +1235,7 @@
       dd.content.push({text:'إشعار التحويل',style:'sectionTitle',pageBreak:'before',margin:[0,20,0,14]});
       dd.content.push({image:contract.transferNoticeData,fit:[470,680],alignment:'center'});
     }
-    return await new Promise(function(resolve,reject){
-      try { pdfMake.createPdf(dd).getBlob(resolve); } catch (err) { reject(err); }
-    });
+    return createPdfBlob(dd);
   };
 
   window.generateQuotePdfBlob = async function(id){
@@ -1232,9 +1246,7 @@
     if (!quote) throw new Error('لم يتم العثور على عرض السعر');
     var logoData = await loadLogo();
     var dd = quotePdfDefinition(quote, logoData, {letterhead:true});
-    return await new Promise(function(resolve,reject){
-      try { pdfMake.createPdf(dd).getBlob(resolve); } catch (err) { reject(err); }
-    });
+    return createPdfBlob(dd);
   };
 
   document.addEventListener('click', function(e){
