@@ -1253,7 +1253,7 @@
     var btn = e.target.closest('[data-pdf-doc]');
     if (btn) {
       e.preventDefault();
-      e.stopPropagation();
+      e.stopImmediatePropagation();
       var opts = {};
       if (btn.dataset.pdfClean === 'true') opts.clean = true;
       if (btn.dataset.pdfLetterhead === 'true') opts.letterhead = true;
