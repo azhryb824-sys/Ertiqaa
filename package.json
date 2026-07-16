@@ -15,6 +15,7 @@
     "cap:copy:ios": "npx cap copy ios",
     "test": "node src/pdf/test-pdf.js",
     "test:ai-creation": "node scripts/ai-creation-channel-test.cjs",
+    "test:contract-refresh": "node scripts/test-contract-refresh-persistence.cjs",
     "test-enhanced": "node src/pdf/test-pdf-enhanced.js",
     "generate": "node src/pdf/generate-examples.js",
     "server": "node src/pdf/pdf-server.js",
