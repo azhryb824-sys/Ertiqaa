@@ -1198,6 +1198,120 @@
     return makeDd(content, cf, opts);
   }
 
+  function contractFinancePdfDefinition(c, logoData, opts){
+    var companyName = activeCompanyName();
+    var cf = safeFooter();
+    var content = [];
+    appendDocumentHeader(content, logoData, opts);
+    content.push({ text: 'الإدارة المالية للعقد', fontSize: 18, bold: true, color: '#0d312f', margin: [0, 0, 0, 6] });
+    content.push(summaryTable([
+      { label: 'رقم العقد', value: safeLabel(c.id) },
+      { label: 'الطرف الثاني', value: safeLabel(A.contractLabel ? A.contractLabel(c) : c.id) },
+      { label: 'إجمالي العقد', value: safeMoney(c.value) }
+    ]));
+    var allEntries = [], paid = 0, remaining = 0, overdue = 0, installmentEntries = [];
+    try {
+      allEntries = JSON.parse(localStorage.getItem('misadFinancialEntries') || '[]');
+      installmentEntries = allEntries.filter(function(x){ return x.contractId === c.id && x.direction === 'in'; });
+      paid = installmentEntries.reduce(function(s,x){ return s + Number(x.amount||0); }, 0);
+      remaining = Math.max(0, Number(c.value||0) - paid);
+      overdue = 0;
+      if (Number(c.value||0) > 0 && c.type === 'تركيب') {
+        var plan = [{label:"الدفعة الأولى",percent:0.5},{label:"الدفعة الثانية",percent:0.35},{label:"الدفعة الثالثة",percent:0.15}];
+        plan.forEach(function(p){
+          var expected = Number(c.value||0) * p.percent;
+          var received = installmentEntries.filter(function(x){ return x.paymentLabel === p.label; }).reduce(function(a,x){ return a + Number(x.amount||0); }, 0);
+          if (expected > received) overdue += (expected - received);
+        });
+      }
+    } catch(e){}
+    content.push({
+      table: {
+        widths: ['25%', '25%', '25%', '25%'],
+        body: [
+          [
+            { text: '', fontSize: 10, alignment: 'center' },
+            { text: 'إجمالي المدفوع', bold: true, fontSize: 10, color: '#60756f', alignment: 'center' },
+            { text: 'المبلغ المتبقي', bold: true, fontSize: 10, color: '#60756f', alignment: 'center' },
+            { text: 'المبالغ المتأخرة', bold: true, fontSize: 10, color: '#60756f', alignment: 'center' }
+          ],
+          [
+            { text: '', alignment: 'center' },
+            { text: safeMoney(paid), bold: true, fontSize: 14, color: '#3c8b70', alignment: 'center', margin: [0, 6, 0, 6] },
+            { text: safeMoney(remaining), bold: true, fontSize: 14, color: remaining > 0 ? '#c85c59' : '#3c8b70', alignment: 'center', margin: [0, 6, 0, 6] },
+            { text: safeMoney(overdue), bold: true, fontSize: 14, color: overdue > 0 ? '#c85c59' : '#3c8b70', alignment: 'center', margin: [0, 6, 0, 6] }
+          ]
+        ]
+      },
+      layout: 'noBorders',
+      margin: [0, 0, 0, 8]
+    });
+    if (installmentEntries.length) {
+      var sorted = installmentEntries.sort(function(a,b){ return (b.createdAtMs||0) - (a.createdAtMs||0); });
+      var rows = sorted.map(function(e){
+        return [
+          { text: e.description || e.paymentLabel || '—', fontSize: 9, alignment: 'right' },
+          { text: safeMoney(e.amount), fontSize: 9, alignment: 'center', bold: true },
+          { text: e.date || '—', fontSize: 9, alignment: 'center' },
+          { text: e.paymentMethod || '—', fontSize: 9, alignment: 'center' }
+        ];
+      });
+      content.push({ text: 'سجل الدفعات', fontSize: 14, bold: true, color: '#0d312f', margin: [0, 10, 0, 4] });
+      content.push({
+        table: {
+          widths: ['*', 'auto', 'auto', 'auto'],
+          headerRows: 1,
+          body: [
+            [
+              { text: 'البيان', bold: true, fontSize: 10, color: '#fff', fillColor: '#0d312f', alignment: 'center', margin: [3, 3, 3, 3] },
+              { text: 'المبلغ', bold: true, fontSize: 10, color: '#fff', fillColor: '#0d312f', alignment: 'center', margin: [3, 3, 3, 3] },
+              { text: 'تاريخ الدفع', bold: true, fontSize: 10, color: '#fff', fillColor: '#0d312f', alignment: 'center', margin: [3, 3, 3, 3] },
+              { text: 'طريقة الدفع', bold: true, fontSize: 10, color: '#fff', fillColor: '#0d312f', alignment: 'center', margin: [3, 3, 3, 3] }
+            ]
+          ].concat(rows)
+        },
+        margin: [0, 0, 0, 10]
+      });
+    }
+    if (c.type === 'تركيب') {
+      try {
+        var plan = [{label:"الدفعة الأولى",percent:0.5},{label:"الدفعة الثانية",percent:0.35},{label:"الدفعة الثالثة",percent:0.15}];
+        var planRows = plan.map(function(p){
+          var expected = Number(c.value||0) * p.percent;
+          var ppaid = installmentEntries.filter(function(x){ return x.paymentLabel === p.label; }).reduce(function(s,x){ return s + Number(x.amount||0); }, 0);
+          var premaining = Math.max(0, expected - ppaid);
+          return [
+            { text: p.label, fontSize: 9, alignment: 'right' },
+            { text: safeMoney(expected), fontSize: 9, alignment: 'center' },
+            { text: safeMoney(ppaid), fontSize: 9, alignment: 'center' },
+            { text: safeMoney(premaining), fontSize: 9, alignment: 'center', bold: true, color: premaining > 0 ? '#c85c59' : '#3c8b70' }
+          ];
+        });
+        content.push({ text: 'خطة الدفعات', fontSize: 14, bold: true, color: '#0d312f', margin: [0, 0, 0, 4] });
+        content.push({
+          table: {
+            widths: ['*', 'auto', 'auto', 'auto'],
+            headerRows: 1,
+            body: [
+              [
+                { text: 'الدفعة', bold: true, fontSize: 10, color: '#fff', fillColor: '#0d312f', alignment: 'center', margin: [3, 3, 3, 3] },
+                { text: 'المستحق', bold: true, fontSize: 10, color: '#fff', fillColor: '#0d312f', alignment: 'center', margin: [3, 3, 3, 3] },
+                { text: 'المدفوع', bold: true, fontSize: 10, color: '#fff', fillColor: '#0d312f', alignment: 'center', margin: [3, 3, 3, 3] },
+                { text: 'المتبقي', bold: true, fontSize: 10, color: '#fff', fillColor: '#0d312f', alignment: 'center', margin: [3, 3, 3, 3] }
+              ]
+            ].concat(planRows)
+          },
+          margin: [0, 0, 0, 10]
+        });
+      } catch(e){}
+    }
+    content.push({
+      stack: buildSignature(companyName, (A.contractLabel ? A.contractLabel(c) : c.id), false),
+      unbreakable: true,
+      margin: [0, 0, 0, 0]
+    });
+    return makeDd(content, cf, opts);
+  }
   // ==================== MAIN ENTRY ====================
   function pdfLog(msg){ console.log("PDFGEN", msg); if (A.toast) A.toast(msg); }
 
@@ -1289,6 +1403,12 @@
         var claim = claims.filter(function(c){ return A.sameCompany ? A.sameCompany(c) : true; }).find(function(x){ return x.id === id; });
         if (!claim) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
         dd = claimPdfDefinition(claim, logoData, opts);
+
+      } else if (type === 'contract-finance') {
+        var contract;
+        if (A.visibleContracts) contract = A.visibleContracts().find(function(x){ return x.id === id; });
+        if (!contract) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
+        dd = contractFinancePdfDefinition(contract, logoData, opts);
 
       } else {
         if (A.downloadPdf) A.downloadPdf(type, id);
