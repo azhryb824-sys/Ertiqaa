@@ -1335,14 +1335,14 @@
     if (sig) partyOneApproval.push({
       stack: [
         { text: 'التوقيع', fontSize: 6, color: '#8b9f99', alignment: 'center' },
-        { image: sig, fit: [80, 48], alignment: 'center', margin: [0, 1, 0, 0] }
+        { image: sig, fit: [150, 88], alignment: 'center', margin: [0, 1, 0, 0] }
       ],
       width: '*'
     });
     if (stamp) partyOneApproval.push({
       stack: [
         { text: 'الختم', fontSize: 6, color: '#8b9f99', alignment: 'center' },
-        { image: stamp, fit: [70, 50], alignment: 'center', margin: [0, 1, 0, 0] }
+        { image: stamp, fit: [135, 96], alignment: 'center', margin: [0, 1, 0, 0] }
       ],
       width: '*'
     });
