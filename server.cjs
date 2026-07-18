@@ -1150,9 +1150,10 @@ function analyzeReportForQuote(report, store) {
   return findings;
 }
 
-function findBestSupplierForParts(parts, store) {
-  const suppliers = parseStoredJson(store, "misadSuppliers");
-  const partsInventory = parseStoredJson(store, "misadPartsInventory");
+function findBestSupplierForParts(parts, store, user = {}) {
+  const scoped = scopeAiData(store, user);
+  const suppliers = scoped.suppliers;
+  const partsInventory = scoped.parts;
   
   return parts.map(part => {
     const partInventory = partsInventory.find(p => p.id === part.id);
@@ -1205,7 +1206,7 @@ function generateAutoQuote(report, analysis, store, userId) {
   };
   
   // Add parts to quote items
-  const partsWithSuppliers = findBestSupplierForParts(analysis.requiredParts, store);
+  const partsWithSuppliers = findBestSupplierForParts(analysis.requiredParts, store, user);
   let totalValue = 0;
   
   partsWithSuppliers.forEach(part => {
@@ -1386,8 +1387,9 @@ function calculateDistance(lat1, lng1, lat2, lng2) {
   return R * c;
 }
 
-function analyzeTechnicianWorkload(technician, visits, store) {
-  const locations = parseStoredJson(store, "misadStaffLocations");
+function analyzeTechnicianWorkload(technician, visits, store, user = {}) {
+  const scoped = scopeAiData(store, user);
+  const locations = scoped.locations;
   const currentLocation = locations.find(l => l.identity === technician.identity);
   
   const assignedVisits = visits.filter(v => String(v.assignedTo) === technician.identity);
@@ -1439,10 +1441,12 @@ function analyzeTechnicianWorkload(technician, visits, store) {
 }
 
 function redistributeVisits(store, options = {}) {
-  const visits = parseStoredJson(store, "misadVisits");
-  const staff = parseStoredJson(store, "misadCompanyStaff");
-  const locations = parseStoredJson(store, "misadStaffLocations");
-  const tickets = parseStoredJson(store, "misadTickets");
+  const user = options.user || {};
+  const scoped = scopeAiData(store, user);
+  const visits = scoped.visits;
+  const staff = scoped.staff;
+  const locations = scoped.locations;
+  const tickets = scoped.tickets;
   
   const availableTechnicians = staff.filter(s => 
     ["technician", "engineer"].includes(s.role) && 
@@ -1469,7 +1473,7 @@ function redistributeVisits(store, options = {}) {
   
   // Analyze each technician's current workload
   availableTechnicians.forEach(tech => {
-    const workload = analyzeTechnicianWorkload(tech, visits, store);
+    const workload = analyzeTechnicianWorkload(tech, visits, store, user);
     analysis.workloadAnalysis.push(workload);
   });
   
@@ -1544,10 +1548,11 @@ function redistributeVisits(store, options = {}) {
   return analysis;
 }
 
-function analyzeTechnicianLocation(technicianId, store) {
-  const locations = parseStoredJson(store, "misadStaffLocations");
-  const visits = parseStoredJson(store, "misadVisits");
-  const staff = parseStoredJson(store, "misadCompanyStaff");
+function analyzeTechnicianLocation(technicianId, store, user = {}) {
+  const scoped = scopeAiData(store, user);
+  const locations = scoped.locations;
+  const visits = scoped.visits;
+  const staff = scoped.staff;
   
   const currentLocation = locations.find(l => l.identity === technicianId);
   const technician = staff.find(s => s.identity === technicianId);
@@ -1711,9 +1716,10 @@ function analyzeTechnicianLocation(technicianId, store) {
   return insights;
 }
 
-function detectRouteDeviations(store) {
-  const locations = parseStoredJson(store, "misadStaffLocations");
-  const visits = parseStoredJson(store, "misadVisits");
+function detectRouteDeviations(store, user = {}) {
+  const scoped = scopeAiData(store, user);
+  const locations = scoped.locations;
+  const visits = scoped.visits;
   
   const deviations = [];
   
@@ -1757,14 +1763,15 @@ function detectRouteDeviations(store) {
   return deviations;
 }
 
-function generateSmartNotifications(store) {
+function generateSmartNotifications(store, user = {}) {
   const notifications = [];
-  const contracts = parseStoredJson(store, "misadContracts");
-  const visits = parseStoredJson(store, "misadVisits");
-  const tickets = parseStoredJson(store, "misadTickets");
-  const parts = parseStoredJson(store, "misadPartsInventory");
-  const quotes = parseStoredJson(store, "misadQuotes");
-  const reports = parseStoredJson(store, "misadVisitReports");
+  const scoped = scopeAiData(store, user);
+  const contracts = scoped.contracts;
+  const visits = scoped.visits;
+  const tickets = scoped.tickets;
+  const parts = scoped.parts;
+  const quotes = scoped.quotes;
+  const reports = scoped.reports;
   const now = Date.now();
   
   // Check for expiring contracts (within 30 days)
@@ -2102,13 +2109,15 @@ function getAiLogs(store, filters = {}) {
 }
 
 function generateRecommendationReport(store, options = {}) {
-  const contracts = parseStoredJson(store, "misadContracts");
-  const visits = parseStoredJson(store, "misadVisits");
-  const tickets = parseStoredJson(store, "misadTickets");
-  const parts = parseStoredJson(store, "misadPartsInventory");
-  const quotes = parseStoredJson(store, "misadQuotes");
-  const reports = parseStoredJson(store, "misadVisitReports");
-  const staff = parseStoredJson(store, "misadCompanyStaff");
+  const user = options.user || {};
+  const scoped = scopeAiData(store, user);
+  const contracts = scoped.contracts;
+  const visits = scoped.visits;
+  const tickets = scoped.tickets;
+  const parts = scoped.parts;
+  const quotes = scoped.quotes;
+  const reports = scoped.reports;
+  const staff = scoped.staff;
   const now = Date.now();
   
   const report = {
@@ -2258,11 +2267,12 @@ function generateRecommendationReport(store, options = {}) {
   return report;
 }
 
-function buildTechnicianProfile(technicianId, store) {
-  const staff = parseStoredJson(store, "misadCompanyStaff");
-  const visits = parseStoredJson(store, "misadVisits");
-  const reports = parseStoredJson(store, "misadVisitReports");
-  const tickets = parseStoredJson(store, "misadTickets");
+function buildTechnicianProfile(technicianId, store, user = {}) {
+  const scoped = scopeAiData(store, user);
+  const staff = scoped.staff;
+  const visits = scoped.visits;
+  const reports = scoped.reports;
+  const tickets = scoped.tickets;
   
   const technician = staff.find(s => s.identity === technicianId);
   if (!technician) return {error: "Technician not found"};
@@ -2375,11 +2385,12 @@ function buildTechnicianProfile(technicianId, store) {
   return profile;
 }
 
-function updateAllTechnicianProfiles(store) {
-  const staff = parseStoredJson(store, "misadCompanyStaff");
+function updateAllTechnicianProfiles(store, user = {}) {
+  const scoped = scopeAiData(store, user);
+  const staff = scoped.staff;
   const technicians = staff.filter(s => ["technician", "engineer"].includes(s.role));
   
-  const profiles = technicians.map(tech => buildTechnicianProfile(tech.identity, store));
+  const profiles = technicians.map(tech => buildTechnicianProfile(tech.identity, store, user));
   
   store.misadTechnicianProfiles = JSON.stringify(profiles);
   writeStore(store);
@@ -4377,6 +4388,16 @@ async function requestAiProvider(provider, messages, meta = {}) {
 }
 
 async function askUnifiedAi(question, context, user = {}, conversationId = null) {
+  try {
+    const current = JSON.parse(fs.readFileSync(storagePath, "utf8").replace(/^\uFEFF/, ""));
+    if (!("misadFinancialEntries" in current)) {
+      current.misadFinancialEntries = "[]";
+      fs.writeFileSync(storagePath, JSON.stringify(current, null, 2), "utf8");
+      console.log("Database migration: added misadFinancialEntries");
+    }
+  } catch (e) {
+    console.log("Database migration skipped:", e.message);
+  }
   const store = readStore();
   const knowledge = Object.assign({}, elevatorKnowledgeBase(), {advancedTraining: shumoosAdvancedAiTraining()});
   const plan = inferAiPlan(question, context, user);
