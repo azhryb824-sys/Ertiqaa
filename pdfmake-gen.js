@@ -1246,6 +1246,11 @@
       layout: 'noBorders',
       margin: [0, 0, 0, 8]
     });
+    content.push({
+      stack: buildSignature(companyName, safeLabel(c), false),
+      unbreakable: true,
+      margin: [0, 4, 0, 8]
+    });
     if (installmentEntries.length) {
       var sorted = installmentEntries.sort(function(a,b){ return (b.createdAtMs||0) - (a.createdAtMs||0); });
       var rows = sorted.map(function(e){
@@ -1305,11 +1310,6 @@
         });
       } catch(e){}
     }
-    content.push({
-      stack: buildSignature(companyName, safeLabel(c), false),
-      unbreakable: true,
-      margin: [0, 0, 0, 0]
-    });
     return makeDd(content, cf, opts);
   }
   // ==================== MAIN ENTRY ====================
