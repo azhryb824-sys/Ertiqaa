@@ -62,7 +62,7 @@
     if (logoData) parts.push({ image: logoData, width: 28, height: 28, alignment: 'left' });
     parts.push({
       stack: [
-        { text: 'نظام شموس لإدارة المصاعد', fontSize: 16, bold: true, color: '#0d312f' },
+        { text: 'نظام شموس لإدارة المصاعد', fontSize: 13, bold: true, color: '#0d312f' },
         { text: 'Shumoos Elevators Management System', fontSize: 9, color: '#748481' }
       ],
       alignment: 'center', width: '*'
@@ -111,7 +111,7 @@
             {
               width: 280,
               stack: [
-                { text: 'اعتماد الشركة', bold: true, fontSize: 14, color: '#748481', alignment: 'center' },
+                { text: 'اعتماد الشركة', bold: true, fontSize: 11, color: '#748481', alignment: 'center' },
                 { text: side1, fontSize: 13, color: '#0d312f', alignment: 'center', margin: [0, 2, 0, 2] },
                 sig1
               ]
@@ -128,14 +128,14 @@
         columns: [
           {
             stack: [
-              { text: 'الطرف الثاني', bold: true, fontSize: 14, color: '#748481', alignment: 'center' },
+              { text: 'الطرف الثاني', bold: true, fontSize: 11, color: '#748481', alignment: 'center' },
               { text: side2, fontSize: 13, color: '#0d312f', alignment: 'center', margin: [0, 2, 0, 2] },
               { text: 'التوقيع: ........................', fontSize: 10, color: '#8b9f99', alignment: 'center' }
             ]
           },
           {
             stack: [
-              { text: 'الطرف الأول', bold: true, fontSize: 14, color: '#748481', alignment: 'center' },
+              { text: 'الطرف الأول', bold: true, fontSize: 11, color: '#748481', alignment: 'center' },
               { text: side1, fontSize: 13, color: '#0d312f', alignment: 'center', margin: [0, 2, 0, 2] },
               sig1
             ]
@@ -246,7 +246,7 @@
       items.push([
         { text: String(idx + 1), alignment: 'center', color: '#d4a24e', bold: true, fontSize: 10 },
         { text: label, fontSize: 10, alignment: 'right', color: '#1a2e2b' },
-        { text: desc, fontSize: 11, color: '#748481', alignment: 'right' }
+        { text: desc, fontSize: 9, color: '#748481', alignment: 'right' }
       ]);
     });
     return [
@@ -337,13 +337,13 @@
       else if (item && item.title) { t = item.title; d = item.description || ''; }
       else if (item && item.name) { t = item.name; d = item.description || item.desc || ''; }
       else { try { t = JSON.stringify(item); } catch(e){} }
-      items.push({ text: t, bold: true, fontSize: 11, color: '#17413e', margin: [0, 0, 0, 1], alignment: 'right' });
-      if (d) items.push({ text: d, fontSize: 11, color: '#3b564f', margin: [0, 0, 0, 2], alignment: 'right' });
+      items.push({ text: t, bold: true, fontSize: 9, color: '#17413e', margin: [0, 0, 0, 1], alignment: 'right' });
+      if (d) items.push({ text: d, fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 2], alignment: 'right' });
       if (item && typeof item === 'object' && item.price != null && Number(item.price) !== 0) {
         items.push({ text: 'القيمة: ' + safeMoney(item.price), fontSize: 10, bold: true, color: '#8b601f', margin: [0, 0, 0, 4], alignment: 'right' });
       }
     });
-    var titleEl = { text: title, fontSize: 14, bold: true, color: '#0d312f', margin: [0, 0, 0, 4] };
+    var titleEl = { text: title, fontSize: 11, bold: true, color: '#0d312f', margin: [0, 0, 0, 4] };
     if (items.length > 0) {
       return [{
         stack: [titleEl, items[0]],
@@ -356,13 +356,13 @@
   var _sharedDd = {
     rtl: true,
     styles: {
-      sectionTitle: { fontSize: 16, bold: true, color: '#0d312f', margin: [0, 0, 0, 4] },
-      summaryLabel: { fontSize: 10, color: '#5c7670', bold: true },
-      summaryValue: { fontSize: 13, color: '#0d312f', bold: true }
+      sectionTitle: { fontSize: 13, bold: true, color: '#0d312f', margin: [0, 0, 0, 2] },
+      summaryLabel: { fontSize: 8, color: '#5c7670', bold: true },
+      summaryValue: { fontSize: 9, color: '#0d312f', bold: true }
     },
-    defaultStyle: { font: 'Cairo', fontSize: 13, lineHeight: 1.15, color: '#1a2e2b', bold: true },
+    defaultStyle: { font: 'Cairo', fontSize: 9, lineHeight: 1.15, color: '#1a2e2b', bold: true },
     pageSize: 'A4',
-    pageMargins: [28, 64.35, 28, 85.04],
+    pageMargins: [24, 40, 24, 50],
     header: function(){
       return {
         stack: [
@@ -449,7 +449,7 @@
       return currentNode.headlineLevel === 1 && followingNodesOnPage.length < 2;
     };
     if (opts && opts.letterhead) {
-      dd.pageMargins = [28, 208.08, 28, 85.04];
+      dd.pageMargins = [24, 180, 24, 50];
       dd.header = function(){ return null; };
       dd.footer = function(){ return null; };
       var bg = A.companyLetterhead ? A.companyLetterhead() : '';
@@ -458,7 +458,7 @@
         return { image: bg, width: 595, height: 842, absolutePosition: { x: 0, y: 0 } };
       };
     } else if (opts && opts.clean) {
-      dd.pageMargins = [28, 84.35, 28, 85.04];
+      dd.pageMargins = [24, 60, 24, 50];
       dd.header = function(){ return null; };
       dd.footer = function(){ return null; };
     } else {
@@ -496,17 +496,17 @@
       : 'على صيانة المصعد (المصاعد) وفق بنود الصيانة الدورية والشروط والمواصفات الواردة في هذا العقد.';
 
     return [
-      { text: [{ text: 'إنه في يوم ', fontSize: 11, color: '#3b564f' }, { text: datePart, fontSize: 11, color: '#3b564f' }, { text: ' تم الاتفاق بين:', fontSize: 11, color: '#3b564f' }], alignment: 'right', margin: [0, 0, 0, 4] },
+      { text: [{ text: 'إنه في يوم ', fontSize: 9, color: '#3b564f' }, { text: datePart, fontSize: 9, color: '#3b564f' }, { text: ' تم الاتفاق بين:', fontSize: 9, color: '#3b564f' }], alignment: 'right', margin: [0, 0, 0, 4] },
       { stack: [
-          { text: [{ text: 'الطرف الأول: ', bold: true, fontSize: 11, color: '#0d312f' }, { text: p1, fontSize: 11, color: '#3b564f' }], margin: [0, 2, 0, 1], alignment: 'right' },
-          { text: [{ text: 'الطرف الثاني: ', bold: true, fontSize: 11, color: '#0d312f' }, { text: p2, fontSize: 11, color: '#3b564f' }], margin: [0, 0, 0, 4], alignment: 'right' }
+          { text: [{ text: 'الطرف الأول: ', bold: true, fontSize: 9, color: '#0d312f' }, { text: p1, fontSize: 9, color: '#3b564f' }], margin: [0, 2, 0, 1], alignment: 'right' },
+          { text: [{ text: 'الطرف الثاني: ', bold: true, fontSize: 9, color: '#0d312f' }, { text: p2, fontSize: 9, color: '#3b564f' }], margin: [0, 0, 0, 4], alignment: 'right' }
       ]},
-      { text: actionText, fontSize: 11, bold: true, color: '#0d312f', margin: [0, 0, 0, 10], alignment: 'right' }
+      { text: actionText, fontSize: 9, bold: true, color: '#0d312f', margin: [0, 0, 0, 10], alignment: 'right' }
     ];
   }
 
   function sectionTitle(text, margin){
-    return { text: text, fontSize: 15, bold: true, color: '#0d312f', margin: margin || [0, 0, 0, 4], alignment: 'right', headlineLevel: 1 };
+    return { text: text, fontSize: 11, bold: true, color: '#0d312f', margin: margin || [0, 0, 0, 4], alignment: 'right', headlineLevel: 1 };
   }
 
   function scopeText(text, fallback){
@@ -591,8 +591,8 @@
       var val = info[f[0]];
       if (val && val !== '') {
         basicRows.push([
-          { text: f[1], bold: true, fontSize: 11, fillColor: '#dceee4', alignment: 'right', color: '#0d312f' },
-          { text: val, fontSize: 11, alignment: 'right', color: '#0d312f' }
+          { text: f[1], bold: true, fontSize: 9, fillColor: '#dceee4', alignment: 'right', color: '#0d312f' },
+          { text: val, fontSize: 9, alignment: 'right', color: '#0d312f' }
         ]);
       }
     });
@@ -623,8 +623,8 @@
       var val = info[f[0]];
       if (val && val !== '') {
         rows.push([
-          { text: f[1], bold: true, fontSize: 11, fillColor: '#dceee4', alignment: 'right', color: '#0d312f' },
-          { text: val, fontSize: 11, alignment: 'right', color: '#1a2e2b' }
+          { text: f[1], bold: true, fontSize: 9, fillColor: '#dceee4', alignment: 'right', color: '#0d312f' },
+          { text: val, fontSize: 9, alignment: 'right', color: '#1a2e2b' }
         ]);
       }
     });
@@ -663,8 +663,8 @@
         var val = info[f[0]];
         if (val && val !== '') {
           rows.push([
-            { text: f[1], bold: true, fontSize: 11, fillColor: '#dceee4', alignment: 'right', color: '#0d312f' },
-            { text: val, fontSize: 11, alignment: 'right', color: '#1a2e2b' }
+            { text: f[1], bold: true, fontSize: 9, fillColor: '#dceee4', alignment: 'right', color: '#0d312f' },
+            { text: val, fontSize: 9, alignment: 'right', color: '#1a2e2b' }
           ]);
         }
       });
@@ -718,34 +718,34 @@
 
   function maintenancePdfClauses(){
     return [
-      { text: 'خامساً: الضمان على أعمال الصيانة', fontSize: 14, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
-      { text: 'تتحمل الشركة المصنعة أو الموردة أو الشركة المنفذة لأعمال الصيانة (الطرف الأول) مسؤولية ضمان أعمال الصيانة التي تقوم بها وتكون مسؤولة عن أي عيوب أو أخطاء في تلك الأعمال.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] },
-      { text: 'يكون الضمان ساري المفعول لمدة عام من تاريخ بداية العقد على الأجزاء التي تمت صيانتها أو استبدالها في حالة الصيانة الناتجة عن سوء التركيب أو التصنيع أو عدم سلامة التصنيع.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] },
-      { text: 'مدة الضمان لعملية الصيانة تكون عاماً من تاريخ التنفيذ، وفي حال وجود أي عيوب في أعمال الصيانة يجب على الطرف الأول إعادة الصيانة أو إصلاح العيوب خلال مدة لا تتجاوز خمسة عشر يوماً من تاريخ الإشعار وبما لا يخل بضمان أعمال الصيانة.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] },
-      { text: 'في حالة وجود أي عيوب أو أخطاء في الصيانة من وجهة نظر الطرف الثاني، عليه إخطار الطرف الأول بذلك ويجب أن يتضمن الإخطار وصفاً كاملاً للعيوب أو الأخطاء.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 8] },
-      { text: 'سادساً: التزامات الطرف الثاني', fontSize: 14, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
-      { text: 'يلتزم الطرف الثاني بتوفير متطلبات السلامة لحماية العاملين في الموقع، وتوفير مساحة عمل آمنة ومناسبة لفريق الصيانة، مع توفير الإضاءة والطاقة الكهربائية اللازمة لتنفيذ أعمالهم بأمان وسلامة.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] },
-      { text: 'إخلاء مسؤولية الطرف الأول عن أي حوادث أو إصابات أو أضرار تلحق بالغير أو بالعاملين في الموقع نتيجة إهمال الطرف الثاني أو عدم توفير بيئة عمل آمنة.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] },
-      { text: 'يلتزم الطرف الثاني بإبلاغ الطرف الأول فوراً في حال حدوث أي عطل مفاجئ في المصعد.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] },
-      { text: 'في حال عدم قيام الطرف الثاني بالتزاماته، يحق للطرف الأول تعليق الخدمة حتى يتم الالتزام.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 8] },
-      { text: 'سابعاً: المسؤولية والسلامة', fontSize: 14, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
-      { text: 'يكون الطرف الأول مسؤولاً عن سلامة تنفيذ أعمال الصيانة وفقاً لأصول المهنة والشروط المتفق عليها.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] },
-      { text: 'يكون الطرف الثاني مسؤولاً عن سلامة الموقع وتوفير بيئة عمل آمنة وفقاً للوائح وأنظمة السلامة المهنية.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] },
-      { text: 'يكون الطرف الأول مسؤولاً عن سلامة وأداء المصعد (المصاعد) بعد الصيانة.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 8] },
-      { text: 'ثامناً: التأخير أو التقصير', fontSize: 14, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
-      { text: [{ text: 'التأخير أو التقصير: ', bold: true, fontSize: 11, color: '#17413e' }, { text: 'في حال تقصير أو تأخير الطرف الأول في تنفيذ أعمال الصيانة الدورية، يجب عليه إخطار الطرف الثاني بأسباب التأخير.', fontSize: 11, color: '#3b564f' }], alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] },
-      { text: [{ text: 'الإخلال بالالتزامات: ', bold: true, fontSize: 11, color: '#17413e' }, { text: 'في حال إخلال الطرف الأول بالتزاماته الجوهرية، يحق للطرف الثاني تعليق استحقاق الدفعات المستحقة للطرف الأول.', fontSize: 11, color: '#3b564f' }], alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] },
-      { text: [{ text: 'حدود المسؤولية: ', bold: true, fontSize: 11, color: '#17413e' }, { text: 'لا يتحمل الطرف الأول المسؤولية عن الأضرار غير المباشرة (سواء كانت مادية أو معنوية) مثل فقدان الأرباح أو توقف العمل أو غيرها، وتكون المسؤولية في جميع الأحوال محصورة بقيمة العقد المدفوعة من الطرف الثاني للطرف الأول.', fontSize: 11, color: '#3b564f' }], alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] },
-      { text: [{ text: 'إيقاف العقد: ', bold: true, fontSize: 11, color: '#17413e' }, { text: 'يحق للطرف الأول إيقاف العقد في حال عدم قيام الطرف الثاني بدفع الدفعات المستحقة في مواعيدها، على أن يكون الإيقاف بعد إنذار خطي لمدة لا تقل عن 7 أيام.', fontSize: 11, color: '#3b564f' }], alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 8] },
-      { text: 'تاسعاً: فسخ العقد', fontSize: 14, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
-      { text: 'يحق لأي من الطرفين فسخ العقد في حال إخلال الطرف الآخر بالتزاماته الجوهرية مع إنذار خطي لمدة لا تقل عن 30 يوماً.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] },
-      { text: 'في حال فسخ العقد، يستحق الطرف الأول قيمة الأعمال التي تم تنفيذها فعلاً.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] },
-      { text: 'لا يحق للطرف الثاني فسخ العقد بسبب ظروفه المادية أو الإدارية أو تغير موقفه المالي، أو لأي سبب غير مبرر، وإلا أعتبر ذلك إخلالاً بالتزاماته.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 8] },
-      { text: 'عاشراً: المسؤولية عن الأعطال التي تتطلب قطع غيار', fontSize: 14, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
-      { text: [{ text: 'الأعطال التي تتطلب قطع غيار: ', bold: true, fontSize: 11, color: '#17413e' }, { text: 'في حال وجود عطل بالمصعد يتطلب تغيير قطعة غيار، تتحمل الطرف الثاني قيمة القطعة وتكاليف الشحن والتركيب والنقل والخدمات اللوجستية، على أن تقوم الطرف الأول بتوفير القطعة وتنفيذ أعمال الاستبدال بأسرع وقت ممكن، ويتم وضع خطة لتفادي توقف المصعد لفترات طويلة.', fontSize: 11, color: '#3b564f' }], alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] },
-      { text: [{ text: 'الأعطال غير المشمولة: ', bold: true, fontSize: 11, color: '#17413e' }, { text: 'أما الأعطال الناتجة عن سوء الاستخدام أو التعديلات غير المصرح بها من قبل الطرف الثاني أو الغير، أو الأعطال الناتجة عن سوء التركيب أو التصنيع من قبل الغير والشركات المنفذة للتركيب أو التصنيع، أو ظروف قاهرة مثل كوارث طبيعية أو حرائق أو فيضانات أو سرقات وتخريب، أو انقطاع التيار الكهربائي أو عدم استقرار الجهد الكهربائي، أو عدم تنفيذ الصيانة الوقائية الدورية المتفق عليها في العقد، أو وجود أي تعديلات هيكلية في المبنى تؤثر على سلامة المصعد، فلا تكون الطرف الأول مسؤولة عنها وتتحمل الطرف الثاني أي تكاليف إضافية لإعادة التأهيل والصيانة.', fontSize: 11, color: '#3b564f' }], alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 8] },
-      { text: 'نسخ العقد', fontSize: 14, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
-      { text: 'تم تحرير هذا العقد من نسختين (2) بيد كل طرف نسخة واحدة، وتعتبر جميعها نسخاً أصلية، وتسري أحكام هذا العقد اعتباراً من تاريخ توقيعه من الطرفين.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] }
+      { text: 'خامساً: الضمان على أعمال الصيانة', fontSize: 11, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
+      { text: 'تتحمل الشركة المصنعة أو الموردة أو الشركة المنفذة لأعمال الصيانة (الطرف الأول) مسؤولية ضمان أعمال الصيانة التي تقوم بها وتكون مسؤولة عن أي عيوب أو أخطاء في تلك الأعمال.', fontSize: 9, color: '#3b564f', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] },
+      { text: 'يكون الضمان ساري المفعول لمدة عام من تاريخ بداية العقد على الأجزاء التي تمت صيانتها أو استبدالها في حالة الصيانة الناتجة عن سوء التركيب أو التصنيع أو عدم سلامة التصنيع.', fontSize: 9, color: '#3b564f', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] },
+      { text: 'مدة الضمان لعملية الصيانة تكون عاماً من تاريخ التنفيذ، وفي حال وجود أي عيوب في أعمال الصيانة يجب على الطرف الأول إعادة الصيانة أو إصلاح العيوب خلال مدة لا تتجاوز خمسة عشر يوماً من تاريخ الإشعار وبما لا يخل بضمان أعمال الصيانة.', fontSize: 9, color: '#3b564f', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] },
+      { text: 'في حالة وجود أي عيوب أو أخطاء في الصيانة من وجهة نظر الطرف الثاني، عليه إخطار الطرف الأول بذلك ويجب أن يتضمن الإخطار وصفاً كاملاً للعيوب أو الأخطاء.', fontSize: 9, color: '#3b564f', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 8] },
+      { text: 'سادساً: التزامات الطرف الثاني', fontSize: 11, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
+      { text: 'يلتزم الطرف الثاني بتوفير متطلبات السلامة لحماية العاملين في الموقع، وتوفير مساحة عمل آمنة ومناسبة لفريق الصيانة، مع توفير الإضاءة والطاقة الكهربائية اللازمة لتنفيذ أعمالهم بأمان وسلامة.', fontSize: 9, color: '#3b564f', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] },
+      { text: 'إخلاء مسؤولية الطرف الأول عن أي حوادث أو إصابات أو أضرار تلحق بالغير أو بالعاملين في الموقع نتيجة إهمال الطرف الثاني أو عدم توفير بيئة عمل آمنة.', fontSize: 9, color: '#3b564f', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] },
+      { text: 'يلتزم الطرف الثاني بإبلاغ الطرف الأول فوراً في حال حدوث أي عطل مفاجئ في المصعد.', fontSize: 9, color: '#3b564f', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] },
+      { text: 'في حال عدم قيام الطرف الثاني بالتزاماته، يحق للطرف الأول تعليق الخدمة حتى يتم الالتزام.', fontSize: 9, color: '#3b564f', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 8] },
+      { text: 'سابعاً: المسؤولية والسلامة', fontSize: 11, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
+      { text: 'يكون الطرف الأول مسؤولاً عن سلامة تنفيذ أعمال الصيانة وفقاً لأصول المهنة والشروط المتفق عليها.', fontSize: 9, color: '#3b564f', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] },
+      { text: 'يكون الطرف الثاني مسؤولاً عن سلامة الموقع وتوفير بيئة عمل آمنة وفقاً للوائح وأنظمة السلامة المهنية.', fontSize: 9, color: '#3b564f', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] },
+      { text: 'يكون الطرف الأول مسؤولاً عن سلامة وأداء المصعد (المصاعد) بعد الصيانة.', fontSize: 9, color: '#3b564f', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 8] },
+      { text: 'ثامناً: التأخير أو التقصير', fontSize: 11, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
+      { text: [{ text: 'التأخير أو التقصير: ', bold: true, fontSize: 9, color: '#17413e' }, { text: 'في حال تقصير أو تأخير الطرف الأول في تنفيذ أعمال الصيانة الدورية، يجب عليه إخطار الطرف الثاني بأسباب التأخير.', fontSize: 9, color: '#3b564f' }], alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] },
+      { text: [{ text: 'الإخلال بالالتزامات: ', bold: true, fontSize: 9, color: '#17413e' }, { text: 'في حال إخلال الطرف الأول بالتزاماته الجوهرية، يحق للطرف الثاني تعليق استحقاق الدفعات المستحقة للطرف الأول.', fontSize: 9, color: '#3b564f' }], alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] },
+      { text: [{ text: 'حدود المسؤولية: ', bold: true, fontSize: 9, color: '#17413e' }, { text: 'لا يتحمل الطرف الأول المسؤولية عن الأضرار غير المباشرة (سواء كانت مادية أو معنوية) مثل فقدان الأرباح أو توقف العمل أو غيرها، وتكون المسؤولية في جميع الأحوال محصورة بقيمة العقد المدفوعة من الطرف الثاني للطرف الأول.', fontSize: 9, color: '#3b564f' }], alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] },
+      { text: [{ text: 'إيقاف العقد: ', bold: true, fontSize: 9, color: '#17413e' }, { text: 'يحق للطرف الأول إيقاف العقد في حال عدم قيام الطرف الثاني بدفع الدفعات المستحقة في مواعيدها، على أن يكون الإيقاف بعد إنذار خطي لمدة لا تقل عن 7 أيام.', fontSize: 9, color: '#3b564f' }], alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 8] },
+      { text: 'تاسعاً: فسخ العقد', fontSize: 11, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
+      { text: 'يحق لأي من الطرفين فسخ العقد في حال إخلال الطرف الآخر بالتزاماته الجوهرية مع إنذار خطي لمدة لا تقل عن 30 يوماً.', fontSize: 9, color: '#3b564f', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] },
+      { text: 'في حال فسخ العقد، يستحق الطرف الأول قيمة الأعمال التي تم تنفيذها فعلاً.', fontSize: 9, color: '#3b564f', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] },
+      { text: 'لا يحق للطرف الثاني فسخ العقد بسبب ظروفه المادية أو الإدارية أو تغير موقفه المالي، أو لأي سبب غير مبرر، وإلا أعتبر ذلك إخلالاً بالتزاماته.', fontSize: 9, color: '#3b564f', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 8] },
+      { text: 'عاشراً: المسؤولية عن الأعطال التي تتطلب قطع غيار', fontSize: 11, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
+      { text: [{ text: 'الأعطال التي تتطلب قطع غيار: ', bold: true, fontSize: 9, color: '#17413e' }, { text: 'في حال وجود عطل بالمصعد يتطلب تغيير قطعة غيار، تتحمل الطرف الثاني قيمة القطعة وتكاليف الشحن والتركيب والنقل والخدمات اللوجستية، على أن تقوم الطرف الأول بتوفير القطعة وتنفيذ أعمال الاستبدال بأسرع وقت ممكن، ويتم وضع خطة لتفادي توقف المصعد لفترات طويلة.', fontSize: 9, color: '#3b564f' }], alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] },
+      { text: [{ text: 'الأعطال غير المشمولة: ', bold: true, fontSize: 9, color: '#17413e' }, { text: 'أما الأعطال الناتجة عن سوء الاستخدام أو التعديلات غير المصرح بها من قبل الطرف الثاني أو الغير، أو الأعطال الناتجة عن سوء التركيب أو التصنيع من قبل الغير والشركات المنفذة للتركيب أو التصنيع، أو ظروف قاهرة مثل كوارث طبيعية أو حرائق أو فيضانات أو سرقات وتخريب، أو انقطاع التيار الكهربائي أو عدم استقرار الجهد الكهربائي، أو عدم تنفيذ الصيانة الوقائية الدورية المتفق عليها في العقد، أو وجود أي تعديلات هيكلية في المبنى تؤثر على سلامة المصعد، فلا تكون الطرف الأول مسؤولة عنها وتتحمل الطرف الثاني أي تكاليف إضافية لإعادة التأهيل والصيانة.', fontSize: 9, color: '#3b564f' }], alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 8] },
+      { text: 'نسخ العقد', fontSize: 11, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
+      { text: 'تم تحرير هذا العقد من نسختين (2) بيد كل طرف نسخة واحدة، وتعتبر جميعها نسخاً أصلية، وتسري أحكام هذا العقد اعتباراً من تاريخ توقيعه من الطرفين.', fontSize: 9, color: '#3b564f', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] }
     ];
   }
 
@@ -765,7 +765,7 @@
         widths: ['*', 'auto'],
         body: [
           [
-            { text: 'عقد ' + (c.type || ''), bold: true, fontSize: 18, color: '#0d312f', alignment: 'right' },
+            { text: 'عقد ' + (c.type || ''), bold: true, fontSize: 11, color: '#0d312f', alignment: 'right' },
             { text: 'رقم العقد: ' + c.id, bold: true, fontSize: 10, color: '#fff', fillColor: '#0d312f', alignment: 'center', margin: [4, 2, 4, 2] }
           ]
         ]
@@ -785,8 +785,8 @@
       content.push({
         stack: [
           { text: 'بسم الله الرحمن الرحيم', fontSize: 10, color: '#8b9f99', alignment: 'center', margin: [0, 0, 0, 2] },
-          { text: 'عقد تركيب مصعد', fontSize: 14, bold: true, color: '#0d312f', alignment: 'center', margin: [0, 0, 0, 4] },
-          { text: 'يسعدنا نحن ' + companyName + ' أن نتقدم لسعادتكم بهذا العقد لتوريد وتركيب مصعد في موقعكم الموضح أدناه، وفق المواصفات الفنية والبنود العامة المعتمدة.', fontSize: 11, color: '#3b564f', alignment: 'right', margin: [0, 0, 0, 6], lineHeight: 1.15 }
+          { text: 'عقد تركيب مصعد', fontSize: 11, bold: true, color: '#0d312f', alignment: 'center', margin: [0, 0, 0, 4] },
+          { text: 'يسعدنا نحن ' + companyName + ' أن نتقدم لسعادتكم بهذا العقد لتوريد وتركيب مصعد في موقعكم الموضح أدناه، وفق المواصفات الفنية والبنود العامة المعتمدة.', fontSize: 9, color: '#3b564f', alignment: 'right', margin: [0, 0, 0, 6], lineHeight: 1.15 }
         ],
         margin: [0, 0, 0, 6]
       });
@@ -828,7 +828,7 @@
           bd.push({
             stack: [
               { text: b.name || 'غير محدد', bold: true, fontSize: 10, color: '#17413e', margin: [0, 0, 0, 1], alignment: 'right' },
-              { text: [b.district, b.mapUrl].filter(Boolean).join(' - ') || '', fontSize: 11, color: '#748481', margin: [0, 0, 0, 4], alignment: 'right' }
+              { text: [b.district, b.mapUrl].filter(Boolean).join(' - ') || '', fontSize: 9, color: '#748481', margin: [0, 0, 0, 4], alignment: 'right' }
             ],
             margin: [0, 0, 0, 2]
           });
@@ -840,7 +840,7 @@
         if (mi) Array.prototype.push.apply(content, sectionBlock('سابعاً', 'بنود الصيانة المتفق عليها', mi));
       }
       if (c.deliveryDate && c.maintenanceEndDate) {
-        content.push(sectionBlock('ثامناً', 'فترة الصيانة', { text: 'تبدأ فترة الصيانة من تاريخ تسليم المصعد (' + c.deliveryDate + ') إلى تاريخ (' + c.maintenanceEndDate + ')، على أن تشمل أعمال الصيانة الدورية والطارئة وفق بنود الصيانة المتفق عليها أعلاه.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.15 }));
+        content.push(sectionBlock('ثامناً', 'فترة الصيانة', { text: 'تبدأ فترة الصيانة من تاريخ تسليم المصعد (' + c.deliveryDate + ') إلى تاريخ (' + c.maintenanceEndDate + ')، على أن تشمل أعمال الصيانة الدورية والطارئة وفق بنود الصيانة المتفق عليها أعلاه.', fontSize: 9, color: '#3b564f', alignment: 'right', lineHeight: 1.15 }));
       }
     } else {
       var scopeDefault = 'يشمل العقد أعمال الصيانة الدورية للمصعد (المصاعد) وفق بنود الصيانة والشروط والمواصفات الواردة في هذا العقد، للحفاظ على سلامة وأداء المصعد طوال مدة العقد.';
@@ -862,7 +862,7 @@
           bd.push({
             stack: [
               { text: b.name || 'غير محدد', bold: true, fontSize: 10, color: '#17413e', margin: [0, 0, 0, 1], alignment: 'right' },
-              { text: [b.district, b.mapUrl].filter(Boolean).join(' - ') || '', fontSize: 11, color: '#748481', margin: [0, 0, 0, 4], alignment: 'right' }
+              { text: [b.district, b.mapUrl].filter(Boolean).join(' - ') || '', fontSize: 9, color: '#748481', margin: [0, 0, 0, 4], alignment: 'right' }
             ],
             margin: [0, 0, 0, 2]
           });
@@ -900,7 +900,7 @@
 
     content.push({
       columns: [
-        { text: 'عرض سعر' + (q.type ? ' - ' + q.type : ''), bold: true, fontSize: 16, color: '#0d312f' },
+        { text: 'عرض سعر' + (q.type ? ' - ' + q.type : ''), bold: true, fontSize: 12, color: '#0d312f' },
         statusBadge(q.status || 'بانتظار الرد')
       ],
       margin: [0, 0, 0, 6]
@@ -910,12 +910,12 @@
         widths: ['*', 'auto'],
         body: [
           [
-            { text: 'رقم عرض السعر: ' + q.id, bold: true, fontSize: 14, color: '#d4a24e', alignment: 'right' },
+            { text: 'رقم عرض السعر: ' + q.id, bold: true, fontSize: 11, color: '#d4a24e', alignment: 'right' },
             { text: 'الإجمالي', fontSize: 10, color: '#748481', alignment: 'center' }
           ],
           [
             { text: '', border: [false, false, false, false] },
-            { text: safeMoney(total), bold: true, fontSize: 18, color: '#d4a24e', alignment: 'center' }
+            { text: safeMoney(total), bold: true, fontSize: 12, color: '#d4a24e', alignment: 'center' }
           ]
         ]
       },
@@ -925,7 +925,7 @@
     content.push({
       stack: [
         { text: 'الطرف الموجه إليه عرض السعر', fontSize: 12, bold: true, color: '#0d312f', margin: [0, 0, 0, 2] },
-        { text: party, bold: true, fontSize: 14, color: '#0d312f', margin: [0, 2, 0, 4], alignment: 'right' }
+        { text: party, bold: true, fontSize: 11, color: '#0d312f', margin: [0, 2, 0, 4], alignment: 'right' }
       ],
       margin: [0, 0, 0, 8]
     });
@@ -1029,7 +1029,7 @@
 
     if (q.details) {
       content.push({ text: 'التفاصيل', fontSize: 12, bold: true, color: '#0d312f', margin: [0, 0, 0, 4] });
-      content.push({ text: q.details, fontSize: 11, color: '#3b564f', margin: [0, 0, 0, 10], alignment: 'right' });
+      content.push({ text: q.details, fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 10], alignment: 'right' });
     }
 
     content.push({
@@ -1049,7 +1049,7 @@
 
     content.push({
       columns: [
-        { text: 'تقرير زيارة فنية', bold: true, fontSize: 16, color: '#0d312f' },
+        { text: 'تقرير زيارة فنية', bold: true, fontSize: 12, color: '#0d312f' },
         statusBadge(r.status || 'بانتظار اعتماد العميل')
       ],
       margin: [0, 0, 0, 6]
@@ -1059,7 +1059,7 @@
         widths: ['*', 'auto'],
         body: [
           [
-            { text: 'رقم التقرير: ' + r.id, bold: true, fontSize: 14, color: '#d4a24e', alignment: 'right' },
+            { text: 'رقم التقرير: ' + r.id, bold: true, fontSize: 11, color: '#d4a24e', alignment: 'right' },
             { text: r.technician || r.technicianId || 'الفني', fontSize: 10, color: '#748481', alignment: 'center' }
           ]
         ]
@@ -1079,8 +1079,8 @@
     function section(title, text){
       if (!text) return null;
       return [
-        { text: title, fontSize: 14, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
-        { text: text, fontSize: 11, color: '#3b564f', margin: [0, 0, 0, 10], alignment: 'right' }
+        { text: title, fontSize: 11, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
+        { text: text, fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 10], alignment: 'right' }
       ];
     }
 
@@ -1090,9 +1090,9 @@
     if (s2) Array.prototype.push.apply(content, s2);
 
     if (r.parts || r.recommendations) {
-      content.push({ text: 'قطع الغيار المطلوبة / المستخدمة والتوصيات', fontSize: 14, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' });
-      if (r.parts) content.push({ text: r.parts, fontSize: 11, color: '#3b564f', margin: [0, 0, 0, 4], alignment: 'right' });
-      if (r.recommendations) content.push({ text: r.recommendations, fontSize: 11, color: '#3b564f', margin: [0, 0, 0, 10], alignment: 'right' });
+      content.push({ text: 'قطع الغيار المطلوبة / المستخدمة والتوصيات', fontSize: 11, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' });
+      if (r.parts) content.push({ text: r.parts, fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 4], alignment: 'right' });
+      if (r.recommendations) content.push({ text: r.recommendations, fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 10], alignment: 'right' });
     }
 
     var s3 = section('صور أو روابط مرفقة', r.attachments);
@@ -1115,15 +1115,15 @@
 
     content.push({
       columns: [
-        { text: 'بلاغ - ' + t.id, bold: true, fontSize: 16, color: '#0d312f' },
+        { text: 'بلاغ - ' + t.id, bold: true, fontSize: 12, color: '#0d312f' },
         statusBadge(t.status)
       ],
       margin: [0, 0, 0, 6]
     });
     content.push({
       stack: [
-        { text: t.title, bold: true, fontSize: 14, color: '#0d312f', margin: [0, 0, 0, 2], alignment: 'right' },
-        { text: t.description || '', fontSize: 11, color: '#3b564f', margin: [0, 0, 0, 6], alignment: 'right' }
+        { text: t.title, bold: true, fontSize: 11, color: '#0d312f', margin: [0, 0, 0, 2], alignment: 'right' },
+        { text: t.description || '', fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 6], alignment: 'right' }
       ],
       margin: [0, 0, 0, 8]
     });
@@ -1155,7 +1155,7 @@
 
     content.push({
       columns: [
-        { text: 'مستخلص مالي', bold: true, fontSize: 16, color: '#0d312f' },
+        { text: 'مستخلص مالي', bold: true, fontSize: 12, color: '#0d312f' },
         statusBadge(cl.status || 'قيد المراجعة')
       ],
       margin: [0, 0, 0, 6]
@@ -1165,12 +1165,12 @@
         widths: ['*', 'auto'],
         body: [
           [
-            { text: 'رقم المستخلص: ' + cl.id, bold: true, fontSize: 14, color: '#d4a24e', alignment: 'right' },
+            { text: 'رقم المستخلص: ' + cl.id, bold: true, fontSize: 11, color: '#d4a24e', alignment: 'right' },
             { text: 'قيمة المستخلص', fontSize: 10, color: '#748481', alignment: 'center' }
           ],
           [
             { text: '', border: [false, false, false, false] },
-            { text: safeMoney(cl.value), bold: true, fontSize: 18, color: '#d4a24e', alignment: 'center' }
+            { text: safeMoney(cl.value), bold: true, fontSize: 12, color: '#d4a24e', alignment: 'center' }
           ]
         ]
       },
@@ -1184,10 +1184,10 @@
       { label: 'تاريخ الإنشاء', value: cl.createdAt }
     ]));
 
-    content.push({ text: 'بيان المستخلص', fontSize: 14, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' });
+    content.push({ text: 'بيان المستخلص', fontSize: 11, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' });
     content.push({
       text: 'مستخلص عن الفترة الموضحة أعلاه بمبلغ إجمالي ' + safeMoney(cl.value) + ' وفق بيانات العقد والخدمات المسجلة في النظام.',
-      fontSize: 11, color: '#3b564f', margin: [0, 0, 0, 10], alignment: 'right'
+      fontSize: 9, color: '#3b564f', margin: [0, 0, 0, 10], alignment: 'right'
     });
 
     content.push({
@@ -1261,9 +1261,9 @@
           ],
           [
             { text: '', alignment: 'center' },
-            { text: safeMoney(paid), bold: true, fontSize: 11, color: '#3c8b70', alignment: 'center', margin: [0, 3, 0, 3] },
-            { text: safeMoney(remaining), bold: true, fontSize: 11, color: remaining > 0 ? '#c85c59' : '#3c8b70', alignment: 'center', margin: [0, 3, 0, 3] },
-            { text: safeMoney(overdue), bold: true, fontSize: 11, color: overdue > 0 ? '#c85c59' : '#3c8b70', alignment: 'center', margin: [0, 3, 0, 3] }
+            { text: safeMoney(paid), bold: true, fontSize: 9, color: '#3c8b70', alignment: 'center', margin: [0, 3, 0, 3] },
+            { text: safeMoney(remaining), bold: true, fontSize: 9, color: remaining > 0 ? '#c85c59' : '#3c8b70', alignment: 'center', margin: [0, 3, 0, 3] },
+            { text: safeMoney(overdue), bold: true, fontSize: 9, color: overdue > 0 ? '#c85c59' : '#3c8b70', alignment: 'center', margin: [0, 3, 0, 3] }
           ]
         ]
       },
