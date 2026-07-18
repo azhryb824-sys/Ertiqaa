@@ -1205,8 +1205,8 @@
     appendDocumentHeader(content, logoData, opts);
     content.push({ text: 'الإدارة المالية للعقد', fontSize: 18, bold: true, color: '#0d312f', margin: [0, 0, 0, 6] });
     content.push(summaryTable([
-      { label: 'رقم العقد', value: safeLabel(c.id) },
-      { label: 'الطرف الثاني', value: safeLabel(A.contractLabel ? A.contractLabel(c) : c.id) },
+      { label: 'رقم العقد', value: String(c.id) },
+      { label: 'الطرف الثاني', value: safeLabel(c) },
       { label: 'إجمالي العقد', value: safeMoney(c.value) }
     ]));
     var allEntries = [], paid = 0, remaining = 0, overdue = 0, installmentEntries = [];
@@ -1306,7 +1306,7 @@
       } catch(e){}
     }
     content.push({
-      stack: buildSignature(companyName, (A.contractLabel ? A.contractLabel(c) : c.id), false),
+      stack: buildSignature(companyName, safeLabel(c), false),
       unbreakable: true,
       margin: [0, 0, 0, 0]
     });
