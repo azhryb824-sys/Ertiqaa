@@ -1329,6 +1329,26 @@
         });
       } catch(e){}
     }
+    var stamp = (A.companyStamp && A.companyStamp()) || '';
+    var sig = (A.companySignature && A.companySignature()) || '';
+    var partyOneApproval = [];
+    if (sig) partyOneApproval.push({
+      stack: [
+        { text: 'التوقيع', fontSize: 6, color: '#8b9f99', alignment: 'center' },
+        { image: sig, fit: [80, 48], alignment: 'center', margin: [0, 1, 0, 0] }
+      ],
+      width: '*'
+    });
+    if (stamp) partyOneApproval.push({
+      stack: [
+        { text: 'الختم', fontSize: 6, color: '#8b9f99', alignment: 'center' },
+        { image: stamp, fit: [70, 50], alignment: 'center', margin: [0, 1, 0, 0] }
+      ],
+      width: '*'
+    });
+    var partyOneSig = partyOneApproval.length
+      ? { columns: partyOneApproval, columnGap: 2, margin: [0, 2, 0, 0] }
+      : { text: 'التوقيع: ........................', fontSize: 8, color: '#8b9f99', alignment: 'center' };
     content.push({
       stack: [
         { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.3, lineColor: '#a0b8ad' }], margin: [0, 0, 0, 3] },
@@ -1345,7 +1365,7 @@
               stack: [
                 { text: 'الطرف الأول', bold: true, fontSize: 8, color: '#748481', alignment: 'center' },
                 { text: companyName, fontSize: 8, color: '#0d312f', alignment: 'center', margin: [0, 1, 0, 1] },
-                { text: 'التوقيع: ........................', fontSize: 8, color: '#8b9f99', alignment: 'center' }
+                partyOneSig
               ]
             }
           ],
