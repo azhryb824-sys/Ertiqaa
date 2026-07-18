@@ -1203,7 +1203,7 @@
     var cf = safeFooter();
     var content = [];
     appendDocumentHeader(content, logoData, opts);
-    content.push({ text: 'الإدارة المالية للعقد', fontSize: 13, bold: true, color: '#0d312f', margin: [0, 0, 0, 4] });
+    content.push({ text: 'إيصال سداد مالي', fontSize: 13, bold: true, color: '#0d312f', margin: [0, 0, 0, 4] });
     content.push({
       table: {
         widths: ['*', '*', '*'],
