@@ -4395,6 +4395,12 @@ async function askUnifiedAi(question, context, user = {}, conversationId = null)
       fs.writeFileSync(storagePath, JSON.stringify(current, null, 2), "utf8");
       console.log("Database migration: added misadFinancialEntries");
     }
+    if (!("misadFinancialResetV1" in current)) {
+      current.misadFinancialEntries = "[]";
+      current.misadFinancialResetV1 = "1";
+      fs.writeFileSync(storagePath, JSON.stringify(current, null, 2), "utf8");
+      console.log("Database migration: reset financial entries for new accounting cycle");
+    }
   } catch (e) {
     console.log("Database migration skipped:", e.message);
   }
