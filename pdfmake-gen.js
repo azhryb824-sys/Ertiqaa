@@ -848,17 +848,9 @@
     } else {
       var scopeDefault = 'يشمل العقد أعمال الصيانة الدورية للمصعد (المصاعد) وفق بنود الصيانة والشروط والمواصفات الواردة في هذا العقد، للحفاظ على سلامة وأداء المصعد طوال مدة العقد.';
       Array.prototype.push.apply(content, sectionBlock('أولاً', 'نطاق الصيانة', scopeText(c.details, scopeDefault)));
-      content.push({
-        stack: [
-          { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.3, lineColor: '#a0b8ad' }], margin: [0, 0, 0, 4] },
-          { text: 'يتبع في الصفحة التالية ...', fontSize: 10, color: '#8b9f99', alignment: 'center' }
-        ],
-        margin: [0, 0, 0, 320]
-      });
 
       var st = maintenanceSpecTable(c.elevatorInfo, 'البند ثانياً: المواصفات الفنية للمصعد');
       if (st && st.length) {
-        st[0].pageBreak = 'before';
         Array.prototype.push.apply(content, st);
       }
 
