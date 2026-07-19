@@ -449,7 +449,7 @@
     bindHeadingsToFollowingText(content);
     dd.content = content;
     dd.pageBreakBefore = function(currentNode, followingNodesOnPage){
-      return currentNode.headlineLevel === 1 && followingNodesOnPage.length < 2;
+      return (currentNode.headlineLevel === 1 || currentNode.headlineLevel === 2) && followingNodesOnPage.length < 1;
     };
     if (opts && opts.letterhead) {
       dd.pageMargins = [24, 208, 24, 50];
