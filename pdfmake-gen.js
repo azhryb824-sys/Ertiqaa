@@ -405,7 +405,7 @@
       });
       if (!Number(nodes.table.headerRows) && hasVisualHeader) nodes.table.headerRows = 1;
       if (Number(nodes.table.headerRows) > 0) {
-        nodes.table.keepWithHeaderRows = Math.min(2, Math.max(1, nodes.table.body.length - Number(nodes.table.headerRows)));
+        nodes.table.keepWithHeaderRows = Math.min(2, Math.max(2, nodes.table.body.length - Number(nodes.table.headerRows)));
         nodes.table.dontBreakRows = true;
       }
       nodes.layout = {
@@ -449,7 +449,7 @@
     bindHeadingsToFollowingText(content);
     dd.content = content;
     dd.pageBreakBefore = function(currentNode, followingNodesOnPage){
-      return (currentNode.headlineLevel === 1 || currentNode.headlineLevel === 2) && followingNodesOnPage.length < 1;
+      return (currentNode.headlineLevel === 1 || currentNode.headlineLevel === 2) && followingNodesOnPage.length < 2;
     };
     if (opts && opts.letterhead) {
       dd.pageMargins = [24, 208, 24, 50];
