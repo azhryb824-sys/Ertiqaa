@@ -362,7 +362,7 @@
     },
     defaultStyle: { font: 'Cairo', fontSize: 10, lineHeight: 1.15, color: '#1a2e2b', bold: true },
     pageSize: 'A4',
-    pageMargins: [24, 40, 24, 50],
+    pageMargins: [24, 68, 24, 50],
     header: function(){
       return {
         stack: [
@@ -449,7 +449,7 @@
       return currentNode.headlineLevel === 1 && followingNodesOnPage.length < 2;
     };
     if (opts && opts.letterhead) {
-      dd.pageMargins = [24, 180, 24, 50];
+      dd.pageMargins = [24, 208, 24, 50];
       dd.header = function(){ return null; };
       dd.footer = function(){ return null; };
       var bg = A.companyLetterhead ? A.companyLetterhead() : '';
@@ -458,7 +458,7 @@
         return { image: bg, width: 595, height: 842, absolutePosition: { x: 0, y: 0 } };
       };
     } else if (opts && opts.clean) {
-      dd.pageMargins = [24, 60, 24, 50];
+      dd.pageMargins = [24, 88, 24, 50];
       dd.header = function(){ return null; };
       dd.footer = function(){ return null; };
     } else {
