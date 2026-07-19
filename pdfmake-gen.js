@@ -1207,7 +1207,7 @@
     var cf = safeFooter();
     var content = [];
     appendDocumentHeader(content, logoData, opts);
-    content.push({ text: 'إيصال سداد مالي', fontSize: 14, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 4] });
+    content.push({ text: 'إيصال سداد مالي', fontSize: 14, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 2] });
     content.push({
       table: {
         widths: ['*', '*', '*'],
@@ -1235,7 +1235,7 @@
         paddingBottom: function(){ return 1; },
         fillColor: function(i){ return i === 0 ? null : '#f8f7f4'; }
       },
-      margin: [0, 0, 0, 4]
+      margin: [0, 0, 0, 2]
     });
     var allEntries = [], paid = 0, remaining = 0, overdue = 0, installmentEntries = [];
     try {
@@ -1272,7 +1272,7 @@
         ]
       },
       layout: 'noBorders',
-      margin: [0, 0, 0, 4]
+      margin: [0, 0, 0, 2]
     });
     if (installmentEntries.length) {
       var sorted = installmentEntries.sort(function(a,b){ return (b.createdAtMs||0) - (a.createdAtMs||0); }).slice(0, 5);
@@ -1352,19 +1352,19 @@
     });
     content.push({
       stack: [
-        { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.3, lineColor: '#94a3b8' }], margin: [0, 0, 0, 3] },
+        { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.3, lineColor: '#94a3b8' }], margin: [0, 0, 0, 1] },
         {
           stack: [
-            { text: companyName, bold: true, fontSize: 10, color: '#1e3a5f', alignment: 'center', margin: [0, 1, 0, 1] },
+            { text: companyName, bold: true, fontSize: 10, color: '#1e3a5f', alignment: 'center', margin: [0, 0, 0, 0] },
             partyOneApproval.length
-              ? { columns: partyOneApproval, columnGap: 4, margin: [0, 2, 0, 0] }
+              ? { columns: partyOneApproval, columnGap: 4, margin: [0, 1, 0, 0] }
               : { text: 'التوقيع: ........................', fontSize: 10, color: '#94a3b8', alignment: 'center' }
           ],
           alignment: 'center'
         }
       ],
       unbreakable: true,
-      margin: [0, 4, 0, 0]
+      margin: [0, 2, 0, 0]
     });
     return makeDd(content, cf, opts);
   }
