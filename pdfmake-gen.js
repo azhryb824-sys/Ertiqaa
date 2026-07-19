@@ -820,8 +820,8 @@
         Array.prototype.push.apply(content, sectionBlock(sec[si++], 'شروط الدفع', pt));
       }
 
-      var ti = renderItems(c.items, sec[si++] + ': البنود الافتراضية');
-      if (ti) Array.prototype.push.apply(content, ti);
+      var ti = renderItems(c.items, sec[si] + ': البنود الافتراضية');
+      if (ti) { Array.prototype.push.apply(content, ti); si++; }
       var ci = renderItems(c.customItems, sec[si] + ': البنود الإضافية');
       if (ci) { Array.prototype.push.apply(content, ci); si++; }
 
