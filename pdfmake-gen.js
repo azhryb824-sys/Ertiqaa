@@ -1275,7 +1275,7 @@
       margin: [0, 0, 0, 4]
     });
     if (installmentEntries.length) {
-      var sorted = installmentEntries.sort(function(a,b){ return (b.createdAtMs||0) - (a.createdAtMs||0); });
+      var sorted = installmentEntries.sort(function(a,b){ return (b.createdAtMs||0) - (a.createdAtMs||0); }).slice(0, 5);
       var rows = sorted.map(function(e){
         return [
           { text: e.description || e.paymentLabel || '—', fontSize: 10, alignment: 'right' },
