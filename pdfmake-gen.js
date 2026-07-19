@@ -851,8 +851,7 @@
 
       var st = maintenanceSpecTable(c.elevatorInfo, 'البند ثانياً: المواصفات الفنية للمصعد');
       if (st && st.length) {
-        st[0].pageBreak = 'before';
-        Array.prototype.push.apply(content, st);
+        content.push({ stack: st, unbreakable: true, margin: [0, 0, 0, 6] });
       }
 
       var mt = maintenanceTable(c.maintenanceChecklist);
