@@ -362,7 +362,7 @@
     },
     defaultStyle: { font: 'Cairo', fontSize: 10, lineHeight: 1.15, color: '#1a2e2b', bold: true },
     pageSize: 'A4',
-    pageMargins: [24, 68, 24, 50],
+    pageMargins: [24, 68, 24, 78],
     header: function(currentPage, pageCount){
       var co = (A.activeOwnerCompany && A.activeOwnerCompany()) || null;
       var companyName = (co && co.name) || 'نظام شموس';
@@ -452,7 +452,7 @@
       return (currentNode.headlineLevel === 1 || currentNode.headlineLevel === 2) && followingNodesOnPage.length < 2;
     };
     if (opts && opts.letterhead) {
-      dd.pageMargins = [24, 208, 24, 50];
+      dd.pageMargins = [24, 208, 24, 78];
       dd.header = function(){ return null; };
       dd.footer = function(){ return null; };
       var bg = A.companyLetterhead ? A.companyLetterhead() : '';
@@ -461,7 +461,7 @@
         return { image: bg, width: 595, height: 842, absolutePosition: { x: 0, y: 0 } };
       };
     } else if (opts && opts.clean) {
-      dd.pageMargins = [24, 88, 24, 50];
+      dd.pageMargins = [24, 88, 24, 78];
       dd.header = function(){ return null; };
       dd.footer = function(){ return null; };
     } else {
@@ -885,9 +885,7 @@
       unbreakable: true,
       margin: [0, 0, 0, 0]
     });
-    var dd = makeDd(content, cf, opts);
-    if (dd && isInstall) dd.pageMargins[3] += 28;
-    return dd;
+    return makeDd(content, cf, opts);
   }
 
   // ==================== QUOTE ====================
