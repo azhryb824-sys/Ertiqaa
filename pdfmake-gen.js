@@ -886,7 +886,9 @@
       unbreakable: true,
       margin: [0, 0, 0, 0]
     });
-    return makeDd(content, cf, opts);
+    var dd = makeDd(content, cf, opts);
+    if (dd && isInstall) dd.pageMargins[3] += 28;
+    return dd;
   }
 
   // ==================== QUOTE ====================
