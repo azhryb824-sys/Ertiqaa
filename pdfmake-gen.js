@@ -363,11 +363,14 @@
     defaultStyle: { font: 'Cairo', fontSize: 10, lineHeight: 1.15, color: '#1a2e2b', bold: true },
     pageSize: 'A4',
     pageMargins: [24, 68, 24, 50],
-    header: function(){
+    header: function(currentPage, pageCount){
+      var co = (A.activeOwnerCompany && A.activeOwnerCompany()) || null;
+      var companyName = (co && co.name) || 'نظام شموس';
       return {
         stack: [
-          { text: 'نظام شموس', fontSize: 7, color: '#8b9f99', alignment: 'center', margin: [0, 6, 0, 0] },
-          { canvas: [{ type: 'line', x1: 28, y1: 0, x2: 568, y2: 0, lineWidth: 0.3, lineColor: '#d4a24e' }] }
+          { text: companyName, fontSize: 9, color: '#0d312f', alignment: 'center', margin: [0, 8, 0, 2], bold: true },
+          { canvas: [{ type: 'line', x1: 28, y1: 0, x2: 568, y2: 0, lineWidth: 0.5, lineColor: '#d4a24e' }] },
+          { text: '', margin: [0, 0, 0, 6] }
         ]
       };
     },
