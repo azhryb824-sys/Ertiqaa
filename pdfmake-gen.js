@@ -111,7 +111,7 @@
             {
               width: 280,
               stack: [
-                { text: 'اعتماد الشركة', bold: true, fontSize: 11, color: '#748481', alignment: 'center' },
+                { text: 'اعتماد الشركة', bold: true, fontSize: 12, color: '#748481', alignment: 'center' },
                 { text: side1, fontSize: 13, color: '#0d312f', alignment: 'center', margin: [0, 2, 0, 2] },
                 sig1
               ]
@@ -128,14 +128,14 @@
         columns: [
           {
             stack: [
-              { text: 'الطرف الثاني', bold: true, fontSize: 11, color: '#748481', alignment: 'center' },
+              { text: 'الطرف الثاني', bold: true, fontSize: 12, color: '#748481', alignment: 'center' },
               { text: side2, fontSize: 13, color: '#0d312f', alignment: 'center', margin: [0, 2, 0, 2] },
               { text: 'التوقيع: ........................', fontSize: 10, color: '#8b9f99', alignment: 'center' }
             ]
           },
           {
             stack: [
-              { text: 'الطرف الأول', bold: true, fontSize: 11, color: '#748481', alignment: 'center' },
+              { text: 'الطرف الأول', bold: true, fontSize: 12, color: '#748481', alignment: 'center' },
               { text: side1, fontSize: 13, color: '#0d312f', alignment: 'center', margin: [0, 2, 0, 2] },
               sig1
             ]
@@ -296,7 +296,7 @@
       var amount = total * p.pct;
       body.push([
         { text: p.label, fontSize: 10, bold: true, alignment: 'right', color: '#0d312f' },
-        { text: p.desc, fontSize: 9, color: '#748481', alignment: 'right' },
+        { text: p.desc, fontSize: 10, color: '#748481', alignment: 'right' },
         { text: Math.round(p.pct * 100) + '%', fontSize: 10, alignment: 'center', color: '#0d312f' },
         { text: safeMoney(amount), fontSize: 10, bold: true, color: '#d4a24e', alignment: 'center' }
       ]);
@@ -343,7 +343,7 @@
         items.push({ text: 'القيمة: ' + safeMoney(item.price), fontSize: 10, bold: true, color: '#8b601f', margin: [0, 0, 0, 4], alignment: 'right' });
       }
     });
-    var titleEl = { text: title, fontSize: 11, bold: true, color: '#0d312f', margin: [0, 0, 0, 4] };
+    var titleEl = { text: title, fontSize: 12, bold: true, color: '#0d312f', margin: [0, 0, 0, 4] };
     if (items.length > 0) {
       return [{
         stack: [titleEl, items[0]],
@@ -357,7 +357,7 @@
     rtl: true,
     styles: {
       sectionTitle: { fontSize: 12, bold: true, color: '#0d312f', margin: [0, 0, 0, 2] },
-      summaryLabel: { fontSize: 9, color: '#5c7670', bold: true },
+      summaryLabel: { fontSize: 10, color: '#5c7670', bold: true },
       summaryValue: { fontSize: 10, color: '#0d312f', bold: true }
     },
     defaultStyle: { font: 'Cairo', fontSize: 10, lineHeight: 1.15, color: '#1a2e2b', bold: true },
@@ -506,7 +506,7 @@
   }
 
   function sectionTitle(text, margin){
-    return { text: text, fontSize: 11, bold: true, color: '#0d312f', margin: margin || [0, 0, 0, 4], alignment: 'right', headlineLevel: 1 };
+    return { text: text, fontSize: 12, bold: true, color: '#0d312f', margin: margin || [0, 0, 0, 4], alignment: 'right', headlineLevel: 1 };
   }
 
   function scopeText(text, fallback){
@@ -765,7 +765,7 @@
         widths: ['*', 'auto'],
         body: [
           [
-            { text: 'عقد ' + (c.type || ''), bold: true, fontSize: 11, color: '#0d312f', alignment: 'right' },
+            { text: 'عقد ' + (c.type || ''), bold: true, fontSize: 14, color: '#0d312f', alignment: 'right' },
             { text: 'رقم العقد: ' + c.id, bold: true, fontSize: 10, color: '#fff', fillColor: '#0d312f', alignment: 'center', margin: [4, 2, 4, 2] }
           ]
         ]
@@ -785,7 +785,7 @@
       content.push({
         stack: [
           { text: 'بسم الله الرحمن الرحيم', fontSize: 10, color: '#8b9f99', alignment: 'center', margin: [0, 0, 0, 2] },
-          { text: 'عقد تركيب مصعد', fontSize: 11, bold: true, color: '#0d312f', alignment: 'center', margin: [0, 0, 0, 4] },
+          { text: 'عقد تركيب مصعد', fontSize: 12, bold: true, color: '#0d312f', alignment: 'center', margin: [0, 0, 0, 4] },
           { text: 'يسعدنا نحن ' + companyName + ' أن نتقدم لسعادتكم بهذا العقد لتوريد وتركيب مصعد في موقعكم الموضح أدناه، وفق المواصفات الفنية والبنود العامة المعتمدة.', fontSize: 10, color: '#3b564f', alignment: 'right', margin: [0, 0, 0, 6], lineHeight: 1.15 }
         ],
         margin: [0, 0, 0, 6]
@@ -900,7 +900,7 @@
 
     content.push({
       columns: [
-        { text: 'عرض سعر' + (q.type ? ' - ' + q.type : ''), bold: true, fontSize: 12, color: '#0d312f' },
+        { text: 'عرض سعر' + (q.type ? ' - ' + q.type : ''), bold: true, fontSize: 14, color: '#0d312f' },
         statusBadge(q.status || 'بانتظار الرد')
       ],
       margin: [0, 0, 0, 6]
@@ -910,7 +910,7 @@
         widths: ['*', 'auto'],
         body: [
           [
-            { text: 'رقم عرض السعر: ' + q.id, bold: true, fontSize: 11, color: '#d4a24e', alignment: 'right' },
+            { text: 'رقم عرض السعر: ' + q.id, bold: true, fontSize: 12, color: '#d4a24e', alignment: 'right' },
             { text: 'الإجمالي', fontSize: 10, color: '#748481', alignment: 'center' }
           ],
           [
@@ -925,7 +925,7 @@
     content.push({
       stack: [
         { text: 'الطرف الموجه إليه عرض السعر', fontSize: 12, bold: true, color: '#0d312f', margin: [0, 0, 0, 2] },
-        { text: party, bold: true, fontSize: 11, color: '#0d312f', margin: [0, 2, 0, 4], alignment: 'right' }
+        { text: party, bold: true, fontSize: 12, color: '#0d312f', margin: [0, 2, 0, 4], alignment: 'right' }
       ],
       margin: [0, 0, 0, 8]
     });
@@ -987,7 +987,7 @@
           var amount = total * pct;
           planRows.push([
             { text: label, fontSize: 10, alignment: 'right' },
-            { text: desc, fontSize: 9, color: '#748481', alignment: 'right' },
+            { text: desc, fontSize: 10, color: '#748481', alignment: 'right' },
             { text: safeMoney(amount), alignment: 'center', fontSize: 10, bold: true }
           ]);
         });
@@ -1049,7 +1049,7 @@
 
     content.push({
       columns: [
-        { text: 'تقرير زيارة فنية', bold: true, fontSize: 12, color: '#0d312f' },
+        { text: 'تقرير زيارة فنية', bold: true, fontSize: 14, color: '#0d312f' },
         statusBadge(r.status || 'بانتظار اعتماد العميل')
       ],
       margin: [0, 0, 0, 6]
@@ -1059,7 +1059,7 @@
         widths: ['*', 'auto'],
         body: [
           [
-            { text: 'رقم التقرير: ' + r.id, bold: true, fontSize: 11, color: '#d4a24e', alignment: 'right' },
+            { text: 'رقم التقرير: ' + r.id, bold: true, fontSize: 12, color: '#d4a24e', alignment: 'right' },
             { text: r.technician || r.technicianId || 'الفني', fontSize: 10, color: '#748481', alignment: 'center' }
           ]
         ]
@@ -1115,14 +1115,14 @@
 
     content.push({
       columns: [
-        { text: 'بلاغ - ' + t.id, bold: true, fontSize: 12, color: '#0d312f' },
+        { text: 'بلاغ - ' + t.id, bold: true, fontSize: 14, color: '#0d312f' },
         statusBadge(t.status)
       ],
       margin: [0, 0, 0, 6]
     });
     content.push({
       stack: [
-        { text: t.title, bold: true, fontSize: 11, color: '#0d312f', margin: [0, 0, 0, 2], alignment: 'right' },
+        { text: t.title, bold: true, fontSize: 12, color: '#0d312f', margin: [0, 0, 0, 2], alignment: 'right' },
         { text: t.description || '', fontSize: 10, color: '#3b564f', margin: [0, 0, 0, 6], alignment: 'right' }
       ],
       margin: [0, 0, 0, 8]
@@ -1155,7 +1155,7 @@
 
     content.push({
       columns: [
-        { text: 'مستخلص مالي', bold: true, fontSize: 12, color: '#0d312f' },
+        { text: 'مستخلص مالي', bold: true, fontSize: 14, color: '#0d312f' },
         statusBadge(cl.status || 'قيد المراجعة')
       ],
       margin: [0, 0, 0, 6]
@@ -1165,7 +1165,7 @@
         widths: ['*', 'auto'],
         body: [
           [
-            { text: 'رقم المستخلص: ' + cl.id, bold: true, fontSize: 11, color: '#d4a24e', alignment: 'right' },
+            { text: 'رقم المستخلص: ' + cl.id, bold: true, fontSize: 12, color: '#d4a24e', alignment: 'right' },
             { text: 'قيمة المستخلص', fontSize: 10, color: '#748481', alignment: 'center' }
           ],
           [
@@ -1203,20 +1203,20 @@
     var cf = safeFooter();
     var content = [];
     appendDocumentHeader(content, logoData, opts);
-    content.push({ text: 'إيصال سداد مالي', fontSize: 13, bold: true, color: '#0d312f', margin: [0, 0, 0, 4] });
+    content.push({ text: 'إيصال سداد مالي', fontSize: 14, bold: true, color: '#0d312f', margin: [0, 0, 0, 4] });
     content.push({
       table: {
         widths: ['*', '*', '*'],
         body: [
           [
-            { text: 'رقم العقد', bold: true, fontSize: 8, color: '#fff', fillColor: '#0d312f', alignment: 'center', margin: [2, 2, 2, 2] },
-            { text: 'الطرف الثاني', bold: true, fontSize: 8, color: '#fff', fillColor: '#0d312f', alignment: 'center', margin: [2, 2, 2, 2] },
-            { text: 'إجمالي العقد', bold: true, fontSize: 8, color: '#fff', fillColor: '#0d312f', alignment: 'center', margin: [2, 2, 2, 2] }
+            { text: 'رقم العقد', bold: true, fontSize: 10, color: '#fff', fillColor: '#0d312f', alignment: 'center', margin: [1, 1, 1, 1] },
+            { text: 'الطرف الثاني', bold: true, fontSize: 10, color: '#fff', fillColor: '#0d312f', alignment: 'center', margin: [1, 1, 1, 1] },
+            { text: 'إجمالي العقد', bold: true, fontSize: 10, color: '#fff', fillColor: '#0d312f', alignment: 'center', margin: [1, 1, 1, 1] }
           ],
           [
-            { text: String(c.id), bold: true, fontSize: 8, color: '#0d312f', alignment: 'center', margin: [2, 2, 2, 2] },
-            { text: safeLabel(c), bold: true, fontSize: 8, color: '#0d312f', alignment: 'center', margin: [2, 2, 2, 2] },
-            { text: safeMoney(c.value), bold: true, fontSize: 8, color: '#0d312f', alignment: 'center', margin: [2, 2, 2, 2] }
+            { text: String(c.id), bold: true, fontSize: 10, color: '#0d312f', alignment: 'center', margin: [1, 1, 1, 1] },
+            { text: safeLabel(c), bold: true, fontSize: 10, color: '#0d312f', alignment: 'center', margin: [1, 1, 1, 1] },
+            { text: safeMoney(c.value), bold: true, fontSize: 10, color: '#0d312f', alignment: 'center', margin: [1, 1, 1, 1] }
           ]
         ]
       },
@@ -1254,16 +1254,16 @@
         widths: ['25%', '25%', '25%', '25%'],
         body: [
           [
-            { text: '', fontSize: 8, alignment: 'center' },
-            { text: 'المدفوع', bold: true, fontSize: 8, color: '#60756f', alignment: 'center' },
-            { text: 'المتبقي', bold: true, fontSize: 8, color: '#60756f', alignment: 'center' },
-            { text: 'المتأخر', bold: true, fontSize: 8, color: '#60756f', alignment: 'center' }
+            { text: '', fontSize: 10, alignment: 'center' },
+            { text: 'المدفوع', bold: true, fontSize: 10, color: '#60756f', alignment: 'center' },
+            { text: 'المتبقي', bold: true, fontSize: 10, color: '#60756f', alignment: 'center' },
+            { text: 'المتأخر', bold: true, fontSize: 10, color: '#60756f', alignment: 'center' }
           ],
           [
             { text: '', alignment: 'center' },
-            { text: safeMoney(paid), bold: true, fontSize: 11, color: '#3c8b70', alignment: 'center', margin: [0, 3, 0, 3] },
-            { text: safeMoney(remaining), bold: true, fontSize: 11, color: remaining > 0 ? '#c85c59' : '#3c8b70', alignment: 'center', margin: [0, 3, 0, 3] },
-            { text: safeMoney(overdue), bold: true, fontSize: 11, color: overdue > 0 ? '#c85c59' : '#3c8b70', alignment: 'center', margin: [0, 3, 0, 3] }
+            { text: safeMoney(paid), bold: true, fontSize: 10, color: '#3c8b70', alignment: 'center', margin: [0, 3, 0, 3] },
+            { text: safeMoney(remaining), bold: true, fontSize: 10, color: remaining > 0 ? '#c85c59' : '#3c8b70', alignment: 'center', margin: [0, 3, 0, 3] },
+            { text: safeMoney(overdue), bold: true, fontSize: 10, color: overdue > 0 ? '#c85c59' : '#3c8b70', alignment: 'center', margin: [0, 3, 0, 3] }
           ]
         ]
       },
@@ -1274,10 +1274,10 @@
       var sorted = installmentEntries.sort(function(a,b){ return (b.createdAtMs||0) - (a.createdAtMs||0); });
       var rows = sorted.map(function(e){
         return [
-          { text: e.description || e.paymentLabel || '—', fontSize: 7, alignment: 'right' },
-          { text: safeMoney(e.amount), fontSize: 7, alignment: 'center', bold: true },
-          { text: e.date || '—', fontSize: 7, alignment: 'center' },
-          { text: e.paymentMethod || '—', fontSize: 7, alignment: 'center' }
+          { text: e.description || e.paymentLabel || '—', fontSize: 10, alignment: 'right' },
+          { text: safeMoney(e.amount), fontSize: 10, alignment: 'center', bold: true },
+          { text: e.date || '—', fontSize: 10, alignment: 'center' },
+          { text: e.paymentMethod || '—', fontSize: 10, alignment: 'center' }
         ];
       });
       content.push({ text: 'سجل الدفعات', fontSize: 10, bold: true, color: '#0d312f', margin: [0, 2, 0, 2] });
@@ -1287,10 +1287,10 @@
           headerRows: 1,
           body: [
             [
-              { text: 'البيان', bold: true, fontSize: 8, color: '#fff', fillColor: '#0d312f', alignment: 'center', margin: [2, 2, 2, 2] },
-              { text: 'المبلغ', bold: true, fontSize: 8, color: '#fff', fillColor: '#0d312f', alignment: 'center', margin: [2, 2, 2, 2] },
-              { text: 'تاريخ الدفع', bold: true, fontSize: 8, color: '#fff', fillColor: '#0d312f', alignment: 'center', margin: [2, 2, 2, 2] },
-              { text: 'طريقة الدفع', bold: true, fontSize: 8, color: '#fff', fillColor: '#0d312f', alignment: 'center', margin: [2, 2, 2, 2] }
+              { text: 'البيان', bold: true, fontSize: 10, color: '#fff', fillColor: '#0d312f', alignment: 'center', margin: [2, 2, 2, 2] },
+              { text: 'المبلغ', bold: true, fontSize: 10, color: '#fff', fillColor: '#0d312f', alignment: 'center', margin: [2, 2, 2, 2] },
+              { text: 'تاريخ الدفع', bold: true, fontSize: 10, color: '#fff', fillColor: '#0d312f', alignment: 'center', margin: [2, 2, 2, 2] },
+              { text: 'طريقة الدفع', bold: true, fontSize: 10, color: '#fff', fillColor: '#0d312f', alignment: 'center', margin: [2, 2, 2, 2] }
             ]
           ].concat(rows)
         },
@@ -1305,10 +1305,10 @@
           var ppaid = installmentEntries.filter(function(x){ return x.paymentLabel === p.label; }).reduce(function(s,x){ return s + Number(x.amount||0); }, 0);
           var premaining = Math.max(0, expected - ppaid);
           return [
-            { text: p.label, fontSize: 7, alignment: 'right' },
-            { text: safeMoney(expected), fontSize: 7, alignment: 'center' },
-            { text: safeMoney(ppaid), fontSize: 7, alignment: 'center' },
-            { text: safeMoney(premaining), fontSize: 7, alignment: 'center', bold: true, color: premaining > 0 ? '#c85c59' : '#3c8b70' }
+            { text: p.label, fontSize: 10, alignment: 'right' },
+            { text: safeMoney(expected), fontSize: 10, alignment: 'center' },
+            { text: safeMoney(ppaid), fontSize: 10, alignment: 'center' },
+            { text: safeMoney(premaining), fontSize: 10, alignment: 'center', bold: true, color: premaining > 0 ? '#c85c59' : '#3c8b70' }
           ];
         });
         content.push({ text: 'خطة الدفعات', fontSize: 10, bold: true, color: '#0d312f', margin: [0, 2, 0, 2] });
@@ -1318,10 +1318,10 @@
             headerRows: 1,
             body: [
               [
-                { text: 'الدفعة', bold: true, fontSize: 8, color: '#fff', fillColor: '#0d312f', alignment: 'center', margin: [2, 2, 2, 2] },
-                { text: 'المستحق', bold: true, fontSize: 8, color: '#fff', fillColor: '#0d312f', alignment: 'center', margin: [2, 2, 2, 2] },
-                { text: 'المدفوع', bold: true, fontSize: 8, color: '#fff', fillColor: '#0d312f', alignment: 'center', margin: [2, 2, 2, 2] },
-                { text: 'المتبقي', bold: true, fontSize: 8, color: '#fff', fillColor: '#0d312f', alignment: 'center', margin: [2, 2, 2, 2] }
+                { text: 'الدفعة', bold: true, fontSize: 10, color: '#fff', fillColor: '#0d312f', alignment: 'center', margin: [1, 1, 1, 1] },
+                { text: 'المستحق', bold: true, fontSize: 10, color: '#fff', fillColor: '#0d312f', alignment: 'center', margin: [1, 1, 1, 1] },
+                { text: 'المدفوع', bold: true, fontSize: 10, color: '#fff', fillColor: '#0d312f', alignment: 'center', margin: [1, 1, 1, 1] },
+                { text: 'المتبقي', bold: true, fontSize: 10, color: '#fff', fillColor: '#0d312f', alignment: 'center', margin: [1, 1, 1, 1] }
               ]
             ].concat(planRows)
           },
@@ -1334,21 +1334,21 @@
     var partyOneApproval = [];
     if (sig) partyOneApproval.push({
       stack: [
-        { text: 'التوقيع', fontSize: 8, color: '#8b9f99', alignment: 'center' },
+        { text: 'التوقيع', fontSize: 9, color: '#8b9f99', alignment: 'center' },
         { image: sig, fit: [220, 140], alignment: 'center', margin: [0, 2, 0, 0] }
       ],
       width: '*'
     });
     if (stamp) partyOneApproval.push({
       stack: [
-        { text: 'الختم', fontSize: 8, color: '#8b9f99', alignment: 'center' },
+        { text: 'الختم', fontSize: 9, color: '#8b9f99', alignment: 'center' },
         { image: stamp, fit: [200, 140], alignment: 'center', margin: [0, 2, 0, 0] }
       ],
       width: '*'
     });
     var partyOneSig = partyOneApproval.length
       ? { columns: partyOneApproval, columnGap: 4, margin: [0, 4, 0, 0] }
-      : { text: 'التوقيع: ........................', fontSize: 8, color: '#8b9f99', alignment: 'center' };
+      : { text: 'التوقيع: ........................', fontSize: 10, color: '#8b9f99', alignment: 'center' };
     content.push({
       stack: [
         { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.3, lineColor: '#a0b8ad' }], margin: [0, 0, 0, 3] },
@@ -1356,15 +1356,15 @@
           columns: [
             {
               stack: [
-                { text: 'الطرف الثاني', bold: true, fontSize: 8, color: '#748481', alignment: 'center' },
-                { text: safeLabel(c), fontSize: 8, color: '#0d312f', alignment: 'center', margin: [0, 1, 0, 1] },
-                { text: 'التوقيع: ........................', fontSize: 8, color: '#8b9f99', alignment: 'center' }
+                { text: 'الطرف الثاني', bold: true, fontSize: 10, color: '#748481', alignment: 'center' },
+                { text: safeLabel(c), fontSize: 10, color: '#0d312f', alignment: 'center', margin: [0, 1, 0, 1] },
+                { text: 'التوقيع: ........................', fontSize: 10, color: '#8b9f99', alignment: 'center' }
               ]
             },
             {
               stack: [
-                { text: 'الطرف الأول', bold: true, fontSize: 8, color: '#748481', alignment: 'center' },
-                { text: companyName, fontSize: 8, color: '#0d312f', alignment: 'center', margin: [0, 1, 0, 1] },
+                { text: 'الطرف الأول', bold: true, fontSize: 10, color: '#748481', alignment: 'center' },
+                { text: companyName, fontSize: 10, color: '#0d312f', alignment: 'center', margin: [0, 1, 0, 1] },
                 partyOneSig
               ]
             }
