@@ -1350,31 +1350,17 @@
       ],
       width: '*'
     });
-    var partyOneSig = partyOneApproval.length
-      ? { columns: partyOneApproval, columnGap: 4, margin: [0, 4, 0, 0] }
-      : { text: 'التوقيع: ........................', fontSize: 10, color: '#94a3b8', alignment: 'center' };
     content.push({
       stack: [
         { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.3, lineColor: '#94a3b8' }], margin: [0, 0, 0, 3] },
         {
-          columns: [
-            {
-              stack: [
-                { text: 'الطرف الثاني', bold: true, fontSize: 10, color: '#64748b', alignment: 'center' },
-                { text: safeLabel(c), fontSize: 10, color: '#1e3a5f', alignment: 'center', margin: [0, 1, 0, 1] },
-                { text: 'التوقيع: ........................', fontSize: 10, color: '#94a3b8', alignment: 'center' }
-              ]
-            },
-            {
-              stack: [
-                { text: 'الطرف الأول', bold: true, fontSize: 10, color: '#64748b', alignment: 'center' },
-                { text: companyName, fontSize: 10, color: '#1e3a5f', alignment: 'center', margin: [0, 1, 0, 1] },
-                partyOneSig
-              ]
-            }
+          stack: [
+            { text: companyName, bold: true, fontSize: 10, color: '#1e3a5f', alignment: 'center', margin: [0, 1, 0, 1] },
+            partyOneApproval.length
+              ? { columns: partyOneApproval, columnGap: 4, margin: [0, 2, 0, 0] }
+              : { text: 'التوقيع: ........................', fontSize: 10, color: '#94a3b8', alignment: 'center' }
           ],
-          columnGap: 6,
-          margin: [0, 0, 0, 4]
+          alignment: 'center'
         }
       ],
       unbreakable: true,
