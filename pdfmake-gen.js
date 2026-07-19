@@ -806,23 +806,24 @@
 
     if (isInstall) {
       var scopeDefault = 'يشمل العقد توريد وتركيب المصعد والسكة والأبواب والكابينة والمكينة ولوحة التحكم والتشغيل والاختبار والتسليم النهائي وفقاً للمواصفات الفنية الواردة بهذا العقد، مع توفير الضمان اللازم للأجزاء الموردة حسب ما هو متفق عليه.';
-      Array.prototype.push.apply(content, sectionBlock('أولاً', 'نطاق التوريد والتركيب', scopeText(c.details, scopeDefault)));
+      var sec = ['أولاً', 'ثانياً', 'ثالثاً', 'رابعاً', 'خامساً', 'سادساً', 'سابعاً', 'ثامناً', 'تاسعاً', 'عاشراً'];
+      var si = 0;
+      Array.prototype.push.apply(content, sectionBlock(sec[si++], 'نطاق التوريد والتركيب', scopeText(c.details, scopeDefault)));
 
-      var st = specTable(c.elevatorInfo, 'البند ثانياً: المواصفات الفنية للمصعد');
+      var st = specTable(c.elevatorInfo, 'البند ' + sec[si++] + ': المواصفات الفنية للمصعد');
       if (st && st.length) {
         Array.prototype.push.apply(content, st);
       }
 
       var pt = paymentPlanTable(c.value);
       if (pt) {
-        Array.prototype.push.apply(content, sectionBlock('ثالثاً', 'شروط الدفع', pt));
+        Array.prototype.push.apply(content, sectionBlock(sec[si++], 'شروط الدفع', pt));
       }
 
-      var ti = renderItems(c.items, 'رابعاً: البنود الافتراضية');
+      var ti = renderItems(c.items, sec[si++] + ': البنود الافتراضية');
       if (ti) Array.prototype.push.apply(content, ti);
-      var ci = renderItems(c.customItems, 'خامساً: البنود الإضافية');
-      if (ci) Array.prototype.push.apply(content, ci);
-      else if (!ti) content.push(sectionTitle('رابعاً: البنود'));
+      var ci = renderItems(c.customItems, sec[si] + ': البنود الإضافية');
+      if (ci) { Array.prototype.push.apply(content, ci); si++; }
 
       var buildings = c.buildings || [];
       if (buildings.length > 0) {
@@ -836,14 +837,15 @@
             margin: [0, 0, 0, 2]
           });
         });
-        Array.prototype.push.apply(content, sectionBlock('سادساً', 'المباني والمواقع', bd));
+        Array.prototype.push.apply(content, sectionBlock(sec[si++], 'المباني والمواقع', bd));
       }
       if (c.maintenanceChecklist && c.maintenanceChecklist.length > 0) {
         var mi = maintenanceTable(c.maintenanceChecklist);
-        if (mi) Array.prototype.push.apply(content, sectionBlock('سابعاً', 'بنود الصيانة المتفق عليها', mi));
+        if (mi) Array.prototype.push.apply(content, sectionBlock(sec[si++], 'بنود الصيانة المتفق عليها', mi));
       }
       if (c.deliveryDate && c.maintenanceEndDate) {
-        content.push(sectionBlock('ثامناً', 'فترة الصيانة', { text: 'تبدأ فترة الصيانة من تاريخ تسليم المصعد (' + c.deliveryDate + ') إلى تاريخ (' + c.maintenanceEndDate + ')، على أن تشمل أعمال الصيانة الدورية والطارئة وفق بنود الصيانة المتفق عليها أعلاه.', fontSize: 10, color: '#3b564f', alignment: 'right', lineHeight: 1.15 }));
+        var p = { text: 'تبدأ فترة الصيانة من تاريخ تسليم المصعد (' + c.deliveryDate + ') إلى تاريخ (' + c.maintenanceEndDate + ')، على أن تشمل أعمال الصيانة الدورية والطارئة وفق بنود الصيانة المتفق عليها أعلاه.', fontSize: 10, color: '#3b564f', alignment: 'right', lineHeight: 1.15 };
+        content.push(sectionBlock(sec[si++], 'فترة الصيانة', p));
       }
     } else {
       var scopeDefault = 'يشمل العقد أعمال الصيانة الدورية للمصعد (المصاعد) وفق بنود الصيانة والشروط والمواصفات الواردة في هذا العقد، للحفاظ على سلامة وأداء المصعد طوال مدة العقد.';
