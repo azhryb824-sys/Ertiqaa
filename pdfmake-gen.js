@@ -31,8 +31,11 @@
   }
 
   function safeLabel(obj){
-    if (A.contractLabel) return A.contractLabel(obj);
-    var label = obj.clientName || obj.clientId || "غير محدد";
+    if (A.contractLabel) {
+      var r = A.contractLabel(obj);
+      if (r && r !== "غير محدد") return r;
+    }
+    var label = obj.clientName || obj.clientId || obj.clientPhone || "غير محدد";
     return String(label).trim();
   }
 
@@ -184,7 +187,7 @@
     if (!ei || typeof ei !== 'object') return null;
     var labels = {
       elevatorType:'نوع المصعد',usage:'الاستخدام',capacity:'الحمولة',persons:'عدد الأشخاص',stops:'عدد الوقفات',speed:'السرعة',travelHeight:'ارتفاع المشوار',shaftLength:'طول البئر',shaftWidth:'عرض البئر',pitDepth:'عمق الحفرة',overhead:'الارتفاع العلوي',entrances:'عدد المداخل',doorDirection:'اتجاه الأبواب',speedSystem:'نظام السرعة',doorType:'نوع الأبواب',
-      motorType:'نوع المحرك',motorManufacturer:'الشركة المصنعة للمحرك',motorPower:'قدرة المحرك',motorSpeed:'سرعة المحرك',controller:'الكنترول',ropeManufacturer:'الشركة المصنعة للحبال',ropesCount:'عدد الحبال',ropeDiameter:'قطر الحبال',counterweight:'وزن الثقال',railManufacturer:'الشركة المصنعة للسكك',railSize:'مقاس السكك',originCountry:'بلد المنشأ',
+      motorType:'نوع المحرك',motorManufacturer:'ماركة المصعد',motorPower:'قدرة المحرك',motorSpeed:'سرعة المحرك',controller:'الكنترول',ropeManufacturer:'الشركة المصنعة للحبال',ropesCount:'عدد الحبال',ropeDiameter:'قطر الحبال',counterweight:'وزن الثقال',railManufacturer:'الشركة المصنعة للسكك',railSize:'مقاس السكك',originCountry:'بلد المنشأ',
       cabinSize:'أبعاد الكابينة',floorType:'نوع الأرضية',wallType:'نوع الجدران',ceilingType:'نوع السقف',lightingType:'نوع الإنارة',displayType:'نوع شاشة العرض',risotType:'نوع البرشوت',mirrors:'وجود مرايا',fan:'وجود مروحة',voiceAnnouncement:'وجود الإعلان الصوتي',braille:'وجود Braille',
       doorManufacturer:'الشركة المصنعة للأبواب',doorWidth:'عرض الباب',doorHeight:'ارتفاع الباب',doorOpenTime:'زمن فتح الباب',doorCloseTime:'زمن إغلاق الباب',doorLockType:'نوع أقفال الأبواب',
       bufferType:'نوع Buffer',rescueSystem:'نظام الإنقاذ',coolingSystem:'نظام التبريد',intercom:'وجود إنتركم',camera:'وجود كاميرا',fireMode:'وجود Fire Mode',
@@ -279,9 +282,11 @@
     ];
   }
 
-  function paymentPlanTable(value){
+  function paymentPlanTable(value, customPlan){
     var total = Number(value || 0);
-    var plan = [
+    var plan = (customPlan && customPlan.length) ? customPlan.map(function(p){
+      return { label: p.label, desc: p.description || '', pct: p.percent > 1 ? p.percent/100 : (p.percent || 0) };
+    }) : [
       { label: 'دفعة مقدمة', desc: 'تسدد فور التوقيع وقبل بدء العمل', pct: 0.5 },
       { label: 'دفعة ثانية', desc: 'عند الانتهاء من التركيب', pct: 0.35 },
       { label: 'دفعة ثالثة', desc: 'عند الانتهاء من الاستلام النهائي والتشغيل', pct: 0.15 }
@@ -351,6 +356,53 @@
       }].concat(items.slice(1)).concat({ text: '', margin: [0, 0, 0, 4] });
     }
     return [titleEl, { text: '', margin: [0, 0, 0, 4] }];
+  }
+
+  function partsTable(arr, title){
+    if (!arr || !arr.length) return null;
+    var body = [[
+      { text: 'الصنف', bold: true, color: '#fff', fillColor: '#1e3a5f', alignment: 'right' },
+      { text: 'الكمية', bold: true, color: '#fff', fillColor: '#1e3a5f', alignment: 'center' },
+      { text: 'سعر الوحدة', bold: true, color: '#fff', fillColor: '#1e3a5f', alignment: 'center' },
+      { text: 'الإجمالي', bold: true, color: '#fff', fillColor: '#1e3a5f', alignment: 'center' }
+    ]];
+    var total = 0;
+    arr.forEach(function(item){
+      var name = item.title || item.name || '';
+      var qty = Number(item.qty || 1);
+      var unitPrice = Number(item.unitPrice || item.price || 0);
+      var lineTotal = Number(item.price || unitPrice * qty);
+      total += lineTotal;
+      body.push([
+        { text: name, fontSize: 10, alignment: 'right', color: '#334155' },
+        { text: String(qty), fontSize: 10, alignment: 'center', color: '#334155' },
+        { text: safeMoney(unitPrice), fontSize: 10, alignment: 'center', color: '#334155' },
+        { text: safeMoney(lineTotal), fontSize: 10, alignment: 'center', bold: true, color: '#1e3a5f' }
+      ]);
+    });
+    body.push([
+      { text: 'الإجمالي', colSpan: 3, alignment: 'left', bold: true, fontSize: 10, color: '#b8862d' },
+      {}, {},
+      { text: safeMoney(total), alignment: 'center', bold: true, fontSize: 10, color: '#b8862d' }
+    ]);
+    return [
+      { text: title, fontSize: 12, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 4] },
+      {
+        table: { headerRows: 1, keepWithHeaderRows: 1, dontBreakRows: true, widths: ['*', 50, 70, 80], body: body },
+        layout: {
+          hLineWidth: function(){ return 0.5; },
+          vLineWidth: function(){ return 0.5; },
+          hLineColor: function(){ return '#94a3b8'; },
+          vLineColor: function(){ return '#94a3b8'; },
+          paddingLeft: function(){ return 6; },
+          paddingRight: function(){ return 6; },
+          paddingTop: function(){ return 4; },
+          paddingBottom: function(){ return 4; },
+          fillColor: function(i){ return i === 0 ? null : (i % 2 === 0 ? null : '#f1f0ec'); }
+        },
+        margin: [0, 0, 0, 10]
+      }
+    ];
   }
 
   var _sharedDd = {
@@ -483,6 +535,7 @@
     if (c.clientId) p2Extra.push('رقم الهوية: ' + String(c.clientId));
     if (c.clientCompanyName && c.clientCompanyName !== '') p2Extra.push('اسم المنشأة: ' + String(c.clientCompanyName));
     if (c.clientCompanyUnifiedNumber && c.clientCompanyUnifiedNumber !== '') p2Extra.push('الرقم الموحد: ' + String(c.clientCompanyUnifiedNumber));
+    if (c.clientPhone && c.clientPhone !== '') p2Extra.push('جوال: ' + String(c.clientPhone));
     if (p2Extra.length) p2 += ' - ' + p2Extra.join(' - ');
 
     var dateRef = c.startDate || c.createdAt || '';
@@ -525,13 +578,13 @@
         ['travelHeight', 'ارتفاع المشوار'], ['shaftLength', 'طول البئر'], ['shaftWidth', 'عرض البئر'],
         ['pitDepth', 'عمق الحفرة'], ['overhead', 'الارتفاع العلوي'], ['entrances', 'عدد المداخل'],
         ['doorDirection', 'اتجاه الأبواب'], ['speedSystem', 'نظام السرعة'],
-        ['doorType', 'نوع الأبواب']
+        ['doorType', 'نوع الأبواب'], ['motorManufacturer', 'ماركة المصعد']
       ]
     },
     {
       tab: 'المحرك والكنترول',
       fields: [
-        ['motorType', 'نوع المحرك'], ['motorManufacturer', 'الشركة المصنعة للمحرك'],
+        ['motorType', 'نوع المحرك'],
         ['motorPower', 'قدرة المحرك'], ['motorSpeed', 'سرعة المحرك'], ['controller', 'الكنترول'],
         ['ropeManufacturer', 'الشركة المصنعة للحبال'], ['ropesCount', 'عدد الحبال'],
         ['ropeDiameter', 'قطر الحبال'], ['counterweight', 'وزن الثقال'],
@@ -799,7 +852,22 @@
       { label: 'بداية العقد', value: c.startDate },
       { label: 'نهاية العقد', value: c.endDate },
       { label: 'منشأة الإصدار', value: companyName }
-    ].concat(isInstall?[{label:'مدة التركيب',value:(c.installationInfo?.installDuration||'45 يوماً')}]:[]).concat(isInstall&&c.deliveryDate?[{label:'تاريخ التسليم',value:c.deliveryDate}]:[])));
+    ].concat(isInstall?[{label:'مدة التركيب',value:(c.installationInfo?.installDuration||'45 يوماً')}]:[]).concat(isInstall&&c.deliveryDate?[{label:'تاريخ التسليم',value:c.deliveryDate}]:[]).concat(c.paymentMethod?[{label:'طريقة الدفع',value:c.paymentMethod}]:[])));
+
+    if (c.transferNotices?.length || c.transferNoticeData) {
+      var allNotices = c.transferNotices || [];
+      if (c.transferNoticeData) allNotices = [{data:c.transferNoticeData,name:c.transferNoticeName||'إشعار تحويل'}].concat(allNotices);
+      allNotices.forEach(function(n, i){
+        if (n.data && n.data.indexOf('data:image/') === 0) {
+          content.push({ image: n.data, width: 200, alignment: 'center', margin: [0, 4, 0, 4] });
+        }
+      });
+    }
+
+    if (c.financialNotes) {
+      content.push({ text: 'ملاحظات مالية', fontSize: 12, bold: true, color: '#1e3a5f', margin: [0, 6, 0, 4], alignment: 'right' });
+      content.push({ text: c.financialNotes, fontSize: 10, color: '#475569', margin: [0, 0, 0, 6], alignment: 'right' });
+    }
 
     var intro = contractIntroParagraph(c, isInstall);
     if (intro) Array.prototype.push.apply(content, intro);
@@ -815,7 +883,7 @@
         Array.prototype.push.apply(content, st);
       }
 
-      var pt = paymentPlanTable(c.value);
+      var pt = paymentPlanTable(c.value, c.paymentPlan);
       if (pt) {
         Array.prototype.push.apply(content, sectionBlock(sec[si++], 'شروط الدفع', pt));
       }
@@ -897,6 +965,7 @@
     var taxAmount = Number(q.taxAmount != null ? q.taxAmount : Math.max(0, total - subtotal));
     var party = q.client || q.clientCompanyName || q.clientName || "غير محدد";
     var isInstall = q.type === "تركيب";
+    var isParts = q.type === "توريد وتركيب قطع غيار";
     var companyName = activeCompanyName();
     var cf = safeFooter();
     var content = [];
@@ -1019,12 +1088,17 @@
       }
     }
 
-    if (!isInstall) {
+    if (isParts) {
+      var pt = partsTable(q.partsItems, 'قطع الغيار المطلوب توريدها وتركيبها');
+      if (pt) Array.prototype.push.apply(content, pt);
+    }
+
+    if (!isInstall && !isParts) {
       var mt = maintenanceTable(q.maintenanceChecklist);
       if (mt) Array.prototype.push.apply(content, mt);
     }
 
-    var pi = renderItems(q.partsItems, 'قطع الغيار بأقل أسعار الموردين');
+    var pi = !isParts ? renderItems(q.partsItems, 'قطع الغيار بأقل أسعار الموردين') : null;
     if (pi) Array.prototype.push.apply(content, pi);
     var ti = renderItems(q.items, 'البنود الافتراضية');
     if (ti) Array.prototype.push.apply(content, ti);
@@ -1036,11 +1110,21 @@
       content.push({ text: q.details, fontSize: 10, color: '#475569', margin: [0, 0, 0, 10], alignment: 'right' });
     }
 
-    content.push({
-      stack: buildSignature(companyName, party, true),
-      unbreakable: true,
-      margin: [0, 0, 0, 0]
-    });
+if (isParts) {
+      content.push({
+        stack: [
+          { text: '', margin: [0, 0, 0, 0] },
+          { stack: buildSignature(companyName, party, true), pageBreak: 'avoid', margin: [0, 0, 0, 0] }
+        ],
+        unbreakable: true
+      });
+    } else {
+      content.push({
+        stack: buildSignature(companyName, party, true),
+        unbreakable: true,
+        margin: [0, 0, 0, 0]
+      });
+    }
     return makeDd(content, cf, opts);
   }
 
@@ -1202,6 +1286,139 @@
     return makeDd(content, cf, opts);
   }
 
+  // ==================== RECEIPT ====================
+  function receiptPdfDefinition(r, logoData, opts){
+    var companyName = activeCompanyName();
+    var cf = safeFooter();
+    var content = [];
+    appendDocumentHeader(content, logoData, opts);
+
+    content.push({
+      columns: [
+        { text: 'سند قبض', bold: true, fontSize: 16, color: '#1e3a5f' },
+        statusBadge(r.status || 'معتمد')
+      ],
+      margin: [0, 0, 0, 6]
+    });
+
+    var separator = { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.5, lineColor: '#c9a84c' }], margin: [0, 0, 0, 6] };
+    content.push(separator);
+
+    content.push({
+      columns: [
+        {
+          stack: [
+            { text: 'رقم السند', fontSize: 9, color: '#94a3b8', alignment: 'right' },
+            { text: r.id, bold: true, fontSize: 11, color: '#1e3a5f', alignment: 'right' }
+          ],
+          width: '50%'
+        },
+        {
+          stack: [
+            { text: 'تاريخ الإصدار', fontSize: 9, color: '#94a3b8', alignment: 'left' },
+            { text: r.createdAt || '—', bold: true, fontSize: 11, color: '#1e3a5f', alignment: 'left' }
+          ],
+          width: '50%'
+        }
+      ],
+      margin: [0, 0, 0, 12]
+    });
+
+    content.push({
+      table: {
+        widths: ['*'],
+        body: [
+          [
+            {
+              stack: [
+                { text: 'المبلغ', fontSize: 9, color: '#94a3b8', alignment: 'center', margin: [0, 0, 0, 2] },
+                { text: safeMoney(r.amount), bold: true, fontSize: 18, color: '#b8862d', alignment: 'center' }
+              ],
+              alignment: 'center',
+              fillColor: '#fdf6e8',
+              margin: [10, 8, 10, 8]
+            }
+          ]
+        ]
+      },
+      layout: {
+        hLineWidth: function(){ return 1; },
+        vLineWidth: function(){ return 0; },
+        hLineColor: function(){ return '#c9a84c'; },
+        paddingLeft: function(){ return 0; },
+        paddingRight: function(){ return 0; },
+        paddingTop: function(){ return 0; },
+        paddingBottom: function(){ return 0; }
+      },
+      margin: [0, 0, 0, 10]
+    });
+
+    content.push({ canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.3, lineColor: '#e2e8f0' }], margin: [0, 0, 0, 6] });
+
+    var contract = (A.visibleContracts && A.visibleContracts()) ? A.visibleContracts().find(function(x){ return x.id === r.contractId; }) : null;
+    var paymentDate = r.createdAt || '—';
+    if (contract && contract.type === 'صيانة' && contract.startDate) paymentDate = contract.startDate;
+
+    var paymentMethod = '—';
+    try {
+      var allEntries = A._read ? A._read('misadFinancialEntries') : JSON.parse(localStorage.getItem('misadFinancialEntries') || '[]');
+      var linkedEntries = allEntries.filter(function(e){ return e.receiptId === r.id || e.contractId === r.contractId; });
+      if (linkedEntries.length) {
+        var methods = {};
+        linkedEntries.forEach(function(e){
+          if (e.paymentMethod && e.paymentMethod !== 'سند قبض') methods[e.paymentMethod] = true;
+        });
+        var keys = Object.keys(methods);
+        if (keys.length) paymentMethod = keys.join(', ');
+        else paymentMethod = linkedEntries[0].paymentMethod || 'سند قبض';
+      }
+    } catch(e){}
+
+    var summaryItems = [
+      { label: 'العميل', value: r.clientName || r.clientCompanyName || 'غير محدد' },
+      { label: 'العقد', value: r.contractId || 'غير مرتبط' },
+      { label: 'طريقة الدفع', value: paymentMethod },
+      { label: 'تاريخ الدفع', value: paymentDate }
+    ];
+    if (r.purpose) summaryItems.push({ label: 'الغرض', value: r.purpose });
+    if (r.clientCompanyUnifiedNumber) summaryItems.push({ label: 'الرقم الموحد', value: r.clientCompanyUnifiedNumber });
+    content.push(summaryTable(summaryItems));
+
+    if (r.details) {
+      content.push({ text: 'تفاصيل إضافية', fontSize: 12, bold: true, color: '#1e3a5f', margin: [0, 6, 0, 4], alignment: 'right' });
+      content.push({ text: r.details, fontSize: 10, color: '#475569', margin: [0, 0, 0, 10], alignment: 'right' });
+    }
+
+    content.push({
+      stack: [
+        { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.3, lineColor: '#e2e8f0' }], margin: [0, 0, 0, 6] },
+        {
+          columns: [
+            {
+              stack: [
+                { text: 'المستلم (العميل)', fontSize: 10, bold: true, color: '#1e3a5f', alignment: 'center', margin: [0, 0, 0, 4] },
+                { text: 'الاسم: ...............................', fontSize: 10, color: '#94a3b8', alignment: 'center' },
+                { text: 'التوقيع: ...............................', fontSize: 10, color: '#94a3b8', alignment: 'center' }
+              ]
+            },
+            {
+              stack: [
+                { text: 'المصدر (المنشأة)', fontSize: 10, bold: true, color: '#1e3a5f', alignment: 'center', margin: [0, 0, 0, 4] },
+                { text: companyName, fontSize: 10, color: '#1e3a5f', bold: true, alignment: 'center' },
+                (function(){ var stamp = (A.companyStamp && A.companyStamp()) || ''; var signature = (A.companySignature && A.companySignature()) || ''; var imgs = []; if (signature) imgs.push({ image: signature, fit: [120, 70], alignment: 'center', margin: [0, 3, 0, 0] }); if (stamp) imgs.push({ image: stamp, fit: [120, 90], alignment: 'center', margin: [0, 3, 0, 0] }); if (imgs.length) return { stack: [{ text: 'التوقيق / الختم', fontSize: 8, color: '#94a3b8', alignment: 'center' }].concat(imgs) }; return { text: 'التوقيق / الختم: ...............................', fontSize: 10, color: '#94a3b8', alignment: 'center' }; })()
+              ]
+            }
+          ],
+          columnGap: 20,
+          margin: [0, 4, 0, 0]
+        }
+      ],
+      unbreakable: true,
+      margin: [0, 0, 0, 0]
+    });
+    return makeDd(content, cf, opts);
+  }
+
   function contractFinancePdfDefinition(c, logoData, opts){
     var companyName = activeCompanyName();
     var cf = safeFooter();
@@ -1245,9 +1462,10 @@
       remaining = Math.max(0, Number(c.value||0) - paid);
       overdue = 0;
       if (Number(c.value||0) > 0 && c.type === 'تركيب') {
-        var plan = [{label:"الدفعة الأولى",percent:0.5},{label:"الدفعة الثانية",percent:0.35},{label:"الدفعة الثالثة",percent:0.15}];
+        var plan = (c.paymentPlan && c.paymentPlan.length) ? c.paymentPlan : [{label:"الدفعة الأولى",percent:0.5},{label:"الدفعة الثانية",percent:0.35},{label:"الدفعة الثالثة",percent:0.15}];
         plan.forEach(function(p){
-          var expected = Number(c.value||0) * p.percent;
+          var pct = p.percent > 1 ? p.percent / 100 : (p.percent || 0);
+          var expected = Number(c.value||0) * pct;
           var received = installmentEntries.filter(function(x){ return x.paymentLabel === p.label; }).reduce(function(a,x){ return a + Number(x.amount||0); }, 0);
           if (expected > received) overdue += (expected - received);
         });
@@ -1303,9 +1521,10 @@
     }
     if (c.type === 'تركيب') {
       try {
-        var plan = [{label:"الدفعة الأولى",percent:0.5},{label:"الدفعة الثانية",percent:0.35},{label:"الدفعة الثالثة",percent:0.15}];
+        var plan = (c.paymentPlan && c.paymentPlan.length) ? c.paymentPlan : [{label:"الدفعة الأولى",percent:0.5},{label:"الدفعة الثانية",percent:0.35},{label:"الدفعة الثالثة",percent:0.15}];
         var planRows = plan.map(function(p){
-          var expected = Number(c.value||0) * p.percent;
+          var pct = p.percent > 1 ? p.percent / 100 : (p.percent || 0);
+          var expected = Number(c.value||0) * pct;
           var ppaid = installmentEntries.filter(function(x){ return x.paymentLabel === p.label; }).reduce(function(s,x){ return s + Number(x.amount||0); }, 0);
           var premaining = Math.max(0, expected - ppaid);
           return [
@@ -1459,6 +1678,14 @@
         var claim = claims.filter(function(c){ return A.sameCompany ? A.sameCompany(c) : true; }).find(function(x){ return x.id === id; });
         if (!claim) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
         dd = claimPdfDefinition(claim, logoData, opts);
+
+      } else if (type === 'receipt') {
+        var receipts;
+        try { receipts = A._read ? A._read('misadReceipts') : JSON.parse(localStorage.getItem('misadReceipts') || '[]'); } catch(e){ receipts = null; }
+        if (!receipts || !receipts.length) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
+        var receipt = receipts.filter(function(r){ return A.sameCompany ? A.sameCompany(r) : true; }).find(function(x){ return x.id === id; });
+        if (!receipt) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
+        dd = receiptPdfDefinition(receipt, logoData, opts);
 
       } else if (type === 'contract-finance') {
         var contract;

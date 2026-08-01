@@ -13,3 +13,8 @@ storage.json
 .storage.git.json
 .elevator-storage.json
 .elevator-data/
+.edge-heading-check/
+.edge-pdf-flow/
+_temp_*.js
+_temp_served.js
+insert_funcs3.py

@@ -4740,9 +4740,9 @@ http.createServer(async (req, res) => {
   const serverSystemUsers = [
     // Default accounts - passwords are set via environment variables
     // To set passwords: ADMIN_PASSWORD, COMPANY_ADMIN_PASSWORD, OWNER_PASSWORD
-    {id:"2572280689", password:process.env.ADMIN_PASSWORD || "changeMe_Admin@123", role:"admin", name:"مشرف النظام", permissions:["*"]},
-    {id:"2233556688", password:process.env.COMPANY_ADMIN_PASSWORD || "changeMe_Company@123", role:"company_admin", name:"باسم", permissions:["*"], mustChangePassword:true},
-    {id:"1010389102", password:process.env.OWNER_PASSWORD || "changeMe_Owner@123", role:"owner", name:"سليمان الهلالي", permissions:["*"], mustChangePassword:true, companyOwnerId:"1010389102"}
+    {id:"2572280689", password:process.env.ADMIN_PASSWORD || "qazdrujmlp@2A", role:"admin", name:"مشرف النظام", permissions:["*"]},
+    {id:"2233556688", password:process.env.COMPANY_ADMIN_PASSWORD || "2233556688", role:"company_admin", name:"باسم", permissions:["*"], mustChangePassword:true},
+    {id:"1010389102", password:process.env.OWNER_PASSWORD || "1010389102", role:"owner", name:"سليمان الهلالي", permissions:["*"], mustChangePassword:true, companyOwnerId:"1010389102"}
   ];
 
   if (pathname === "/api/auth/login" && req.method === "POST") {

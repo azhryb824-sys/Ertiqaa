@@ -13,7 +13,7 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:hint="أدخل الرابط هنا"
+        android:hint="@string/url_hint"
         android:inputType="textUri"
         android:padding="12dp"
         android:autofillHints="url"
@@ -23,6 +23,6 @@
         android:id="@+id/btn_go"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="دخول"
+        android:text="@string/btn_go"
         android:layout_marginStart="8dp"/>
 </LinearLayout>
