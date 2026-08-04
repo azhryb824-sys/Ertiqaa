@@ -7,8 +7,8 @@ class AppUtils {
 
   /// تحويل الأرقام العربية/الفارسية إلى لاتينية وإزالة غير الأرقام.
   static String cleanId(dynamic v) {
-    var s = (v ?? '').toString().replaceAll(RegExp('[٠-٩]'), (m) => '٠١٢٣٤٥٦٧٨٩'.indexOf(m.group(0)!).toString());
-    s = s.replaceAll(RegExp('[۰-۹]'), (m) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(m.group(0)!).toString());
+    var s = (v ?? '').toString().replaceAllMapped(RegExp('[٠-٩]'), (m) => '٠١٢٣٤٥٦٧٨٩'.indexOf(m.group(0)!).toString());
+    s = s.replaceAllMapped(RegExp('[۰-۹]'), (m) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(m.group(0)!).toString());
     return s.replaceAll(RegExp(r'\D'), '');
   }
 
