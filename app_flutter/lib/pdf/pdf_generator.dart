@@ -215,6 +215,8 @@ class PdfGenerator {
   /// سند قبض.
   static pw.Widget receiptContent(Map<String, dynamic> r, Map<String, dynamic> ownerCompany) {
     final paymentMethod = r['paymentMethod']?.toString() ?? '';
+    final companyName = ownerCompany['name']?.toString() ?? 'شركة شموس للمصاعد';
+    final secondParty = (r['clientCompanyName'] ?? r['clientName'] ?? '').toString();
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
@@ -224,15 +226,17 @@ class PdfGenerator {
         ),
         pw.SizedBox(height: 12),
         _field('رقم السند', r['id']?.toString() ?? ''),
-        _field('العميل', (r['clientCompanyName'] ?? r['clientName'] ?? '—').toString()),
         _field('الغرض', r['purpose']?.toString() ?? ''),
         if (paymentMethod.isNotEmpty) _field('طريقة الدفع', paymentMethod),
         if (r['details']?.toString().isNotEmpty == true) _field('التفاصيل', r['details'].toString()),
         _field('التاريخ', _fmt(r['createdAtMs'])),
         pw.SizedBox(height: 14),
         pw.Center(
-          child: pw.Text('استلمنا من العميل الموضحة بياناته في الجدول أدناه مبلغ',
-              style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: _green)),
+          child: pw.Text(
+            'استلمنا نحن ($companyName) من الأخ (${secondParty.isEmpty ? 'الطرف الثاني' : secondParty}) مبلغ……………… قيمة ${r['purpose'] ?? ''}',
+            textAlign: pw.TextAlign.center,
+            style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: _green, height: 1.8),
+          ),
         ),
         pw.SizedBox(height: 8),
         pw.Center(
@@ -256,11 +260,12 @@ class PdfGenerator {
             pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.center,
               children: [
-                pw.Text('العميل',
+                pw.Text('الطرف الثاني',
                     style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: _green)),
                 pw.SizedBox(height: 4),
-                pw.Text('الاسم: .................................',
-                    style: pw.TextStyle(fontSize: 9, color: const PdfColor.fromInt(0xFF94a3b8))),
+                pw.Text(secondParty.isEmpty ? 'الاسم: ......................' : secondParty,
+                    style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.w700, color: _green)),
+                pw.SizedBox(height: 4),
                 pw.Text('التوقيع: .................................',
                     style: pw.TextStyle(fontSize: 9, color: const PdfColor.fromInt(0xFF94a3b8))),
               ],
@@ -383,5 +388,298 @@ class PdfGenerator {
     final d = DateTime.tryParse(s);
     if (d == null) return s;
     return DateFormat('yyyy/MM/dd', 'ar').format(d);
+  }
+
+  /// فاتورة بلاغ (100 ريال).
+  static pw.Widget invoiceContent(Map<String, dynamic> inv, Map<String, dynamic> ownerCompany) {
+    final companyName = ownerCompany['name']?.toString() ?? 'شركة شموس للمصاعد';
+    final clientName = (inv['clientCompanyName'] ?? inv['clientName'] ?? '—').toString();
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Center(
+          child: pw.Text('فاتورة',
+              style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: _green)),
+        ),
+        pw.SizedBox(height: 12),
+        _field('رقم الفاتورة', inv['id']?.toString() ?? ''),
+        _field('العميل', clientName),
+        _field('البلاغ', inv['ticketId']?.toString() ?? '—'),
+        _field('التاريخ', _fmt(inv['createdAt'])),
+        pw.SizedBox(height: 14),
+        pw.Center(
+          child: pw.Text('استلمنا نحن ($companyName) من الأخ (${clientName.isEmpty ? 'الطرف الثاني' : clientName}) مبلغ مقابل زيارة الكشف والصيانة',
+              textAlign: pw.TextAlign.center,
+              style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: _green, height: 1.8)),
+        ),
+        pw.SizedBox(height: 8),
+        pw.Center(
+          child: pw.Container(
+            padding: const pw.EdgeInsets.all(12),
+            decoration: pw.BoxDecoration(
+              border: pw.Border.all(color: _gold, width: 1.5),
+              borderRadius: pw.BorderRadius.circular(8),
+            ),
+            child: pw.Text('المبلغ: ${AppUtils.moneyEn(inv['value'])} ر.س',
+                style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: _green)),
+          ),
+        ),
+        pw.SizedBox(height: 6),
+        pw.Center(
+          child: pw.Text('الحالة: ${inv['status'] ?? 'غير مدفوعة'}',
+              style: pw.TextStyle(fontSize: 11, color: const PdfColor.fromInt(0xFF666666))),
+        ),
+        pw.SizedBox(height: 18),
+        pw.Divider(color: const PdfColor.fromInt(0xFFe2e8f0), height: 10),
+        pw.SizedBox(height: 6),
+        pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          children: [
+            pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              children: [
+                pw.Text('العميل',
+                    style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: _green)),
+                pw.SizedBox(height: 4),
+                pw.Text('التوقيع: .................................',
+                    style: pw.TextStyle(fontSize: 9, color: const PdfColor.fromInt(0xFF94a3b8))),
+              ],
+            ),
+            pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              children: [
+                pw.Text('المصدر (المنشأة)',
+                    style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: _green)),
+                pw.SizedBox(height: 4),
+                pw.Text(ownerCompany['name']?.toString() ?? 'شركة شموس للمصاعد',
+                    style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: _green)),
+                pw.SizedBox(height: 4),
+                pw.Text('التوقيع / الختم: .................................',
+                    style: pw.TextStyle(fontSize: 9, color: const PdfColor.fromInt(0xFF94a3b8))),
+              ],
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// سند استلام عهدة / إثبات عهدة.
+  static pw.Widget custodyContent(Map<String, dynamic> c, Map<String, dynamic> ownerCompany) {
+    final companyName = ownerCompany['name']?.toString() ?? 'شركة شموس للمصاعد';
+    final staffName = c['staffName']?.toString() ?? '';
+    final staffId = c['staffIdentity']?.toString() ?? '';
+    final amount = (c['value'] as num?)?.toDouble() ?? 0;
+    final deducted = (c['deducted'] as num?)?.toDouble() ?? 0;
+    final remaining = ((c['remaining'] as num?)?.toDouble() ?? amount) - deducted;
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Center(
+          child: pw.Text('سند عهدة',
+              style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: _green)),
+        ),
+        pw.SizedBox(height: 12),
+        _field('رقم العهدة', c['id']?.toString() ?? ''),
+        _field('الموظف', '$staffName (${staffId.isEmpty ? '—' : staffId})'),
+        _field('التاريخ', _fmt(c['createdAt'])),
+        _field('البيان', c['description']?.toString() ?? ''),
+        pw.SizedBox(height: 14),
+        pw.Center(
+          child: pw.Text(
+            'أنا الموظف (${staffName.isEmpty ? '………………' : staffName}) أقر باستلامي من مؤسسة ($companyName) عهدة مالية قدرها ${AppUtils.moneyEn(amount)} ر.س مخصصة لـ ${c['description'] ?? 'الأعمال'} وأتعهد بردها أو خصمها من راتبي عند التسوية.',
+            textAlign: pw.TextAlign.center,
+            style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: _green, height: 1.8),
+          ),
+        ),
+        pw.SizedBox(height: 12),
+        pw.Center(
+          child: pw.Column(
+            children: [
+              _line('قيمة العهدة', amount),
+              _line('المخصوم من الراتب', deducted),
+              _line('المتبقي', remaining > 0 ? remaining : 0, bold: true, color: _gold),
+            ],
+          ),
+        ),
+        pw.SizedBox(height: 18),
+        pw.Divider(color: const PdfColor.fromInt(0xFFe2e8f0), height: 10),
+        pw.SizedBox(height: 6),
+        pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          children: [
+            pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              children: [
+                pw.Text('الموظف',
+                    style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: _green)),
+                pw.SizedBox(height: 4),
+                pw.Text('التوقيع: .................................',
+                    style: pw.TextStyle(fontSize: 9, color: const PdfColor.fromInt(0xFF94a3b8))),
+              ],
+            ),
+            pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              children: [
+                pw.Text('المؤسسة',
+                    style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: _green)),
+                pw.SizedBox(height: 4),
+                pw.Text(ownerCompany['name']?.toString() ?? 'شركة شموس للمصاعد',
+                    style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: _green)),
+                pw.SizedBox(height: 4),
+                pw.Text('التوقيع / الختم: .................................',
+                    style: pw.TextStyle(fontSize: 9, color: const PdfColor.fromInt(0xFF94a3b8))),
+              ],
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// سند قبض راتب الموظف.
+  static pw.Widget salaryReceiptContent(Map<String, dynamic> r, Map<String, dynamic> ownerCompany) {
+    final companyName = ownerCompany['name']?.toString() ?? 'شركة شموس للمصاعد';
+    final staffName = r['staffName']?.toString() ?? '';
+    final staffId = r['staffIdentity']?.toString() ?? '';
+    final period = r['period']?.toString() ?? '';
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Center(
+          child: pw.Text('سند قبض راتب',
+              style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: _green)),
+        ),
+        pw.SizedBox(height: 12),
+        _field('رقم السند', r['id']?.toString() ?? ''),
+        _field('الموظف', '$staffName (${staffId.isEmpty ? '—' : staffId})'),
+        if (period.isNotEmpty) _field('عن شهر', period),
+        _field('التاريخ', _fmt(r['createdAtMs'])),
+        pw.SizedBox(height: 14),
+        pw.Center(
+          child: pw.Text(
+            'استلمنا نحن (${staffName.isEmpty ? 'الموظف' : staffName}) من مؤسسة ($companyName) مبلغ صافي راتب',
+            textAlign: pw.TextAlign.center,
+            style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: _green, height: 1.8),
+          ),
+        ),
+        pw.SizedBox(height: 8),
+        pw.Center(
+          child: pw.Container(
+            padding: const pw.EdgeInsets.all(12),
+            decoration: pw.BoxDecoration(
+              border: pw.Border.all(color: _gold, width: 1.5),
+              borderRadius: pw.BorderRadius.circular(8),
+            ),
+            child: pw.Text('صافي المبلغ: ${AppUtils.moneyEn(r['amount'])} ر.س',
+                style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: _green)),
+          ),
+        ),
+        pw.SizedBox(height: 12),
+        if ((r['details'] as List?)?.isNotEmpty == true)
+          for (final d in (r['details'] as List))
+            if (d is Map && (d['value'] as num?)?.toDouble() != null)
+              _line(d['label']?.toString() ?? '', (d['value'] as num).toDouble()),
+        pw.SizedBox(height: 18),
+        pw.Divider(color: const PdfColor.fromInt(0xFFe2e8f0), height: 10),
+        pw.SizedBox(height: 6),
+        pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          children: [
+            pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              children: [
+                pw.Text('الموظف',
+                    style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: _green)),
+                pw.SizedBox(height: 4),
+                pw.Text('التوقيع: .................................',
+                    style: pw.TextStyle(fontSize: 9, color: const PdfColor.fromInt(0xFF94a3b8))),
+              ],
+            ),
+            pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              children: [
+                pw.Text('المصدر (المنشأة)',
+                    style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: _green)),
+                pw.SizedBox(height: 4),
+                pw.Text(ownerCompany['name']?.toString() ?? 'شركة شموس للمصاعد',
+                    style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: _green)),
+                pw.SizedBox(height: 4),
+                pw.Text('التوقيع / الختم: .................................',
+                    style: pw.TextStyle(fontSize: 9, color: const PdfColor.fromInt(0xFF94a3b8))),
+              ],
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// مسير رواتب شهرية.
+  static pw.Widget payrollContent(Map<String, dynamic> p, Map<String, dynamic> ownerCompany) {
+    final companyName = ownerCompany['name']?.toString() ?? 'شركة شموس للمصاعد';
+    final rows = (p['rows'] as List?) ?? <dynamic>[];
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Center(
+          child: pw.Text('مسير رواتب',
+              style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: _green)),
+        ),
+        pw.SizedBox(height: 8),
+        _field('عن شهر', p['period']?.toString() ?? ''),
+        _field('الحالة', p['status']?.toString() ?? ''),
+        _field('التاريخ', _fmt(p['createdAt'])),
+        pw.SizedBox(height: 12),
+        pw.TableHelper.fromTextArray(
+          headers: ['الموظف', 'الراتب الأساسي', 'البدلات', 'الخصومات', 'خصم العهد', 'الصافي'],
+          data: [
+            for (final row in rows.cast<Map>())
+              [
+                row['staffName']?.toString() ?? '',
+                AppUtils.moneyEn(row['base']),
+                AppUtils.moneyEn(row['allowances']),
+                AppUtils.moneyEn(row['deductions']),
+                AppUtils.moneyEn(row['custodyDeduction']),
+                AppUtils.moneyEn(row['net']),
+              ],
+          ],
+          headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: const PdfColor.fromInt(0xFFffffff), fontSize: 8),
+          headerDecoration: const pw.BoxDecoration(color: _green),
+          cellStyle: const pw.TextStyle(fontSize: 8),
+          cellAlignments: {
+            0: pw.Alignment.centerRight,
+            1: pw.Alignment.center,
+            2: pw.Alignment.center,
+            3: pw.Alignment.center,
+            4: pw.Alignment.center,
+            5: pw.Alignment.center,
+          },
+          border: pw.TableBorder.all(color: const PdfColor.fromInt(0xFFdde5e3), width: 0.6),
+        ),
+        pw.SizedBox(height: 12),
+        pw.Center(
+          child: pw.Text('الإجمالي المسدد للموظفين: ${AppUtils.moneyEn(p['totalNet'])} ر.س',
+              style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold, color: _gold)),
+        ),
+      ],
+    );
+  }
+
+  static pw.Widget _line(String label, double value, {bool bold = false, PdfColor? color}) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(vertical: 2),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        children: [
+          pw.Text(label, style: pw.TextStyle(fontSize: 11, fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal)),
+          pw.Text('${AppUtils.moneyEn(value)} ر.س',
+              style: pw.TextStyle(fontSize: 11, fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal, color: color ?? _green)),
+        ],
+      ),
+    );
   }
 }

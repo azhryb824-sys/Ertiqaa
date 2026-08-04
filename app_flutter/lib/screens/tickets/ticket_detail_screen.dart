@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/constants.dart';
 import '../../core/utils.dart';
 import '../../models/ticket.dart';
+import '../../pdf/pdf_generator.dart';
 import '../../state/app_state.dart';
 import '../../theme.dart';
 import '../../widgets/common.dart';
@@ -42,6 +43,14 @@ class TicketDetailScreen extends StatelessWidget {
       return t.assignedTo;
     }();
 
+    Map<String, dynamic>? invoice;
+    for (final inv in app.allInvoices) {
+      if (inv['ticketId']?.toString() == t.id || inv['id']?.toString() == t.invoiceId) {
+        invoice = inv;
+        break;
+      }
+    }
+
     return Scaffold(
       backgroundColor: AppTheme.bg,
       appBar: AppBar(title: Text(t.id)),
@@ -73,6 +82,23 @@ class TicketDetailScreen extends StatelessWidget {
               ],
             ),
           ),
+
+          if (invoice != null)
+            Card(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                leading: const Icon(Icons.receipt_long_rounded, color: AppTheme.gold),
+                title: const Text('فاتورة الكشف والصيانة (100 ر.س)',
+                    style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w700, fontSize: 14)),
+                subtitle: Text('رقم الفاتورة: ${invoice!['id']} • ${invoice!['status']}',
+                    style: const TextStyle(fontFamily: 'Cairo', fontSize: 12, color: AppTheme.textMuted)),
+                trailing: IconButton(
+                  icon: const Icon(Icons.print_rounded, color: AppTheme.primary),
+                  onPressed: () => _printInvoice(context, invoice!),
+                ),
+              ),
+            ),
 
           const PageTitle('التفاصيل'),
           _InfoRow('الوصف', t.description),
@@ -110,6 +136,19 @@ class TicketDetailScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _printInvoice(BuildContext context, Map<String, dynamic> inv) async {
+    final app = AppState.instance;
+    try {
+      await PdfGenerator.sharePdf('فاتورة',
+          PdfGenerator.invoiceContent(inv, app.myOwnerCompany),
+          ownerCompany: app.myOwnerCompany);
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تعذر إنشاء PDF.', style: TextStyle(fontFamily: 'Cairo'))));
+      }
+    }
   }
 
   Future<void> _assign(BuildContext context, AppState app, Ticket t, String selfId) async {

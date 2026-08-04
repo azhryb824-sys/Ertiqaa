@@ -12,12 +12,14 @@ class AppConstants {
     'misadQuotes', 'misadCompanyDocs', 'misadElevatorAssets',
     'misadPartsInventory', 'misadSuppliers', 'misadActivityLog',
     'misadVisitMessages', 'misadMeetings', 'misadSystemBanners',
-    'misadKnowledgePages', 'misadAdminInvites', 'misadFinancialEntries',
-    'misadReceipts',
+    'misadKnowledgePages', 'misadAdminInvites',     'misadFinancialEntries',
+    'misadReceipts', 'misadInvoices', 'misadCustodies', 'misadPayrolls',
   ];
 
   static const String kClaims = 'misadClaims';
   static const String kInvoices = 'misadInvoices';
+  static const String kCustodies = 'misadCustodies';
+  static const String kPayrolls = 'misadPayrolls';
   static const String kFormDrafts = 'misadFormDrafts';
   static const String kSession = 'misadSession';
   static const String kDeviceId = 'misadDeviceId';
@@ -273,7 +275,8 @@ class AppConstants {
       ['operations', 'مركز التشغيل'], ['notifications', 'الإشعارات'], ['whatsapp', 'واتساب'],
       ['contracts', 'العقود'], ['assets', 'أصول المصاعد'], ['tickets', 'البلاغات'],
       ['company-customers', 'عملاء الشركة'], ['quotes', 'عروض الأسعار'], ['default-items', 'البنود الافتراضية'],
-      ['claims', 'المستخلصات'], ['receipts', 'سندات القبض'], ['visits', 'الزيارات'],
+      ['claims', 'المستخلصات'], ['receipts', 'سندات القبض'], ['staff-finance', 'مالية الموظفين'],
+      ['visits', 'الزيارات'],
       ['meetings', 'الاجتماعات'], ['tracking', 'تتبع الفنيين'], ['reports', 'تقارير الزيارات'],
       ['inventory', 'المخزون'], ['suppliers', 'الموردون'], ['team', 'فريق العمل'],
       ['company-docs', 'المستندات'], ['activity', 'سجل النشاط'], ['company', 'بيانات المنشأة'],
@@ -285,7 +288,8 @@ class AppConstants {
       ['operations', 'مركز التشغيل'], ['notifications', 'الإشعارات'], ['whatsapp', 'واتساب'],
       ['team', 'الفنيون'], ['tickets', 'البلاغات'], ['visits', 'الزيارات'],
       ['meetings', 'الاجتماعات'], ['tracking', 'تتبع الفنيين'], ['reports', 'تقارير الزيارات'],
-      ['assets', 'أصول المصاعد'], ['receipts', 'سندات القبض'], ['inventory', 'المخزون'],
+      ['assets', 'أصول المصاعد'], ['receipts', 'سندات القبض'], ['staff-finance', 'مالية الموظفين'],
+      ['inventory', 'المخزون'],
       ['suppliers', 'الموردون'], ['company-docs', 'المستندات'], ['activity', 'سجل النشاط'],
       ['company', 'بيانات الشركة'], ['entry-links', 'روابط التسجيل'], ['voice-settings', 'إعدادات الصوت'],
     ],
@@ -318,7 +322,7 @@ class AppConstants {
   };
 
   // ===== شارة الحالة =====
-  static const Set<String> successStatuses = {'ساري', 'مجدولة', 'معتمدة', 'مكتملة'};
+  static const Set<String> successStatuses = {'ساري', 'مجدولة', 'معتمدة', 'مكتملة', 'مسددة'};
   static const String badgeCancelled = 'ملغي';
   static const String badgePending = 'pending';
 

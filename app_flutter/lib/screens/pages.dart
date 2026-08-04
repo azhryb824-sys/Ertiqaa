@@ -12,6 +12,7 @@ import 'visits/visit_detail_screen.dart';
 import 'finance/finance_screen.dart';
 import 'finance/receipts_screen.dart';
 import 'finance/claims_screen.dart';
+import 'finance/staff_finance_screen.dart';
 import 'quotes/quotes_screen.dart';
 import 'quotes/quote_form_screen.dart';
 import 'inventory/inventory_screen.dart';
@@ -62,6 +63,7 @@ Widget pageFor(String key) {
     case 'finance': return const FinanceScreen();
     case 'receipts': return const ReceiptsScreen();
     case 'claims': return const ClaimsScreen();
+    case 'staff-finance': return const StaffFinanceScreen();
     case 'quotes': return const QuotesScreen();
     case 'quote-form': return const QuoteFormScreen();
     case 'inventory': return const InventoryScreen();

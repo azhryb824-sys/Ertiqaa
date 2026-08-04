@@ -155,6 +155,7 @@ class AppShell extends StatelessWidget {
       'default-items': Icons.list_alt_rounded,
       'claims': Icons.receipt_long_rounded,
       'receipts': Icons.receipt_rounded,
+      'staff-finance': Icons.payments_rounded,
       'visits': Icons.event_available_rounded,
       'meetings': Icons.groups_rounded,
       'tracking': Icons.location_on_rounded,
