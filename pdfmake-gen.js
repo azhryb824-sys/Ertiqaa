@@ -1237,10 +1237,161 @@ if (isParts) {
   // ==================== CLAIM ====================
   function claimPdfDefinition(cl, logoData, opts){
     var companyName = activeCompanyName();
+    var contract;
+    if (A.visibleContracts) contract = A.visibleContracts().find(function(x){ return x.id === cl.contractId; });
+    var partyName = cl.clientName || (contract && (contract.clientName || contract.clientCompanyName || contract.clientPhone)) || safeLabel(cl);
+    if (!partyName || partyName === 'غير محدد' || partyName.trim() === 'غير محدد') {
+      if (A.contractLabel) partyName = A.contractLabel(cl);
+      if (!partyName || partyName === 'غير محدد') partyName = (contract && A.contractLabel) ? A.contractLabel(contract) : (contract ? (contract.clientName || contract.clientCompanyName || 'غير محدد') : 'غير محدد');
+    }
+    var isReceipt = !!cl.receiptEntryId || cl.period === 'سند قبض';
     var cf = safeFooter();
     var content = [];
     appendDocumentHeader(content, logoData, opts);
 
+    if (isReceipt) {
+      // ============ سند قبض ============
+      var linkedEntry = null;
+      var allEntriesForReceipt = [];
+      try {
+        allEntriesForReceipt = A._read ? A._read('misadFinancialEntries') : JSON.parse(localStorage.getItem('misadFinancialEntries') || '[]');
+        if (cl.receiptEntryId) linkedEntry = allEntriesForReceipt.find(function(x){ return x.id === cl.receiptEntryId; });
+        if (!linkedEntry && cl.contractId) linkedEntry = allEntriesForReceipt.filter(function(x){ return x.contractId === cl.contractId && x.direction === 'in'; }).slice().reverse().find(function(x){ return Number(x.amount||0) === Number(cl.value||0); });
+      } catch(e){}
+
+      var receiptNo = cl.id || '—';
+      var receiptDate = (linkedEntry && linkedEntry.date) || cl.createdAt || '—';
+      var paymentMethod = (linkedEntry && linkedEntry.paymentMethod) || '—';
+      var installmentLabel = (linkedEntry && (linkedEntry.paymentLabel || linkedEntry.description)) || (cl.purpose || 'دفعة من عقد');
+
+      content.push({
+        columns: [
+          { text: 'سند قبض', bold: true, fontSize: 16, color: '#1e3a5f' },
+          statusBadge(cl.status || 'معتمد')
+        ],
+        margin: [0, 0, 0, 6]
+      });
+      content.push({ canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.5, lineColor: '#c9a84c' }], margin: [0, 0, 0, 6] });
+
+      content.push({
+        columns: [
+          {
+            stack: [
+              { text: 'رقم السند', fontSize: 9, color: '#94a3b8', alignment: 'right' },
+              { text: receiptNo, bold: true, fontSize: 11, color: '#1e3a5f', alignment: 'right' }
+            ],
+            width: '50%'
+          },
+          {
+            stack: [
+              { text: 'تاريخ الإصدار', fontSize: 9, color: '#94a3b8', alignment: 'left' },
+              { text: receiptDate, bold: true, fontSize: 11, color: '#1e3a5f', alignment: 'left' }
+            ],
+            width: '50%'
+          }
+        ],
+        margin: [0, 0, 0, 12]
+      });
+
+      content.push({
+        text: 'استلمنا من السيد / الطرف الثاني الموضحة بياناته أدناه مبلغ',
+        fontSize: 11, bold: true, color: '#1e3a5f', alignment: 'center', margin: [0, 0, 0, 4]
+      });
+      content.push({
+        table: {
+          widths: ['*'],
+          body: [[
+            {
+              stack: [
+                { text: 'المبلغ', fontSize: 9, color: '#94a3b8', alignment: 'center', margin: [0, 0, 0, 2] },
+                { text: safeMoney(cl.value), bold: true, fontSize: 20, color: '#b8862d', alignment: 'center' }
+              ],
+              alignment: 'center',
+              fillColor: '#fdf6e8',
+              margin: [10, 10, 10, 10]
+            }
+          ]]
+        },
+        layout: {
+          hLineWidth: function(){ return 1; },
+          vLineWidth: function(){ return 0; },
+          hLineColor: function(){ return '#c9a84c'; },
+          paddingLeft: function(){ return 0; },
+          paddingRight: function(){ return 0; },
+          paddingTop: function(){ return 0; },
+          paddingBottom: function(){ return 0; }
+        },
+        margin: [0, 0, 0, 10]
+      });
+
+      content.push(summaryTable([
+        { label: 'استلمنا من', value: partyName },
+        { label: 'العقد', value: cl.contractId || 'غير محدد' },
+        { label: 'البيان / الدفعة', value: installmentLabel },
+        { label: 'طريقة الدفع', value: paymentMethod }
+      ]));
+
+      if (contract && contract.type === 'تركيب') {
+        var plan = (contract.paymentPlan && contract.paymentPlan.length) ? contract.paymentPlan : [];
+        var rlabel = (linkedEntry && linkedEntry.paymentLabel) || '';
+        if (rlabel && plan.length) {
+          var ridx = -1;
+          for (var rpi = 0; rpi < plan.length; rpi++) { var rll = Array.isArray(plan[rpi]) ? plan[rpi][0] : plan[rpi].label; if (rll === rlabel) { ridx = rpi; break; } }
+          if (ridx >= 0) {
+            var rp = plan[ridx];
+            var rpct = Array.isArray(rp) ? rp[2] : rp.percent;
+            rpct = rpct > 1 ? rpct / 100 : (rpct || 0);
+            var rtotal = Number(contract.value || 0);
+            var rexpected = rtotal * rpct;
+            var rpaid = allEntriesForReceipt.filter(function(x){ return x.contractId === contract.id && x.direction === 'in'; }).reduce(function(s,x){ return s + Number(x.amount||0); }, 0);
+            var rremaining = Math.max(0, rtotal - rpaid);
+            content.push(summaryTable([
+              { label: 'إجمالي العقد', value: safeMoney(rtotal) },
+              { label: 'الدفعة', value: rlabel },
+              { label: 'المستحق لهذه الدفعة', value: safeMoney(rexpected) },
+              { label: 'المتبقي بعد هذه الدفعة', value: safeMoney(rremaining) }
+            ]));
+          }
+        }
+      }
+
+      if (cl.details) {
+        content.push({ text: 'بيان', fontSize: 11, bold: true, color: '#1e3a5f', margin: [0, 4, 0, 2], alignment: 'right' });
+        content.push({ text: cl.details, fontSize: 10, color: '#475569', margin: [0, 0, 0, 6], alignment: 'right' });
+      }
+
+      content.push({
+        stack: [
+          { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.3, lineColor: '#e2e8f0' }], margin: [0, 0, 0, 6] },
+          {
+            columns: [
+              {
+                stack: [
+                  { text: 'العميل (الطرف الثاني)', fontSize: 10, bold: true, color: '#1e3a5f', alignment: 'center', margin: [0, 0, 0, 4] },
+                  { text: partyName, fontSize: 11, color: '#1e3a5f', bold: true, alignment: 'center', margin: [0, 0, 0, 4] },
+                  { text: 'التوقيع: ...............................', fontSize: 10, color: '#94a3b8', alignment: 'center' }
+                ]
+              },
+              {
+                stack: [
+                  { text: 'المصدر (المنشأة)', fontSize: 10, bold: true, color: '#1e3a5f', alignment: 'center', margin: [0, 0, 0, 4] },
+                  { text: companyName, fontSize: 11, color: '#1e3a5f', bold: true, alignment: 'center' },
+                  (function(){ var stamp = (A.companyStamp && A.companyStamp()) || ''; var signature = (A.companySignature && A.companySignature()) || ''; var imgs = []; if (signature) imgs.push({ image: signature, fit: [120, 70], alignment: 'center', margin: [0, 3, 0, 0] }); if (stamp) imgs.push({ image: stamp, fit: [120, 90], alignment: 'center', margin: [0, 3, 0, 0] }); if (imgs.length) return { stack: [{ text: 'التوقيع / الختم', fontSize: 8, color: '#94a3b8', alignment: 'center' }].concat(imgs) }; return { text: 'التوقيع / الختم: ...............................', fontSize: 10, color: '#94a3b8', alignment: 'center' }; })()
+                ]
+              }
+            ],
+            columnGap: 20,
+            margin: [0, 4, 0, 6]
+          }
+        ],
+        unbreakable: true,
+        margin: [0, 0, 0, 0]
+      });
+
+      return makeDd(content, cf, opts);
+    }
+
+    // ============ مستخلص مالي (عادي) ============
     content.push({
       columns: [
         { text: 'مستخلص مالي', bold: true, fontSize: 14, color: '#1e3a5f' },
@@ -1267,7 +1418,7 @@ if (isParts) {
     });
     content.push(summaryTable([
       { label: 'العقد', value: cl.contractId || 'غير محدد' },
-      { label: 'الطرف الثاني', value: cl.clientName || safeLabel(cl) },
+      { label: 'الطرف الثاني', value: partyName },
       { label: 'الفترة', value: cl.period || 'غير محددة' },
       { label: 'تاريخ الإنشاء', value: cl.createdAt }
     ]));
@@ -1279,7 +1430,7 @@ if (isParts) {
     });
 
     content.push({
-      stack: buildSignature(companyName, cl.clientName || safeLabel(cl) || 'الطرف الثاني'),
+      stack: buildSignature(companyName, partyName || 'الطرف الثاني'),
       unbreakable: true,
       margin: [0, 0, 0, 0]
     });
@@ -1463,11 +1614,15 @@ if (isParts) {
       overdue = 0;
       if (Number(c.value||0) > 0 && c.type === 'تركيب') {
         var plan = (c.paymentPlan && c.paymentPlan.length) ? c.paymentPlan : [{label:"الدفعة الأولى",percent:0.5},{label:"الدفعة الثانية",percent:0.35},{label:"الدفعة الثالثة",percent:0.15}];
+        var completion = c.stageCompletion || {};
+        var pctOfPlan = function(p){ var v; if(Array.isArray(p)){ v = p[2]; } else { v = p.percent; } return v > 1 ? v / 100 : (v || 0); };
+        var labelOfPlan = function(p){ return Array.isArray(p) ? p[0] : (p.label || ''); };
         plan.forEach(function(p){
-          var pct = p.percent > 1 ? p.percent / 100 : (p.percent || 0);
-          var expected = Number(c.value||0) * pct;
-          var received = installmentEntries.filter(function(x){ return x.paymentLabel === p.label; }).reduce(function(a,x){ return a + Number(x.amount||0); }, 0);
-          if (expected > received) overdue += (expected - received);
+          var expected = Number(c.value||0) * pctOfPlan(p);
+          var received = installmentEntries.filter(function(x){ return x.paymentLabel === labelOfPlan(p); }).reduce(function(a,x){ return a + Number(x.amount||0); }, 0);
+          var premaining = Math.max(0, expected - received);
+          var pdone = !!(completion[labelOfPlan(p)] && completion[labelOfPlan(p)].done);
+          if (pdone && premaining > 0) overdue += premaining;
         });
       }
     } catch(e){}
@@ -1522,29 +1677,34 @@ if (isParts) {
     if (c.type === 'تركيب') {
       try {
         var plan = (c.paymentPlan && c.paymentPlan.length) ? c.paymentPlan : [{label:"الدفعة الأولى",percent:0.5},{label:"الدفعة الثانية",percent:0.35},{label:"الدفعة الثالثة",percent:0.15}];
+        var completion = c.stageCompletion || {};
+        var pctOfPlan = function(p){ var v; if(Array.isArray(p)){ v = p[2]; } else { v = p.percent; } return v > 1 ? v / 100 : (v || 0); };
+        var labelOfPlan = function(p){ return Array.isArray(p) ? p[0] : (p.label || ''); };
         var planRows = plan.map(function(p){
-          var pct = p.percent > 1 ? p.percent / 100 : (p.percent || 0);
-          var expected = Number(c.value||0) * pct;
-          var ppaid = installmentEntries.filter(function(x){ return x.paymentLabel === p.label; }).reduce(function(s,x){ return s + Number(x.amount||0); }, 0);
+          var expected = Number(c.value||0) * pctOfPlan(p);
+          var ppaid = installmentEntries.filter(function(x){ return x.paymentLabel === labelOfPlan(p); }).reduce(function(s,x){ return s + Number(x.amount||0); }, 0);
           var premaining = Math.max(0, expected - ppaid);
+          var pdone = !!(completion[labelOfPlan(p)] && completion[labelOfPlan(p)].done);
           return [
-            { text: p.label, fontSize: 10, alignment: 'right' },
+            { text: labelOfPlan(p), fontSize: 10, alignment: 'right' },
             { text: safeMoney(expected), fontSize: 10, alignment: 'center' },
             { text: safeMoney(ppaid), fontSize: 10, alignment: 'center' },
-            { text: safeMoney(premaining), fontSize: 10, alignment: 'center', bold: true, color: premaining > 0 ? '#dc2626' : '#2d7d6d' }
+            { text: safeMoney(premaining), fontSize: 10, alignment: 'center', bold: true, color: premaining > 0 ? '#dc2626' : '#2d7d6d' },
+            { text: pdone ? (premaining > 0 ? 'متأخرة' : 'مكتملة') : 'لم تبدأ', fontSize: 10, alignment: 'center', bold: true, color: pdone ? (premaining > 0 ? '#dc2626' : '#2d7d6d') : '#94a3b8' }
           ];
         });
         content.push({ text: 'خطة الدفعات', fontSize: 10, bold: true, color: '#1e3a5f', margin: [0, 2, 0, 2] });
         content.push({
           table: {
-            widths: ['*', 'auto', 'auto', 'auto'],
+            widths: ['*', 'auto', 'auto', 'auto', 'auto'],
             headerRows: 1,
             body: [
               [
                 { text: 'الدفعة', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [1, 1, 1, 1] },
                 { text: 'المستحق', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [1, 1, 1, 1] },
                 { text: 'المدفوع', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [1, 1, 1, 1] },
-                { text: 'المتبقي', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [1, 1, 1, 1] }
+                { text: 'المتبقي', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [1, 1, 1, 1] },
+                { text: 'الحالة', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [1, 1, 1, 1] }
               ]
             ].concat(planRows)
           },

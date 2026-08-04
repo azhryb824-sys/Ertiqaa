@@ -109,8 +109,8 @@
 
 ## 6) المالية وسندات القبض
 
-- نموذج سند القبض `data-form="receipt"` بحقول: `clientId`، `clientName`، `amount`، `purpose`، `purposeDetail`، `details`.
-- في PDF السند: **طريقة الدفع تُجلب من `misadFinancialEntries`** المرتبطة بـ `receiptId` أو `contractId` (تستبعد "سند قبض"، وتجمع الطرق الفريدة)، **تاريخ الدفع** = `contract.startDate` لعقود الصيانة وإلا `createdAt`، مع **صورة الختم والتوقيع** عبر `A.companyStamp()` / `A.companySignature()`.
+- نموذج سند القبض `data-form="receipt"` بحقول: `clientId`، `clientName`، `amount`، `paymentMethod` (نقداً/تحويل بنكي/شيك/شبكة)، `purpose`، `purposeDetail`، `details`.
+- في PDF السند: **طريقة الدفع من بيانات السند `paymentMethod`** (وإن لم توجد تُجلب من `misadFinancialEntries` المرتبطة بـ `receiptId` أو `contractId` مع استبعاد "سند قبض")، سطر "استلمنا من العميل الموضحة بياناته في الجدول أدناه مبلغ" فوق المبلغ، **تاريخ الدفع** = `contract.startDate` لعقود الصيانة وإلا `createdAt`، مع **صورة الختم والتوقيع** عبر `A.companyStamp()` / `A.companySignature()`.
 - `recordContractCollection` / `contractFinanceInfo` / `ensureReceiptClaims` لربط التحصيل بالمستخلصات.
 
 ---
