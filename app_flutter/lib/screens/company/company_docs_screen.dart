@@ -1,4 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
 import '../../core/utils.dart';
 import '../../state/app_state.dart';
 import '../../theme.dart';
@@ -18,6 +22,8 @@ class _CompanyDocsScreenState extends State<CompanyDocsScreen> {
   final _expiryCtrl = TextEditingController();
   String _kind = 'stamp';
   bool _showForm = false;
+  String? _fileName;
+  String? _fileData;
 
   @override
   void dispose() {
@@ -25,6 +31,36 @@ class _CompanyDocsScreenState extends State<CompanyDocsScreen> {
     _partyCtrl.dispose();
     _expiryCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickFile() async {
+    final picked = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 1800, maxHeight: 1800, imageQuality: 80);
+    if (picked == null) return;
+    final bytes = await picked.readAsBytes();
+    if (!mounted) return;
+    setState(() {
+      _fileName = picked.name;
+      _fileData = 'data:${picked.mimeType ?? 'image/jpeg'};base64,${base64Encode(bytes)}';
+    });
+  }
+
+  Future<void> _viewFile(Map<String, dynamic> d) async {
+    final data = d['fileData']?.toString() ?? '';
+    if (data.isEmpty) return;
+    final bytes = base64Decode(data.replaceFirst(RegExp(r'^data:[^;]*;base64,'), ''));
+    final dir = await getTemporaryDirectory();
+    final name = d['fileName']?.toString() ?? 'doc-${d['id']}.png';
+    final file = File('${dir.path}${Platform.pathSeparator}$name');
+    await file.writeAsBytes(bytes);
+    if (!mounted) return;
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => Dialog(
+        child: InteractiveViewer(
+          child: Image.memory(bytes, fit: BoxFit.contain),
+        ),
+      ),
+    );
   }
 
   @override
@@ -73,6 +109,18 @@ class _CompanyDocsScreenState extends State<CompanyDocsScreen> {
                     AppField(label: 'الطرف', controller: _partyCtrl),
                     AppField(label: 'تاريخ الانتهاء (yyyy-mm-dd)', controller: _expiryCtrl),
                     const SizedBox(height: 10),
+                    OutlinedButton.icon(
+                      onPressed: _pickFile,
+                      icon: const Icon(Icons.attach_file_rounded),
+                      label: Text(_fileName == null ? 'إرفاق صورة/ملف' : 'المرفق: $_fileName',
+                          style: const TextStyle(fontFamily: 'Cairo')),
+                    ),
+                    if (_fileName != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Text('تم إرفاق الملف وسيُخزَّن مع المستند.', style: const TextStyle(fontFamily: 'Cairo', fontSize: 11, color: AppTheme.textMuted)),
+                      ),
+                    const SizedBox(height: 10),
                     ElevatedButton(onPressed: _add, child: const Text('إضافة المستند')),
                   ],
                 ),
@@ -90,7 +138,7 @@ class _CompanyDocsScreenState extends State<CompanyDocsScreen> {
                   color: AppTheme.gold,
                 ),
                 title: d['name']?.toString() ?? '',
-                subtitle: '${d['type']} • ${d['expiresAt'] ?? 'بدون انتهاء'}',
+                subtitle: '${d['type']} • ${d['expiresAt'] ?? 'بدون انتهاء'}${(d['fileData']?.toString() ?? '').isNotEmpty ? ' • مع مرفق' : ''}',
                 trailingWidget: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.end,
@@ -113,8 +161,8 @@ class _CompanyDocsScreenState extends State<CompanyDocsScreen> {
       'type': _kind,
       'name': _titleCtrl.text,
       'expiresAt': _expiryCtrl.text,
-      'fileName': '',
-      'fileData': '',
+      'fileName': _fileName ?? '',
+      'fileData': _fileData ?? '',
       'status': 'بانتظار المراجعة والاعتماد',
       'createdAt': now.toIso8601String(),
       'createdBy': app.session!.id,
@@ -122,7 +170,7 @@ class _CompanyDocsScreenState extends State<CompanyDocsScreen> {
     await app.append('misadCompanyDocs', doc);
     await app.logActivity('إضافة مستند شركة', entityType: 'doc', entityId: doc['id'] as String);
     if (!mounted) return;
-    setState(() { _showForm = false; _titleCtrl.clear(); _partyCtrl.clear(); _expiryCtrl.clear(); });
+    setState(() { _showForm = false; _titleCtrl.clear(); _partyCtrl.clear(); _expiryCtrl.clear(); _fileName = null; _fileData = null; });
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تمت إضافة المستند (بانتظار الاعتماد).', style: TextStyle(fontFamily: 'Cairo'))));
   }
 
@@ -134,6 +182,16 @@ class _CompanyDocsScreenState extends State<CompanyDocsScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if ((d['fileData']?.toString() ?? '').isNotEmpty) ...[
+              ListTile(
+                leading: const Icon(Icons.remove_red_eye_rounded, color: AppTheme.primary),
+                title: const Text('عرض المنفّق', style: TextStyle(fontFamily: 'Cairo')),
+                onTap: () async {
+                  if (ctx.mounted) Navigator.pop(ctx);
+                  await _viewFile(d);
+                },
+              ),
+            ],
             if (d['status']?.toString() == 'بانتظار المراجعة والاعتماد') ...[
               ListTile(
                 leading: const Icon(Icons.check_circle_rounded, color: AppTheme.success),

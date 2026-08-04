@@ -78,10 +78,12 @@ class ContractDetailScreen extends StatelessWidget {
                   ActionButton(icon: Icons.refresh_rounded, label: 'تجديد', color: AppTheme.primary, onTap: () => _renew(context, app, c)),
                 if (c.status != 'ملغي' && c.status != 'محذوف')
                   ActionButton(icon: Icons.cancel_rounded, label: 'إلغاء', color: AppTheme.danger, onTap: () => _cancel(context, app, c)),
-              if (editable)
-                ActionButton(icon: Icons.edit_rounded, label: 'تعديل', color: AppTheme.gold, onTap: () => app.goWithData('contract-form', {'id': c.id})),
-              ActionButton(icon: Icons.print_rounded, label: 'طباعة PDF', color: AppTheme.primaryDark, onTap: () => _printPdf(context, app, c)),
-            ],
+                if (isManager)
+                  ActionButton(icon: Icons.delete_forever_rounded, label: 'حذف', color: AppTheme.danger, onTap: () => _delete(context, app, c)),
+                if (editable)
+                  ActionButton(icon: Icons.edit_rounded, label: 'تعديل', color: AppTheme.gold, onTap: () => app.goWithData('contract-form', {'id': c.id})),
+                ActionButton(icon: Icons.print_rounded, label: 'طباعة PDF', color: AppTheme.primaryDark, onTap: () => _printPdf(context, app, c)),
+              ],
           ),
           ],
 
@@ -169,6 +171,27 @@ class ContractDetailScreen extends StatelessWidget {
     await app.logActivity('تجديد العقد', entityType: 'contract', entityId: c.id);
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم تجديد العقد.', style: TextStyle(fontFamily: 'Cairo'))));
+    }
+  }
+
+  Future<void> _delete(BuildContext context, AppState app, Contract c) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('حذف العقد', style: TextStyle(fontFamily: 'Cairo')),
+        content: const Text('سيتم حذف العقد نهائياً من القائمة. هل تريد المتابعة؟', style: TextStyle(fontFamily: 'Cairo')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('تراجع', style: TextStyle(fontFamily: 'Cairo'))),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('حذف العقد', style: TextStyle(fontFamily: 'Cairo', color: AppTheme.danger))),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await app.remove('misadContracts', c.id);
+    await app.logActivity('حذف العقد', entityType: 'contract', entityId: c.id);
+    if (context.mounted) {
+      app.back();
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم حذف العقد.', style: TextStyle(fontFamily: 'Cairo'))));
     }
   }
 

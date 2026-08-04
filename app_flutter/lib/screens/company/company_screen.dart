@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../core/utils.dart';
 import '../../state/app_state.dart';
 import '../../theme.dart';
@@ -24,6 +26,19 @@ class _CompanyScreenState extends State<CompanyScreen> {
   final _bankCtrl = TextEditingController();
   bool _loaded = false;
   Map<String, dynamic>? _existing;
+  String? _letterheadName;
+  String? _letterheadData;
+
+  Future<void> _pickLetterhead() async {
+    final picked = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 1600, imageQuality: 75);
+    if (picked == null) return;
+    final bytes = await picked.readAsBytes();
+    if (!mounted) return;
+    setState(() {
+      _letterheadName = picked.name;
+      _letterheadData = 'data:${picked.mimeType ?? 'image/jpeg'};base64,${base64Encode(bytes)}';
+    });
+  }
 
   @override
   void initState() {
@@ -51,6 +66,8 @@ class _CompanyScreenState extends State<CompanyScreen> {
     _addressCtrl.text = src['address']?.toString() ?? '';
     _footerCtrl.text = src['pdfFooter']?.toString() ?? '';
     _bankCtrl.text = src['bankAccount']?.toString() ?? '';
+    _letterheadName = src['companyLetterheadName']?.toString() ?? '';
+    _letterheadData = src['companyLetterhead']?.toString() ?? '';
     _loaded = true;
   }
 
@@ -83,8 +100,8 @@ class _CompanyScreenState extends State<CompanyScreen> {
       'email': _emailCtrl.text,
       'address': _addressCtrl.text,
       'pdfFooter': _footerCtrl.text,
-      'companyLetterhead': _existing?['companyLetterhead'] ?? '',
-      'companyLetterheadName': _existing?['companyLetterheadName'] ?? '',
+      'companyLetterhead': _letterheadData ?? '',
+      'companyLetterheadName': _letterheadName ?? '',
       'bankAccount': _bankCtrl.text,
       'createdAt': _existing?['createdAt'] ?? now.toIso8601String(),
       'updatedAt': now.toIso8601String(),
@@ -127,6 +144,34 @@ class _CompanyScreenState extends State<CompanyScreen> {
                   AppField(label: 'العنوان', controller: _addressCtrl),
                   AppField(label: 'رقم الحساب البنكي (للفواتير)', controller: _bankCtrl),
                   AppField(label: 'تذييل المستندات (PDF)', maxLines: 2, controller: _footerCtrl),
+                  const SizedBox(height: 12),
+                  const SectionHeader(2, 'الترويسة (للمستندات PDF)'),
+                  const SizedBox(height: 8),
+                  if (_letterheadData != null)
+                    Container(
+                      height: 80,
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFf0f4f8),
+                        borderRadius: BorderRadius.circular(10),
+                        image: DecorationImage(
+                          image: MemoryImage(base64Decode(_letterheadData!.replaceFirst(RegExp(r'^data:[^;]*;base64,'), ''))),
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                    )
+                  else
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 8),
+                      child: Text('لا توجد ترويسة مرفوعة بعد.', style: TextStyle(fontFamily: 'Cairo', fontSize: 12, color: AppTheme.textMuted)),
+                    ),
+                  OutlinedButton.icon(
+                    onPressed: _pickLetterhead,
+                    icon: const Icon(Icons.image_rounded),
+                    label: Text(_letterheadName == null ? 'رفع صورة الترويسة' : 'تغيير: $_letterheadName',
+                        style: const TextStyle(fontFamily: 'Cairo')),
+                  ),
                   const SizedBox(height: 12),
                   ElevatedButton(onPressed: _save, child: const Text('حفظ البيانات')),
                 ],

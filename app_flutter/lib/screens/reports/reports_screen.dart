@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/utils.dart';
+import '../../pdf/pdf_generator.dart';
 import '../../state/app_state.dart';
 import '../../theme.dart';
 import '../../widgets/common.dart';
@@ -88,6 +89,24 @@ class ReportsScreen extends StatelessWidget {
               _row('الملاحظات', r['issues']?.toString() ?? ''),
               _row('القطع المستخدمة', r['parts']?.toString() ?? ''),
               _row('التوصيات', r['recommendations']?.toString() ?? ''),
+              const SizedBox(height: 12),
+              ElevatedButton.icon(
+                onPressed: () async {
+                  final app = AppState.instance;
+                  try {
+                    await PdfGenerator.sharePdf('تقرير زيارة فنية',
+                        PdfGenerator.reportContent(r, app.myOwnerCompany),
+                        ownerCompany: app.myOwnerCompany);
+                  } catch (_) {
+                    if (ctx.mounted) {
+                      ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+                          content: Text('تعذر إنشاء PDF.', style: TextStyle(fontFamily: 'Cairo'))));
+                    }
+                  }
+                },
+                icon: const Icon(Icons.print_rounded),
+                label: const Text('طباعة PDF', style: TextStyle(fontFamily: 'Cairo')),
+              ),
               if (session.isClient && r['status']?.toString() == 'بانتظار اعتماد العميل') ...[
                 const SizedBox(height: 16),
                 ElevatedButton.icon(

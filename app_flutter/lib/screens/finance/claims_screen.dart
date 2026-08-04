@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/constants.dart';
 import '../../core/utils.dart';
+import '../../pdf/pdf_generator.dart';
 import '../../state/app_state.dart';
 import '../../theme.dart';
 import '../../widgets/common.dart';
@@ -117,6 +118,24 @@ class _ClaimsScreenState extends State<ClaimsScreen> {
               onTap: () async {
                 await AppState.instance.update(AppConstants.kClaims, {...claim, 'status': 'مرفوض'});
                 if (ctx.mounted) Navigator.pop(ctx);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.print_rounded, color: AppTheme.primaryDark),
+              title: const Text('طباعة PDF', style: TextStyle(fontFamily: 'Cairo')),
+              onTap: () async {
+                Navigator.pop(ctx);
+                final app = AppState.instance;
+                try {
+                  await PdfGenerator.sharePdf('مستخلص مالي',
+                      PdfGenerator.claimContent(claim, app.myOwnerCompany),
+                      ownerCompany: app.myOwnerCompany);
+                } catch (_) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        content: Text('تعذر إنشاء PDF.', style: TextStyle(fontFamily: 'Cairo'))));
+                  }
+                }
               },
             ),
           ],
