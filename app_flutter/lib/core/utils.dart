@@ -19,7 +19,7 @@ class AppUtils {
 
   /// هروب نص HTML.
   static String esc(dynamic v) {
-    return String(v ?? '').replaceAllMapped(RegExp(r'[&<>"\']'), (m) {
+    return String(v ?? '').replaceAllMapped(RegExp(r'''[&<>"']'''), (m) {
       switch (m.group(0)) {
         case '&': return '&amp;';
         case '<': return '&lt;';

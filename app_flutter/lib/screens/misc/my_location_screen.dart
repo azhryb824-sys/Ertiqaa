@@ -91,9 +91,7 @@ class _MyLocationScreenState extends State<MyLocationScreen> {
 
   Future<Map<String, dynamic>?> _geo() async {
     try {
-      final pos = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
-      );
+      final pos = await Geolocator.getCurrentPosition();
       return {'lat': pos.latitude, 'lng': pos.longitude};
     } catch (_) {
       return null;

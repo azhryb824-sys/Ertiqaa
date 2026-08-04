@@ -67,7 +67,7 @@ class _TeamScreenState extends State<TeamScreen> {
               ),
             ),
 
-          const PageTitle(session.isCompanyAdmin ? 'الفنيون' : 'فريق العمل'),
+          PageTitle(session.isCompanyAdmin ? 'الفنيون' : 'فريق العمل'),
           if (staff.isEmpty)
             const EmptyState('لا يوجد أعضاء بعد')
           else

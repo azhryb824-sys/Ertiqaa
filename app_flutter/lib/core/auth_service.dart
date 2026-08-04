@@ -130,6 +130,7 @@ class AuthService {
 
   List<Map<String, dynamic>> _readLocalList(String key) {
     final prefs = _prefs;
+    if (prefs == null) return [];
     final raw = prefs.getString(key);
     if (raw == null) return [];
     try {

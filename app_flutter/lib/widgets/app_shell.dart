@@ -246,7 +246,7 @@ class _NavTile extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 6),
               child: Text(label,
                   maxLines: 2, textAlign: TextAlign.center,
-                  style: const TextStyle(fontFamily: 'Cairo', fontSize: 12.5, fontWeight: FontWeight.w700, color: AppTheme.ink)),
+                  style: const TextStyle(fontFamily: 'Cairo', fontSize: 12.5, fontWeight: FontWeight.w700, color: AppTheme.textDark)),
             ),
           ],
         ),

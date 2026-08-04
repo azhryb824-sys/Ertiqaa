@@ -177,10 +177,10 @@ class _ContractFormScreenState extends State<ContractFormScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: AppTheme.bg,
-        appBar: AppBar(title: Text('العقد')),
-        body: Center(child: CircularProgressIndicator(color: AppTheme.primary)),
+        appBar: AppBar(title: const Text('العقد')),
+        body: const Center(child: CircularProgressIndicator(color: AppTheme.primary)),
       );
     }
     final clients = app.clientCompanies;

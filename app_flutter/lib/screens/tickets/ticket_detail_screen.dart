@@ -31,6 +31,16 @@ class TicketDetailScreen extends StatelessWidget {
       );
     }
     final session = app.session!;
+    final assignedName = () {
+      if (t.assignedTo.isEmpty) return '';
+      for (final s in app.allStaff) {
+        if (s['id']?.toString() == t.assignedTo) {
+          final n = s['name']?.toString() ?? '';
+          if (n.isNotEmpty) return n;
+        }
+      }
+      return t.assignedTo;
+    }();
 
     return Scaffold(
       backgroundColor: AppTheme.bg,
@@ -67,7 +77,7 @@ class TicketDetailScreen extends StatelessWidget {
           const PageTitle('التفاصيل'),
           _InfoRow('الوصف', t.description),
           _InfoRow('العميل', t.clientLabel),
-          if (t.assignedName.isNotEmpty) _InfoRow('المسند إليه', t.assignedName),
+          if (assignedName.isNotEmpty) _InfoRow('المسند إليه', assignedName),
           if ((t.building['name'] as String?)?.isNotEmpty ?? false) _InfoRow('المبنى', t.building['name'] as String),
 
           if (session.canManage && t.status != 'مغلق') ...[

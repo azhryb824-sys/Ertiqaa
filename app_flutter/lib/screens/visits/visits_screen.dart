@@ -92,7 +92,7 @@ class _VisitsScreenState extends State<VisitsScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => _NewVisitSheet(app: app),
+      builder: (ctx) => _NewVisitSheet(app: AppState.instance),
     );
   }
 }

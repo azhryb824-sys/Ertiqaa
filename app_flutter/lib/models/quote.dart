@@ -186,3 +186,22 @@ class PartsItem {
         'qty': qty,
       };
 }
+
+class CustomItem {
+  String title;
+  String description;
+  double price;
+  CustomItem({this.title = '', this.description = '', this.price = 0});
+
+  factory CustomItem.fromJson(Map<String, dynamic> j) => CustomItem(
+        title: j['title']?.toString() ?? '',
+        description: j['description']?.toString() ?? '',
+        price: (j['price'] as num?)?.toDouble() ?? 0,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'title': title,
+        'description': description,
+        'price': price,
+      };
+}
