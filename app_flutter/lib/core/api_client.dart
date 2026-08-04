@@ -6,7 +6,8 @@ class ApiClient {
   ApiClient._();
   static final ApiClient instance = ApiClient._();
 
-  String baseUrl = 'http://10.0.2.2:4173'; // Android emulator → host loopback
+  // خادم الإنتاج. للاختبار المحلي على المحاكي استخدم http://10.0.2.2:4173
+  String baseUrl = 'https://ertiqaa.onrender.com';
   Duration timeout = const Duration(seconds: 30);
   String? _token;
 
