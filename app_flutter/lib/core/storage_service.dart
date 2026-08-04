@@ -56,6 +56,21 @@ class StorageService extends ChangeNotifier {
     }
   }
 
+  /// القراءة من الخادم regardless من الحالة المحلية (تُستخدم بعد عمليات المشرف).
+  Future<void> reload() async {
+    try {
+      final j = await api.get('/api/storage', query: {'keys': AppConstants.storageKeys.join(',')});
+      final values = (j?['values'] as Map?) ?? {};
+      values.forEach((k, v) {
+        _store[k.toString()] = v is String ? _decode(v) : v;
+      });
+      await _persistAll();
+      notifyListeners();
+    } catch (_) {
+      notifyListeners();
+    }
+  }
+
   /// قراءة مفتاح واحد.
   List<dynamic> list(String key) {
     final v = _store[key];

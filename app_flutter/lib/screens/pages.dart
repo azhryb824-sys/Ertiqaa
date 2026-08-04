@@ -35,6 +35,8 @@ import 'admin/companies_screen.dart';
 import 'admin/moderation_screen.dart';
 import 'admin/storage_data_screen.dart';
 import 'admin/data_tools_screen.dart';
+import 'admin/banners_screen.dart';
+import 'admin/system_screen.dart';
 import 'misc/operations_screen.dart';
 import 'misc/drafts_screen.dart';
 import 'misc/entry_links_screen.dart';
@@ -86,6 +88,8 @@ Widget pageFor(String key) {
     case 'moderation': return const ModerationScreen();
     case 'storage-data': return const StorageDataScreen();
     case 'data-tools': return const DataToolsScreen();
+    case 'banners': return const AdminBannersScreen();
+    case 'system': return const AdminSystemScreen();
     case 'operations': return const OperationsScreen();
     case 'drafts': return const DraftsScreen();
     case 'entry-links': return const EntryLinksScreen();

@@ -145,6 +145,8 @@ class AppShell extends StatelessWidget {
       'whatsapp': Icons.chat_rounded,
       'users': Icons.manage_accounts_rounded,
       'companies': Icons.apartment_rounded,
+      'system': Icons.dashboard_customize_rounded,
+      'banners': Icons.campaign_rounded,
       'contracts': Icons.description_rounded,
       'assets': Icons.elevator_rounded,
       'tickets': Icons.report_problem_rounded,
