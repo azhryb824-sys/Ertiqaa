@@ -1,4 +1,4 @@
-import 'package:file_picker/file_picker.dart';
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -110,13 +110,10 @@ class _DataToolsScreenState extends State<DataToolsScreen> {
       );
 
   Future<void> _aiImport(AppState app) async {
-    final picked = await FilePicker.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['xlsx'],
-    );
-    if (picked == null || picked.files.isEmpty) return;
-    final f = picked.files.single;
-    final path = f.path;
+    const typeGroup = XTypeGroup(label: 'Excel', extensions: ['xlsx']);
+    final XFile? picked = await openFile(acceptedTypeGroups: const [typeGroup]);
+    if (picked == null) return;
+    final String? path = picked.path;
     if (path == null) {
       _snack('تعذر قراءة الملف.');
       return;
@@ -131,7 +128,7 @@ class _DataToolsScreenState extends State<DataToolsScreen> {
       final j = await ApiClient.instance.postMultipart(
         '/api/contracts/ai-import-excel',
         {},
-        [http.MultipartFile.fromBytes('file', await file.readAsBytes(), filename: f.name)],
+        [http.MultipartFile.fromBytes('file', await file.readAsBytes(), filename: picked.name)],
         query: {
           'role': app.session!.role,
           'userId': app.session!.id,
@@ -189,9 +186,10 @@ class _DataToolsScreenState extends State<DataToolsScreen> {
   }
 
   Future<void> _restore(AppState app) async {
-    final picked = await FilePicker.pickFiles(type: FileType.custom, allowedExtensions: ['json']);
-    if (picked == null || picked.files.isEmpty) return;
-    final path = picked.files.single.path;
+    const typeGroup = XTypeGroup(label: 'JSON', extensions: ['json']);
+    final XFile? picked = await openFile(acceptedTypeGroups: const [typeGroup]);
+    if (picked == null) return;
+    final String? path = picked.path;
     if (path == null) {
       _snack('تعذر قراءة الملف.');
       return;
