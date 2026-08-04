@@ -20,20 +20,28 @@ class AppState extends ChangeNotifier {
   UserSession? _session;
   String _currentPage = 'overview';
   final List<Map<String, dynamic>> _routeStack = [];
+  bool _ready = false;
 
   UserSession? get session => _session;
   String get currentPage => _currentPage;
   bool get isLoggedIn => _session != null;
+  bool get isReady => _ready;
   List<Map<String, dynamic>> get routeStack => _routeStack;
 
   // ===== التهيئة =====
   Future<void> init() async {
-    await sessionManager.init();
-    final saved = sessionManager.current;
-    if (saved != null) {
-      _session = saved;
-      notifyListeners();
+    try {
+      await sessionManager.init();
+      final saved = sessionManager.current;
+      if (saved != null) {
+        _session = saved;
+      }
+    } catch (_) {
+      // أي خطأ في استعادة الجلسة لا يمنع تشغيل التطبيق.
     }
+    // الانتقال الفوري من شاشة البداية (الجلسة تُحفظ محلياً أولاً، ثم البيانات).
+    _ready = true;
+    notifyListeners();
     await storage.loadAll();
   }
 

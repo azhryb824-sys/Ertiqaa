@@ -36,8 +36,8 @@ class App extends StatelessWidget {
   }
 
   Widget _home() {
-    if (app.session == null) return const SplashScreen();
-    if (!app.isLoggedIn) return const LoginScreen();
+    if (!app.isReady) return const SplashScreen();
+    if (app.session == null) return const LoginScreen();
     return const AppShell();
   }
 }
