@@ -7,7 +7,7 @@ class AppUtils {
 
   /// تحويل الأرقام العربية/الفارسية إلى لاتينية وإزالة غير الأرقام.
   static String cleanId(dynamic v) {
-    var s = String(v ?? '').replaceAll(RegExp('[٠-٩]'), (m) => '٠١٢٣٤٥٦٧٨٩'.indexOf(m.group(0)!).toString());
+    var s = (v ?? '').toString().replaceAll(RegExp('[٠-٩]'), (m) => '٠١٢٣٤٥٦٧٨٩'.indexOf(m.group(0)!).toString());
     s = s.replaceAll(RegExp('[۰-۹]'), (m) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(m.group(0)!).toString());
     return s.replaceAll(RegExp(r'\D'), '');
   }
@@ -19,7 +19,7 @@ class AppUtils {
 
   /// هروب نص HTML.
   static String esc(dynamic v) {
-    return String(v ?? '').replaceAllMapped(RegExp(r'''[&<>"']'''), (m) {
+    return (v ?? '').toString().replaceAllMapped(RegExp(r'''[&<>"']'''), (m) {
       switch (m.group(0)) {
         case '&': return '&amp;';
         case '<': return '&lt;';
