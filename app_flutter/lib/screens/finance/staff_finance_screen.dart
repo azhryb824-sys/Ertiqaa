@@ -105,7 +105,7 @@ class _StaffFinanceScreenState extends State<StaffFinanceScreen> {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      if ((c['remaining'] as num?)?.toDouble() ?? 0) > 0
+                      if (((c['remaining'] as num?)?.toDouble() ?? 0) > 0)
                         IconButton(
                           padding: const EdgeInsets.all(2),
                           constraints: const BoxConstraints(),
@@ -166,7 +166,7 @@ class _StaffFinanceScreenState extends State<StaffFinanceScreen> {
                   onPressed: () => _printPayroll(p),
                 ),
                 children: [
-                  for (final row in ((p['rows'] as List?) ?? []).cast<Map>())
+                  for (final row in ((p['rows'] as List?) ?? []).cast<Map<String, dynamic>>())
                     ListTile(
                       dense: true,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 20),
@@ -192,7 +192,7 @@ class _StaffFinanceScreenState extends State<StaffFinanceScreen> {
     final receipts = <Map<String, dynamic>>[];
     for (final p in payrolls) {
       final period = p['period']?.toString() ?? '';
-      for (final row in ((p['rows'] as List?) ?? []).cast<Map>()) {
+      for (final row in ((p['rows'] as List?) ?? []).cast<Map<String, dynamic>>()) {
         receipts.add({
           'id': '${p['id']}-${row['staffId']}',
           'staffName': row['staffName'],

@@ -264,7 +264,7 @@ class PdfGenerator {
                     style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: _green)),
                 pw.SizedBox(height: 4),
                 pw.Text(secondParty.isEmpty ? 'الاسم: ......................' : secondParty,
-                    style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.w700, color: _green)),
+                    style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: _green)),
                 pw.SizedBox(height: 4),
                 pw.Text('التوقيع: .................................',
                     style: pw.TextStyle(fontSize: 9, color: const PdfColor.fromInt(0xFF94a3b8))),
