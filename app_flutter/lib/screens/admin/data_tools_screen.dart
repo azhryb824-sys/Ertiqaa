@@ -110,7 +110,7 @@ class _DataToolsScreenState extends State<DataToolsScreen> {
       );
 
   Future<void> _aiImport(AppState app) async {
-    final picked = await FilePicker.platform.pickFiles(
+    final picked = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['xlsx'],
     );
@@ -189,7 +189,7 @@ class _DataToolsScreenState extends State<DataToolsScreen> {
   }
 
   Future<void> _restore(AppState app) async {
-    final picked = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['json']);
+    final picked = await FilePicker.pickFiles(type: FileType.custom, allowedExtensions: ['json']);
     if (picked == null || picked.files.isEmpty) return;
     final path = picked.files.single.path;
     if (path == null) {
