@@ -32,6 +32,7 @@ class _FinanceScreenState extends State<FinanceScreen> with SingleTickerProvider
   String _filterDirection = 'all';
   String _filterType = 'all';
   String _search = '';
+  String _chartPeriod = '6m';
 
   static const List<String> _typeOrder = [
     'sale', 'purchase', 'expense', 'salary', 'advance', 'deduction', 'allowance', 'custody',
@@ -172,12 +173,31 @@ class _FinanceScreenState extends State<FinanceScreen> with SingleTickerProvider
           ),
         ),
 
+        _buildAlerts(app),
+
         const Padding(
           padding: EdgeInsets.fromLTRB(16, 20, 16, 6),
           child: Text('التدفق النقدي الشهري',
               style: TextStyle(fontFamily: 'Cairo', fontSize: 15, fontWeight: FontWeight.w800)),
         ),
-        _CashChart(entries: entries),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            children: [
+              for (final (key, lbl) in const [('6m', '6 أشهر'), ('year', 'السنة'), ('all', 'الكل')])
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: ChoiceChip(
+                    label: Text(lbl, style: const TextStyle(fontFamily: 'Cairo', fontSize: 12)),
+                    selected: _chartPeriod == key,
+                    showCheckmark: false,
+                    onSelected: (_) => setState(() => _chartPeriod = key),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        _CashChart(entries: entries, period: _chartPeriod),
 
         const Padding(
           padding: EdgeInsets.fromLTRB(16, 20, 16, 6),
@@ -185,6 +205,13 @@ class _FinanceScreenState extends State<FinanceScreen> with SingleTickerProvider
               style: TextStyle(fontFamily: 'Cairo', fontSize: 15, fontWeight: FontWeight.w800)),
         ),
         _buildTypeBreakdown(entries),
+
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16, 20, 16, 6),
+          child: Text('متابعة تحصيلات العقود',
+              style: TextStyle(fontFamily: 'Cairo', fontSize: 15, fontWeight: FontWeight.w800)),
+        ),
+        _buildCollections(app),
 
         const Padding(
           padding: EdgeInsets.fromLTRB(16, 20, 16, 6),
@@ -250,6 +277,147 @@ class _FinanceScreenState extends State<FinanceScreen> with SingleTickerProvider
                         child: Text('صادر ${AppUtils.money(totals[t]!.out)}',
                             textAlign: TextAlign.end,
                             style: const TextStyle(fontFamily: 'Cairo', fontSize: 12, color: AppTheme.danger)),
+                      ),
+                    ],
+                  ),
+                ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ===== التنبيهات ومتابعة التحصيلات =====
+  Widget _buildAlerts(AppState app) {
+    final claims = app.allClaims.where(app.sameCompany).toList();
+    final pending = claims.where((c) => c['status']?.toString() == 'قيد المراجعة').toList();
+    final pendingTotal = pending.fold<double>(0, (s, c) => s + ((c['value'] as num?)?.toDouble() ?? 0));
+
+    final custodies = app.allCustodies.where(app.sameCompany).toList();
+    final activeCust = custodies.where((c) => c['status']?.toString() != 'مسددة').toList();
+    final custTotal = activeCust.fold<double>(0, (s, c) => s + ((c['remaining'] as num?)?.toDouble() ?? 0));
+
+    final contracts = app.allContracts
+        .where((c) => app.sameCompany(c.toJson()) && c.status == AppConstants.statusActive)
+        .toList();
+    final receipts = app.allReceipts.where(app.sameCompany).toList();
+    var unpaidContracts = 0;
+    var unpaidTotal = 0.0;
+    for (final c in contracts) {
+      final collected = receipts
+          .where((r) => r['contractId']?.toString() == c.id)
+          .fold<double>(0, (s, r) => s + ((r['amount'] as num?)?.toDouble() ?? 0));
+      final remaining = c.value - collected;
+      if (remaining > 0) {
+        unpaidContracts++;
+        unpaidTotal += remaining;
+      }
+    }
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      color: const Color(0xFFFDF6EC),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.notifications_active_rounded, color: AppTheme.gold, size: 20),
+                SizedBox(width: 8),
+                Text('تنبيهات ومتابعات',
+                    style: TextStyle(fontFamily: 'Cairo', fontSize: 14, fontWeight: FontWeight.w800)),
+              ],
+            ),
+            const SizedBox(height: 6),
+            _alertRow(Icons.pending_actions_rounded, AppTheme.gold, 'مستخلصات بانتظار المراجعة',
+                '${pending.length} بقيمة ${AppUtils.money(pendingTotal)}'),
+            _alertRow(Icons.handshake_rounded, AppTheme.gold, 'عهد نشطة غير مسددة',
+                '${activeCust.length} بمتبقي ${AppUtils.money(custTotal)}'),
+            _alertRow(Icons.account_balance_wallet_rounded, AppTheme.primary, 'عقود برصيد غير محصّل',
+                '$unpaidContracts بمبلغ ${AppUtils.money(unpaidTotal)}'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _alertRow(IconData icon, Color color, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: 8),
+          Expanded(child: Text(label, style: const TextStyle(fontFamily: 'Cairo', fontSize: 12.5))),
+          Text(value,
+              style: const TextStyle(fontFamily: 'Cairo', fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.textDark)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCollections(AppState app) {
+    final contracts = app.allContracts
+        .where((c) => app.sameCompany(c.toJson()) && c.status == AppConstants.statusActive)
+        .toList();
+    final receipts = app.allReceipts.where(app.sameCompany).toList();
+    final rows = <Map<String, dynamic>>[];
+    for (final c in contracts) {
+      final collected = receipts
+          .where((r) => r['contractId']?.toString() == c.id)
+          .fold<double>(0, (s, r) => s + ((r['amount'] as num?)?.toDouble() ?? 0));
+      rows.add({'id': c.id, 'client': c.clientLabel, 'value': c.value, 'collected': collected, 'remaining': c.value - collected});
+    }
+    rows.sort((a, b) => ((b['remaining'] as num).toDouble()).compareTo((a['remaining'] as num).toDouble()));
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('متابعة تحصيلات العقود',
+                style: TextStyle(fontFamily: 'Cairo', fontSize: 14, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 4),
+            if (rows.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(8),
+                child: Text('لا توجد عقود سارية',
+                    style: TextStyle(fontFamily: 'Cairo', color: AppTheme.textMuted, fontSize: 12)),
+              )
+            else
+              for (final r in rows.take(6))
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text('${r['id']} — ${r['client']}',
+                                style: const TextStyle(fontFamily: 'Cairo', fontSize: 12.5, fontWeight: FontWeight.w700)),
+                          ),
+                          Text('${AppUtils.money(r['collected'])} / ${AppUtils.money(r['value'])}',
+                              style: const TextStyle(fontFamily: 'Cairo', fontSize: 11, color: AppTheme.textMuted)),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: ((r['value'] as num).toDouble() > 0
+                                  ? (r['collected'] as num).toDouble() / (r['value'] as num).toDouble()
+                                  : 0.0)
+                              .clamp(0.0, 1.0),
+                          minHeight: 6,
+                          backgroundColor: const Color(0xFFe8eeec),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                              (r['remaining'] as num).toDouble() > 0 ? AppTheme.gold : AppTheme.success),
+                        ),
                       ),
                     ],
                   ),
@@ -620,20 +788,40 @@ class _QuickTile extends StatelessWidget {
   }
 }
 
-/// رسم بياني للتدفق النقدي الشهري (آخر 6 أشهر) بدون مكتبات خارجية.
+/// رسم بياني للتدفق النقدي الشهري (بدون مكتبات خارجية).
 class _CashChart extends StatelessWidget {
   final List<Map<String, dynamic>> entries;
-  const _CashChart({required this.entries});
+  final String period; // '6m' | 'year' | 'all'
+  const _CashChart({required this.entries, this.period = '6m'});
+
+  List<String> _months() {
+    final now = DateTime.now();
+    if (period == 'year') {
+      return [
+        for (var m = 1; m <= 12; m++) '${now.year}-${m.toString().padLeft(2, '0')}',
+      ];
+    }
+    if (period == 'all') {
+      final set = <String>{};
+      for (final e in entries) {
+        final d = e['date']?.toString() ?? '';
+        if (d.length >= 7) set.add(d.substring(0, 7));
+      }
+      final list = set.toList()..sort();
+      if (list.length > 24) list.removeRange(0, list.length - 24);
+      return list;
+    }
+    final list = <String>[];
+    for (var i = 5; i >= 0; i--) {
+      final d = DateTime(now.year, now.month - i);
+      list.add('${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}');
+    }
+    return list;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final months = <String>[];
-    for (var i = 5; i >= 0; i--) {
-      final d = DateTime(now.year, now.month - i);
-      months.add('${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}');
-    }
-
+    final months = _months();
     final data = <({String m, double inn, double out})>[];
     var maxV = 0.0;
     for (final m in months) {
@@ -648,6 +836,8 @@ class _CashChart extends StatelessWidget {
       maxV = math.max(maxV, math.max(inn, out));
       data.add((m: m, inn: inn, out: out));
     }
+
+    final step = data.isEmpty ? 1 : (data.length / 6).ceil().clamp(1, data.length).toInt();
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -664,19 +854,35 @@ class _CashChart extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 10),
-            SizedBox(
-              height: 150,
-              width: double.infinity,
-              child: CustomPaint(
-                size: Size.infinite,
-                painter: _BarChartPainter(data, maxV),
+            if (data.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 30),
+                child: Center(
+                  child: Text('لا توجد قيود في هذه الفترة',
+                      style: TextStyle(fontFamily: 'Cairo', color: AppTheme.textMuted, fontSize: 12)),
+                ),
+              )
+            else
+              SizedBox(
+                height: 150,
+                width: double.infinity,
+                child: CustomPaint(
+                  size: Size.infinite,
+                  painter: _BarChartPainter(data, maxV),
+                ),
               ),
-            ),
             const SizedBox(height: 6),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                for (final d in data) Text(_monthNameOf(d.m), style: const TextStyle(fontFamily: 'Cairo', fontSize: 10, color: AppTheme.textMuted)),
+                for (var i = 0; i < data.length; i++)
+                  if (i % step == 0 || i == data.length - 1)
+                    Expanded(
+                      child: Text(
+                        _monthNameOf(data[i].m),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontFamily: 'Cairo', fontSize: 9, color: AppTheme.textMuted),
+                      ),
+                    ),
               ],
             ),
           ],
