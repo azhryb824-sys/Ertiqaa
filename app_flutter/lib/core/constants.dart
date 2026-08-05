@@ -275,7 +275,7 @@ class AppConstants {
       ['operations', 'مركز التشغيل'], ['notifications', 'الإشعارات'], ['whatsapp', 'واتساب'],
       ['contracts', 'العقود'], ['assets', 'أصول المصاعد'], ['tickets', 'البلاغات'],
       ['company-customers', 'عملاء الشركة'], ['quotes', 'عروض الأسعار'], ['default-items', 'البنود الافتراضية'],
-      ['claims', 'المستخلصات'], ['receipts', 'سندات القبض'], ['staff-finance', 'مالية الموظفين'],
+      ['finance', 'الإدارة المالية'], ['claims', 'المستخلصات'], ['receipts', 'سندات القبض'], ['staff-finance', 'مالية الموظفين'],
       ['visits', 'الزيارات'],
       ['meetings', 'الاجتماعات'], ['tracking', 'تتبع الفنيين'], ['reports', 'تقارير الزيارات'],
       ['inventory', 'المخزون'], ['suppliers', 'الموردون'], ['team', 'فريق العمل'],
