@@ -907,10 +907,6 @@
         });
         Array.prototype.push.apply(content, sectionBlock(sec[si++], 'المباني والمواقع', bd));
       }
-      if (c.maintenanceChecklist && c.maintenanceChecklist.length > 0) {
-        var mi = maintenanceTable(c.maintenanceChecklist);
-        if (mi) Array.prototype.push.apply(content, sectionBlock(sec[si++], 'بنود الصيانة المتفق عليها', mi));
-      }
       if (c.deliveryDate && c.maintenanceEndDate) {
         var p = { text: 'تبدأ فترة الصيانة من تاريخ تسليم المصعد (' + c.deliveryDate + ') إلى تاريخ (' + c.maintenanceEndDate + ')، على أن تشمل أعمال الصيانة الدورية والطارئة وفق بنود الصيانة المتفق عليها أعلاه.', fontSize: 10, color: '#475569', alignment: 'right', lineHeight: 1.15 };
         content.push(sectionBlock(sec[si++], 'فترة الصيانة', p));
@@ -1570,6 +1566,137 @@ if (isParts) {
     return makeDd(content, cf, opts);
   }
 
+  // ==================== STAFF FINANCE ====================
+  function custodyPdfDefinition(c, logoData, opts){
+    var companyName = activeCompanyName();
+    var cf = safeFooter();
+    var content = [];
+    appendDocumentHeader(content, logoData, opts);
+    content.push({ columns: [ { text: 'سند عهدة', bold: true, fontSize: 16, color: '#1e3a5f' }, statusBadge(c.status || 'نشطة') ], margin: [0, 0, 0, 6] });
+    content.push({ canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.5, lineColor: '#c9a84c' }], margin: [0, 0, 0, 6] });
+    content.push({
+      columns: [
+        { stack: [ { text: 'رقم السند', fontSize: 9, color: '#94a3b8', alignment: 'right' }, { text: c.id, bold: true, fontSize: 11, color: '#1e3a5f', alignment: 'right' } ], width: '50%' },
+        { stack: [ { text: 'تاريخ الإصدار', fontSize: 9, color: '#94a3b8', alignment: 'left' }, { text: c.createdAt || '—', bold: true, fontSize: 11, color: '#1e3a5f', alignment: 'left' } ], width: '50%' }
+      ],
+      margin: [0, 0, 0, 12]
+    });
+    content.push({
+      table: { widths: ['*'], body: [ [ { stack: [ { text: 'قيمة العهدة', fontSize: 9, color: '#94a3b8', alignment: 'center', margin: [0, 0, 0, 2] }, { text: safeMoney(c.value), bold: true, fontSize: 18, color: '#b8862d', alignment: 'center' } ], alignment: 'center', fillColor: '#fdf6e8', margin: [10, 8, 10, 8] } ] ] },
+      layout: { hLineWidth: function(){ return 1; }, vLineWidth: function(){ return 0; }, hLineColor: function(){ return '#c9a84c'; }, paddingLeft: function(){ return 0; }, paddingRight: function(){ return 0; }, paddingTop: function(){ return 0; }, paddingBottom: function(){ return 0; } },
+      margin: [0, 0, 0, 10]
+    });
+    var summaryItems = [
+      { label: 'الموظف', value: c.staffName || c.staffIdentity || 'غير محدد' },
+      { label: 'الهوية', value: c.staffIdentity || '—' },
+      { label: 'المخصوم من الراتب', value: safeMoney(c.deducted || 0) },
+      { label: 'المتبقي', value: safeMoney(c.remaining || 0) }
+    ];
+    if (c.description) summaryItems.push({ label: 'البيان', value: c.description });
+    content.push(summaryTable(summaryItems));
+    content.push({
+      stack: [
+        { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.3, lineColor: '#e2e8f0' }], margin: [0, 0, 0, 6] },
+        {
+          columns: [
+            { stack: [ { text: 'الموظف (المستلم)', fontSize: 10, bold: true, color: '#1e3a5f', alignment: 'center', margin: [0, 0, 0, 4] }, { text: 'الاسم: ...............................', fontSize: 10, color: '#94a3b8', alignment: 'center' }, { text: 'التوقيع: ...............................', fontSize: 10, color: '#94a3b8', alignment: 'center' } ] },
+            { stack: [ { text: 'المصدر (المنشأة)', fontSize: 10, bold: true, color: '#1e3a5f', alignment: 'center', margin: [0, 0, 0, 4] }, { text: companyName, fontSize: 10, color: '#1e3a5f', bold: true, alignment: 'center' }, { text: 'التوقيع / الختم: ...............................', fontSize: 10, color: '#94a3b8', alignment: 'center' } ] }
+          ],
+          columnGap: 20,
+          margin: [0, 4, 0, 0]
+        }
+      ],
+      unbreakable: true,
+      margin: [0, 0, 0, 0]
+    });
+    return makeDd(content, cf, opts);
+  }
+
+  function payrollPdfDefinition(p, logoData, opts){
+    var companyName = activeCompanyName();
+    var cf = safeFooter();
+    var content = [];
+    appendDocumentHeader(content, logoData, opts);
+    content.push({ columns: [ { text: 'مسير رواتب', bold: true, fontSize: 16, color: '#1e3a5f' }, statusBadge(p.status || 'مسدد') ], margin: [0, 0, 0, 6] });
+    content.push(summaryTable([
+      { label: 'الفترة', value: p.period || '—' },
+      { label: 'عدد الموظفين', value: String((p.rows || []).length) },
+      { label: 'الإجمالي الصافي', value: safeMoney(p.totalNet) },
+      { label: 'خصم العهد', value: safeMoney(p.totalCustodyDeducted || 0) }
+    ]));
+    var payrollRows = (p.rows || []).map(function(row){
+      return [
+        { text: row.staffName || '—', bold: true, fontSize: 10, color: '#1e3a5f', alignment: 'right' },
+        { text: safeMoney(row.base), fontSize: 10, alignment: 'center' },
+        { text: safeMoney(row.allowances), fontSize: 10, alignment: 'center' },
+        { text: safeMoney(row.deductions), fontSize: 10, alignment: 'center' },
+        { text: safeMoney(row.custodyDeduction), fontSize: 10, alignment: 'center' },
+        { text: safeMoney(row.net), bold: true, fontSize: 10, color: '#1e3a5f', alignment: 'center' }
+      ];
+    });
+    var payrollHeader = [
+      { text: 'الموظف', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'right' },
+      { text: 'الراتب', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center' },
+      { text: 'البدلات', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center' },
+      { text: 'الخصومات', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center' },
+      { text: 'العهدة', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center' },
+      { text: 'الصافي', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center' }
+    ];
+    content.push({
+      table: { widths: ['*', 70, 70, 70, 70, 80], body: [payrollHeader].concat(payrollRows) },
+      layout: 'lightHorizontalLines',
+      margin: [0, 0, 0, 10]
+    });
+    content.push({ canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.3, lineColor: '#e2e8f0' }], margin: [0, 0, 0, 6] });
+    content.push({
+      columns: [
+        { stack: [ { text: 'إعداد (الإدارة المالية)', fontSize: 10, bold: true, color: '#1e3a5f', alignment: 'center', margin: [0, 0, 0, 4] }, { text: 'التوقيع: ...............................', fontSize: 10, color: '#94a3b8', alignment: 'center' } ] },
+        { stack: [ { text: 'اعتماد (المالك)', fontSize: 10, bold: true, color: '#1e3a5f', alignment: 'center', margin: [0, 0, 0, 4] }, { text: 'التوقيع: ...............................', fontSize: 10, color: '#94a3b8', alignment: 'center' } ] }
+      ],
+      columnGap: 20,
+      margin: [0, 6, 0, 0]
+    });
+    return makeDd(content, cf, opts);
+  }
+
+  function salaryReceiptPdfDefinition(r, logoData, opts){
+    var companyName = activeCompanyName();
+    var cf = safeFooter();
+    var content = [];
+    appendDocumentHeader(content, logoData, opts);
+    content.push({ columns: [ { text: 'سند قبض راتب', bold: true, fontSize: 16, color: '#1e3a5f' }, statusBadge('معتمد') ], margin: [0, 0, 0, 6] });
+    content.push({ canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.5, lineColor: '#c9a84c' }], margin: [0, 0, 0, 6] });
+    content.push({
+      table: { widths: ['*'], body: [ [ { stack: [ { text: 'صافي الراتب المستلم', fontSize: 9, color: '#94a3b8', alignment: 'center', margin: [0, 0, 0, 2] }, { text: safeMoney(r.amount), bold: true, fontSize: 18, color: '#b8862d', alignment: 'center' } ], alignment: 'center', fillColor: '#fdf6e8', margin: [10, 8, 10, 8] } ] ] },
+      layout: { hLineWidth: function(){ return 1; }, vLineWidth: function(){ return 0; }, hLineColor: function(){ return '#c9a84c'; }, paddingLeft: function(){ return 0; }, paddingRight: function(){ return 0; }, paddingTop: function(){ return 0; }, paddingBottom: function(){ return 0; } },
+      margin: [0, 0, 0, 10]
+    });
+    var salaryDetails = (r.details || []).map(function(d){ return { label: d.label, value: safeMoney(d.value) }; });
+    salaryDetails.push({ label: 'الصافي', value: safeMoney(r.amount) });
+    content.push(summaryTable([
+      { label: 'الموظف', value: r.staffName || '—' },
+      { label: 'الهوية', value: r.staffIdentity || '—' },
+      { label: 'الفترة', value: r.period || '—' }
+    ].concat(salaryDetails)));
+    content.push({
+      stack: [
+        { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.3, lineColor: '#e2e8f0' }], margin: [0, 0, 0, 6] },
+        { text: 'أستلمت أنا (الموظف) من مؤسسة (' + companyName + ') مبلغ ' + safeMoney(r.amount) + ' ريال صافي راتب عن فترة (' + (r.period || '—') + ')، وتقررت بذلك براءة ذمتي.', fontSize: 10, color: '#475569', alignment: 'right', margin: [0, 0, 0, 8] },
+        {
+          columns: [
+            { stack: [ { text: 'الموظف (المستلم)', fontSize: 10, bold: true, color: '#1e3a5f', alignment: 'center', margin: [0, 0, 0, 4] }, { text: 'الاسم: ...............................', fontSize: 10, color: '#94a3b8', alignment: 'center' }, { text: 'التوقيع: ...............................', fontSize: 10, color: '#94a3b8', alignment: 'center' } ] },
+            { stack: [ { text: 'المصدر (المنشأة)', fontSize: 10, bold: true, color: '#1e3a5f', alignment: 'center', margin: [0, 0, 0, 4] }, { text: companyName, fontSize: 10, color: '#1e3a5f', bold: true, alignment: 'center' }, { text: 'التوقيع / الختم: ...............................', fontSize: 10, color: '#94a3b8', alignment: 'center' } ] }
+          ],
+          columnGap: 20,
+          margin: [0, 4, 0, 0]
+        }
+      ],
+      unbreakable: true,
+      margin: [0, 0, 0, 0]
+    });
+    return makeDd(content, cf, opts);
+  }
+
   function contractFinancePdfDefinition(c, logoData, opts){
     var companyName = activeCompanyName();
     var cf = safeFooter();
@@ -1852,6 +1979,46 @@ if (isParts) {
         if (A.visibleContracts) contract = A.visibleContracts().find(function(x){ return x.id === id; });
         if (!contract) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
         dd = contractFinancePdfDefinition(contract, logoData, opts);
+
+      } else if (type === 'custody') {
+        var custodies;
+        try { custodies = A._read ? A._read('misadCustodies') : JSON.parse(localStorage.getItem('misadCustodies') || '[]'); } catch(e){ custodies = null; }
+        if (!custodies || !custodies.length) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
+        var custody = custodies.filter(function(x){ return A.sameCompany ? A.sameCompany(x) : true; }).find(function(x){ return x.id === id; });
+        if (!custody) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
+        dd = custodyPdfDefinition(custody, logoData, opts);
+
+      } else if (type === 'payroll') {
+        var payrolls;
+        try { payrolls = A._read ? A._read('misadPayrolls') : JSON.parse(localStorage.getItem('misadPayrolls') || '[]'); } catch(e){ payrolls = null; }
+        if (!payrolls || !payrolls.length) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
+        var payroll = payrolls.filter(function(x){ return A.sameCompany ? A.sameCompany(x) : true; }).find(function(x){ return x.id === id; });
+        if (!payroll) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
+        dd = payrollPdfDefinition(payroll, logoData, opts);
+
+      } else if (type === 'salary-receipt') {
+        var allPayrolls;
+        try { allPayrolls = A._read ? A._read('misadPayrolls') : JSON.parse(localStorage.getItem('misadPayrolls') || '[]'); } catch(e){ allPayrolls = null; }
+        if (!allPayrolls || !allPayrolls.length) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
+        var parts = String(id || '').split(':');
+        var pay = allPayrolls.filter(function(x){ return A.sameCompany ? A.sameCompany(x) : true; }).find(function(x){ return x.id === parts[0]; });
+        var row = null;
+        if (pay) row = (pay.rows || []).find(function(r){ return String(r.staffId || r.staffIdentity || '') === String(parts[1]); });
+        if (!row) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
+        var salaryRec = {
+          id: pay.id + '-' + (row.staffId || row.staffIdentity || ''),
+          staffName: row.staffName,
+          staffIdentity: row.staffIdentity || row.staffId,
+          period: pay.period,
+          amount: row.net,
+          details: [
+            { label: 'الراتب الأساسي', value: row.base },
+            { label: 'البدلات', value: row.allowances },
+            { label: 'الخصومات', value: row.deductions },
+            { label: 'خصم العهدة', value: row.custodyDeduction }
+          ]
+        };
+        dd = salaryReceiptPdfDefinition(salaryRec, logoData, opts);
 
       } else {
         if (A.downloadPdf) A.downloadPdf(type, id);
