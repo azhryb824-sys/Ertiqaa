@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../core/constants.dart';
 import '../../core/utils.dart';
+import '../../pdf/pdf_generator.dart';
 import '../../state/app_state.dart';
 import '../../state/business_rules.dart';
 import '../../theme.dart';
@@ -115,6 +116,14 @@ class _FinanceScreenState extends State<FinanceScreen> with SingleTickerProvider
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
       children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: FilledButton.icon(
+            onPressed: () => _showReportDialog(app, entries),
+            icon: const Icon(Icons.picture_as_pdf_rounded),
+            label: const Text('تصدير تقرير مالي PDF', style: TextStyle(fontFamily: 'Cairo')),
+          ),
+        ),
         Padding(
           padding: const EdgeInsets.all(16),
           child: GridView.count(
@@ -450,6 +459,124 @@ class _FinanceScreenState extends State<FinanceScreen> with SingleTickerProvider
     if (!mounted) return;
     setState(() { _showForm = false; _amountCtrl.clear(); _descCtrl.clear(); });
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم إضافة القيد.', style: TextStyle(fontFamily: 'Cairo'))));
+  }
+
+  // ===== التقرير المالي PDF =====
+  Future<void> _showReportDialog(AppState app, List<Map<String, dynamic>> entries) async {
+    final now = DateTime.now();
+    final months = <String>[];
+    for (var i = 5; i >= 0; i--) {
+      final d = DateTime(now.year, now.month - i);
+      months.add('${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}');
+    }
+    final options = <(String, String)>[
+      ('all', 'كل الفترة'),
+      ('year', 'السنة الحالية (${now.year})'),
+      for (final m in months) (m, _monthLabel(m)),
+    ];
+    String? selected = options.first.$1;
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('تقرير مالي PDF', style: TextStyle(fontFamily: 'Cairo')),
+        content: SizedBox(
+          width: MediaQuery.of(ctx).size.width * 0.9,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AppDropdown<String>(
+                label: 'الفترة',
+                value: selected,
+                items: [for (final o in options) o.$1],
+                labelOf: (k) => options.firstWhere((o) => o.$1 == k).$2,
+                onChanged: (v) => selected = v,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء', style: TextStyle(fontFamily: 'Cairo'))),
+          FilledButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await _exportReport(app, entries, selected!);
+            },
+            child: const Text('تصدير', style: TextStyle(fontFamily: 'Cairo')),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _exportReport(AppState app, List<Map<String, dynamic>> allEntries, String periodKey) async {
+    final now = DateTime.now();
+    List<Map<String, dynamic>> entries;
+    String label;
+    if (periodKey == 'all') {
+      entries = allEntries;
+      label = 'كل الفترة';
+    } else if (periodKey == 'year') {
+      final y = '${now.year}';
+      entries = allEntries.where((e) => (e['date']?.toString() ?? '').startsWith(y)).toList();
+      label = 'السنة الحالية (${now.year})';
+    } else {
+      entries = allEntries.where((e) => (e['date']?.toString() ?? '').startsWith(periodKey)).toList();
+      label = _monthLabel(periodKey);
+    }
+    entries = List.of(entries)
+      ..sort((a, b) => ((a['createdAtMs'] as num?)?.toInt() ?? 0).compareTo((b['createdAtMs'] as num?)?.toInt() ?? 0));
+
+    var totalIn = 0.0, totalOut = 0.0;
+    final byType = <String, ({double inn, double out})>{};
+    for (final t in _typeOrder) {
+      byType[t] = (inn: 0, out: 0);
+    }
+    for (final e in entries) {
+      final amt = (e['amount'] as num?)?.toDouble() ?? 0;
+      final t = e['type']?.toString() ?? '';
+      final cur = byType[t] ?? (inn: 0, out: 0);
+      if (e['direction']?.toString() == 'in') {
+        byType[t] = (inn: cur.inn + amt, out: cur.out);
+        totalIn += amt;
+      } else {
+        byType[t] = (inn: cur.inn, out: cur.out + amt);
+        totalOut += amt;
+      }
+    }
+
+    final report = {
+      'periodLabel': label,
+      'generatedAt': now.millisecondsSinceEpoch,
+      'totalIn': totalIn,
+      'totalOut': totalOut,
+      'net': totalIn - totalOut,
+      'breakdown': [
+        for (final t in _typeOrder)
+          if (byType[t]!.inn > 0 || byType[t]!.out > 0)
+            {'label': BusinessRules.entryTypeLabel(t), 'inn': byType[t]!.inn, 'out': byType[t]!.out},
+      ],
+      'entries': entries,
+    };
+
+    try {
+      await PdfGenerator.sharePdf('تقرير مالي',
+          PdfGenerator.financialReportContent(report, app.myOwnerCompany),
+          ownerCompany: app.myOwnerCompany);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تعذر إنشاء PDF.', style: TextStyle(fontFamily: 'Cairo'))));
+      }
+    }
+  }
+
+  static String _monthLabel(String ym) {
+    final parts = ym.split('-');
+    if (parts.length != 2) return ym;
+    final y = parts[0];
+    final m = int.tryParse(parts[1]);
+    if (m == null || m < 1 || m > 12) return ym;
+    return '${_monthNames[m - 1]} $y';
   }
 }
 

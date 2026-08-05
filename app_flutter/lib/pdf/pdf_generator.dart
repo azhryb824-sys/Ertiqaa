@@ -682,4 +682,126 @@ class PdfGenerator {
       ),
     );
   }
+
+  /// تقرير مالي شامل.
+  static pw.Widget financialReportContent(Map<String, dynamic> r, Map<String, dynamic> ownerCompany) {
+    final breakdown = (r['breakdown'] as List?) ?? <dynamic>[];
+    final entries = (r['entries'] as List?) ?? <dynamic>[];
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Center(
+          child: pw.Text('تقرير مالي',
+              style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: _green)),
+        ),
+        pw.SizedBox(height: 10),
+        _field('الفترة', r['periodLabel']?.toString() ?? ''),
+        _field('تاريخ التقرير', _fmt(r['generatedAt'])),
+        pw.SizedBox(height: 14),
+        pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.spaceEvenly,
+          children: [
+            _summaryBox('إجمالي الوارد', AppUtils.moneyEn(r['totalIn']), _green),
+            _summaryBox('إجمالي الصادر', AppUtils.moneyEn(r['totalOut']), const PdfColor.fromInt(0xFFc0392b)),
+            _summaryBox('الصافي', AppUtils.moneyEn(r['net']), _gold),
+          ],
+        ),
+        pw.SizedBox(height: 16),
+        pw.Text('التوزيع حسب الفئة',
+            style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: _green)),
+        pw.SizedBox(height: 4),
+        pw.TableHelper.fromTextArray(
+          headers: ['الفئة', 'وارد', 'صادر', 'الصافي'],
+          data: [
+            for (final b in breakdown.cast<Map>())
+              [
+                b['label']?.toString() ?? '',
+                AppUtils.moneyEn(b['inn']),
+                AppUtils.moneyEn(b['out']),
+                AppUtils.moneyEn(((b['inn'] as num?)?.toDouble() ?? 0) - ((b['out'] as num?)?.toDouble() ?? 0)),
+              ],
+          ],
+          headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: const PdfColor.fromInt(0xFFffffff), fontSize: 8),
+          headerDecoration: const pw.BoxDecoration(color: _green),
+          cellStyle: const pw.TextStyle(fontSize: 8),
+          cellAlignments: {
+            0: pw.Alignment.centerRight,
+            1: pw.Alignment.center,
+            2: pw.Alignment.center,
+            3: pw.Alignment.center,
+          },
+          border: pw.TableBorder.all(color: const PdfColor.fromInt(0xFFdde5e3), width: 0.6),
+        ),
+        pw.SizedBox(height: 16),
+        pw.Text('القيود المالية (${entries.length})',
+            style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: _green)),
+        pw.SizedBox(height: 4),
+        if (entries.isEmpty)
+          pw.Text('(لا توجد قيود في هذه الفترة)', style: pw.TextStyle(fontSize: 10, color: const PdfColor.fromInt(0xFF888888)))
+        else
+          pw.TableHelper.fromTextArray(
+            headers: ['رقم القيد', 'النوع', 'الوصف', 'الاتجاه', 'المبلغ', 'التاريخ'],
+            data: [
+              for (final e in entries.cast<Map>())
+                [
+                  e['id']?.toString() ?? '',
+                  _entryTypeLabel(e['type']?.toString() ?? ''),
+                  _truncate(e['description']?.toString() ?? '', 32),
+                  e['direction']?.toString() == 'in' ? 'وارد' : 'صادر',
+                  AppUtils.moneyEn(e['amount']),
+                  _fmt(e['createdAtMs'] ?? e['createdAt']),
+                ],
+            ],
+            headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: const PdfColor.fromInt(0xFFffffff), fontSize: 7),
+            headerDecoration: const pw.BoxDecoration(color: _green),
+            cellStyle: const pw.TextStyle(fontSize: 7),
+            cellAlignments: {
+              0: pw.Alignment.centerRight,
+              1: pw.Alignment.center,
+              2: pw.Alignment.centerRight,
+              3: pw.Alignment.center,
+              4: pw.Alignment.center,
+              5: pw.Alignment.center,
+            },
+            border: pw.TableBorder.all(color: const PdfColor.fromInt(0xFFdde5e3), width: 0.6),
+          ),
+        pw.SizedBox(height: 16),
+        pw.Center(
+          child: pw.Text('— نهاية التقرير —',
+              style: pw.TextStyle(fontSize: 9, color: const PdfColor.fromInt(0xFF94a3b8))),
+        ),
+      ],
+    );
+  }
+
+  static pw.Widget _summaryBox(String label, String value, PdfColor color) {
+    return pw.Container(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: color, width: 1.2),
+        borderRadius: pw.BorderRadius.circular(8),
+      ),
+      child: pw.Column(
+        children: [
+          pw.Text(label, style: pw.TextStyle(fontSize: 9, color: color, fontWeight: pw.FontWeight.bold)),
+          pw.SizedBox(height: 4),
+          pw.Text('$value ر.س', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: _green)),
+        ],
+      ),
+    );
+  }
+
+  static String _entryTypeLabel(String type) {
+    const labels = {
+      'sale': 'مبيعات', 'purchase': 'مشتريات', 'expense': 'مصروف',
+      'salary': 'راتب', 'advance': 'سلفة', 'deduction': 'خصم',
+      'allowance': 'بدل', 'custody': 'عهدة',
+    };
+    return labels[type] ?? type;
+  }
+
+  static String _truncate(String s, int max) {
+    if (s.length <= max) return s;
+    return '${s.substring(0, max)}...';
+  }
 }
