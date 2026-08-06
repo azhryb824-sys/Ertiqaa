@@ -2344,6 +2344,59 @@ if (isParts) {
       { label: 'إجمالي الصادر', value: safeMoney(expense) },
       { label: 'الصافي', value: safeMoney(income - expense) }
     ]));
+    var tx = [], banks = [];
+    try { tx = (A._read ? A._read('misadTreasury') : JSON.parse(localStorage.getItem('misadTreasury') || '[]')) || []; } catch(e){}
+    try { banks = (A._read ? A._read('misadBankAccounts') : JSON.parse(localStorage.getItem('misadBankAccounts') || '[]')) || []; } catch(e){}
+    if (A.sameCompany) tx = tx.filter(function(x){ return A.sameCompany(x); });
+    if (A.sameCompany) banks = banks.filter(function(x){ return A.sameCompany(x); });
+    banks = banks.map(function(b){ return Object.assign({}, b, { balance: 0 }); });
+    var cash = 0;
+    tx.slice().sort(function(a,b){ return (a.createdAtMs||0) - (b.createdAtMs||0); }).forEach(function(t){
+      var amt = Number(t.amount||0);
+      if (t.type === 'transfer') {
+        var from = t.from === 'cash' ? null : banks.find(function(b){ return b.id === t.from; });
+        var to = t.to === 'cash' ? null : banks.find(function(b){ return b.id === t.to; });
+        if (from) from.balance = Math.max(0, from.balance - amt); else cash = Math.max(0, cash - amt);
+        if (to) to.balance += amt; else cash += amt;
+      } else {
+        var target = t.account === 'cash' ? null : banks.find(function(b){ return b.id === t.account; });
+        if (t.type === 'opening') { if (target) target.balance = amt; else cash = amt; }
+        else if (t.type === 'deposit') { if (target) target.balance += amt; else cash += amt; }
+        else if (t.type === 'withdraw') { if (target) target.balance = Math.max(0, target.balance - amt); else cash = Math.max(0, cash - amt); }
+      }
+    });
+    var bankTotal = banks.reduce(function(s,b){ return s + b.balance; }, 0);
+    var cinvs = [];
+    try { cinvs = ((A._read ? A._read('misadCustomerInvoices') : JSON.parse(localStorage.getItem('misadCustomerInvoices') || '[]')) || []).filter(function(x){ return A.sameCompany ? A.sameCompany(x) : true; }); } catch(e){}
+    var cinvPaid = 0, cinvDue = 0;
+    cinvs.forEach(function(x){
+      var paid = (x.payments || []).reduce(function(s,p){ return s + Number(p.amount||0); }, 0) + Number(x.paid||0);
+      var due = Math.max(0, Number(x.total||0) - paid);
+      cinvPaid += paid; cinvDue += due;
+    });
+    content.push(summaryTable([
+      { label: 'رصيد الخزينة', value: safeMoney(cash) },
+      { label: 'إجمالي البنوك', value: safeMoney(bankTotal) },
+      { label: 'مستحقات فواتير العملاء', value: safeMoney(cinvDue) },
+      { label: 'المحصل من فواتير العملاء', value: safeMoney(cinvPaid) }
+    ]));
+    if (banks.length) {
+      content.push({ text: 'الحسابات البنكية', fontSize: 10, bold: true, color: '#1e3a5f', margin: [0, 2, 0, 2] });
+      var bRows = banks.map(function(b){
+        return [
+          { text: b.bankName || '—', fontSize: 10, alignment: 'right' },
+          { text: b.accountName || '—', fontSize: 10, alignment: 'right' },
+          { text: b.accountNumber || b.iban || '—', fontSize: 10, alignment: 'left' },
+          { text: safeMoney(b.balance), fontSize: 10, alignment: 'center', bold: true }
+        ];
+      });
+      content.push({ table: { widths: ['*', '*', 'auto', 'auto'], headerRows: 1, body: [
+        [ { text: 'البنك', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2,2,2,2] },
+          { text: 'اسم الحساب', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2,2,2,2] },
+          { text: 'رقم الحساب / الآيبان', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2,2,2,2] },
+          { text: 'الرصيد', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2,2,2,2] } ]
+      ].concat(bRows) }, margin: [0, 0, 0, 4] });
+    }
     var sorted = entries.slice().sort(function(a,b){ return (b.createdAtMs||0) - (a.createdAtMs||0); });
     content.push({ text: 'أحدث القيود', fontSize: 10, bold: true, color: '#1e3a5f', margin: [0, 2, 0, 2] });
     if (sorted.length) {
