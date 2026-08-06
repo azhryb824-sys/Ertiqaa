@@ -2110,6 +2110,76 @@ if (isParts) {
     return makeDd(content, cf, opts);
   }
 
+  function treasuryPdfDefinition(logoData, opts){
+    var cf = safeFooter();
+    var content = [];
+    appendDocumentHeader(content, logoData, opts);
+    var tx=[],banks=[];
+    try { tx = A._read ? A._read('misadTreasury') : JSON.parse(localStorage.getItem('misadTreasury') || '[]'); } catch(e){}
+    try { banks = A._read ? A._read('misadBankAccounts') : JSON.parse(localStorage.getItem('misadBankAccounts') || '[]'); } catch(e){}
+    if (A.sameCompany) tx=tx.filter(function(x){return A.sameCompany(x);}); if (A.sameCompany) banks=banks.filter(function(x){return A.sameCompany(x);});
+    banks = banks.map(function(b){ return Object.assign({}, b, { balance: 0 }); });
+    var cash = 0;
+    tx.slice().sort(function(a,b){ return (a.createdAtMs||0)-(b.createdAtMs||0); }).forEach(function(t){
+      var amt=Number(t.amount||0);
+      if(t.type==='transfer'){var from=t.from==='cash'?null:banks.find(function(b){return b.id===t.from;}),to=t.to==='cash'?null:banks.find(function(b){return b.id===t.to;});if(from)from.balance=Math.max(0,from.balance-amt);else cash=Math.max(0,cash-amt);if(to)to.balance+=amt;else cash+=amt;}
+      else{var target=t.account==='cash'?null:banks.find(function(b){return b.id===t.account;});if(t.type==='opening'){if(target)target.balance=amt;else cash=amt;}
+      else if(t.type==='deposit'){if(target)target.balance+=amt;else cash+=amt;}
+      else if(t.type==='withdraw'){if(target)target.balance=Math.max(0,target.balance-amt);else cash=Math.max(0,cash-amt);}}
+    });
+    var bankTotal=banks.reduce(function(s,b){return s+b.balance;},0);
+    var grand=cash+bankTotal;
+    content.push({ text: 'كشف الخزينة والبنوك', fontSize: 14, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 2] });
+    content.push(summaryTable([
+      { label: 'رصيد الخزينة (نقد)', value: safeMoney(cash) },
+      { label: 'إجمالي البنوك', value: safeMoney(bankTotal) },
+      { label: 'الإجمالي', value: safeMoney(grand) }
+    ]));
+    if (banks.length) {
+      content.push({ text: 'الحسابات البنكية', fontSize: 10, bold: true, color: '#1e3a5f', margin: [0, 2, 0, 2] });
+      var bRows = banks.map(function(b){
+        return [
+          { text: b.bankName || '—', fontSize: 10, alignment: 'right' },
+          { text: b.accountName || '—', fontSize: 10, alignment: 'right' },
+          { text: b.accountNumber || b.iban || '—', fontSize: 10, alignment: 'left' },
+          { text: safeMoney(b.balance), fontSize: 10, alignment: 'center', bold: true }
+        ];
+      });
+      content.push({ table: { widths: ['*', '*', 'auto', 'auto'], headerRows: 1, body: [
+        [ { text: 'البنك', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2,2,2,2] },
+          { text: 'اسم الحساب', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2,2,2,2] },
+          { text: 'رقم الحساب / الآيبان', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2,2,2,2] },
+          { text: 'الرصيد', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2,2,2,2] } ]
+      ].concat(bRows) }, margin: [0, 0, 0, 4] });
+    }
+    content.push({ text: 'حركات الخزينة والبنوك', fontSize: 10, bold: true, color: '#1e3a5f', margin: [0, 2, 0, 2] });
+    var tRows = tx.slice().sort(function(a,b){ return (b.createdAtMs||0)-(a.createdAtMs||0); }).map(function(t){
+      var nm;
+      if(t.type==='transfer') nm = (t.from==='cash'?'الخزينة':((banks.find(function(b){return b.id===t.from;})||{}).bankName||t.from)) + ' ← ' + (t.to==='cash'?'الخزينة':((banks.find(function(b){return b.id===t.to;})||{}).bankName||t.to));
+      else nm = (t.account==='cash'?'الخزينة':(banks.find(function(b){return b.id===t.account;})||{}).bankName||t.account);
+      var tt = ({opening:'رصيد افتتاحي',deposit:'إيداع',withdraw:'سحب',transfer:'تحويل'})[t.type]||t.type;
+      return [
+        { text: tt, fontSize: 10, alignment: 'center' },
+        { text: nm, fontSize: 10, alignment: 'right' },
+        { text: safeMoney(t.amount), fontSize: 10, alignment: 'center', bold: true },
+        { text: t.date || '—', fontSize: 10, alignment: 'center' },
+        { text: t.note || '—', fontSize: 10, alignment: 'right' }
+      ];
+    });
+    if (tRows.length) {
+      content.push({ table: { widths: ['auto', '*', 'auto', 'auto', '*'], headerRows: 1, body: [
+        [ { text: 'النوع', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2,2,2,2] },
+          { text: 'الحساب', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2,2,2,2] },
+          { text: 'المبلغ', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2,2,2,2] },
+          { text: 'التاريخ', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2,2,2,2] },
+          { text: 'البيان', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2,2,2,2] } ]
+      ].concat(tRows) }, margin: [0, 0, 0, 4] });
+    } else {
+      content.push({ text: 'لا توجد حركات خزينة', fontSize: 10, color: '#94a3b8', margin: [0, 0, 0, 4] });
+    }
+    return makeDd(content, cf, opts);
+  }
+
   function purchaseInvoicePdfDefinition(pi, logoData, opts){
     var cf = safeFooter();
     var content = [];
@@ -2588,6 +2658,9 @@ if (isParts) {
         var cinv = cinvs.filter(function(x){ return A.sameCompany ? A.sameCompany(x) : true; }).find(function(x){ return x.id === id; });
         if (!cinv) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
         dd = customerInvoicePdfDefinition(cinv, logoData, opts);
+
+      } else if (type === 'treasury') {
+        dd = treasuryPdfDefinition(logoData, opts);
 
       } else {
         if (A.downloadPdf) A.downloadPdf(type, id);
