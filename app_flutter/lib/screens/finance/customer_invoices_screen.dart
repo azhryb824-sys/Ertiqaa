@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/constants.dart';
 import '../../core/utils.dart';
 import '../../models/contract.dart';
+import '../../pdf/pdf_generator.dart';
 import '../../state/app_state.dart';
 import '../../state/business_rules.dart';
 import '../../theme.dart';
@@ -344,6 +345,18 @@ class _CustomerInvoicesScreenState extends State<CustomerInvoicesScreen> {
                   icon: const Icon(Icons.payments_rounded),
                   label: const Text('تحصيل', style: TextStyle(fontFamily: 'Cairo')),
                 ),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.only(top: 16),
+                child: FilledButton.icon(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _print(inv);
+                  },
+                  icon: const Icon(Icons.print_rounded),
+                  label: const Text('طباعة PDF', style: TextStyle(fontFamily: 'Cairo')),
+                ),
               ),
           ],
         ),
@@ -354,6 +367,17 @@ class _CustomerInvoicesScreenState extends State<CustomerInvoicesScreen> {
   void _snack(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg, style: const TextStyle(fontFamily: 'Cairo'))));
+  }
+
+  Future<void> _print(Map<String, dynamic> inv) async {
+    final app = AppState.instance;
+    try {
+      await PdfGenerator.sharePdf('فاتورة عميل',
+          PdfGenerator.customerInvoiceContent(inv, app.myOwnerCompany),
+          ownerCompany: app.myOwnerCompany);
+    } catch (_) {
+      _snack('تعذر إنشاء PDF.');
+    }
   }
 
   @override
@@ -491,6 +515,12 @@ class _CustomerInvoicesScreenState extends State<CustomerInvoicesScreen> {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              IconButton(
+                padding: const EdgeInsets.all(2),
+                constraints: const BoxConstraints(),
+                icon: const Icon(Icons.print_rounded, size: 20, color: AppTheme.primary),
+                onPressed: () => _print(inv),
+              ),
               if (info.due > 0)
                 IconButton(
                   padding: const EdgeInsets.all(2),

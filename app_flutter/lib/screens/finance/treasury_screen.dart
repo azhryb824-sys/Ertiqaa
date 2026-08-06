@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/constants.dart';
 import '../../core/utils.dart';
+import '../../pdf/pdf_generator.dart';
 import '../../state/app_state.dart';
 import '../../theme.dart';
 import '../../widgets/common.dart';
@@ -8,6 +9,10 @@ import '../../widgets/common.dart';
 /// الخزينة والبنوك: حسابات بنكية + حركات خزينة (إيداع/سحب/تحويل/رصيد افتتاحي).
 class TreasuryScreen extends StatefulWidget {
   const TreasuryScreen({super.key});
+
+  /// واجهة عامة لحساب حالة الخزينة (تستخدم في التقارير واللوحات الأخرى).
+  static ({double cash, List<Map<String, dynamic>> banks, double total, List<Map<String, dynamic>> tx})
+      computeState(AppState app) => _TreasuryScreenState.treasuryState(app);
 
   @override
   State<TreasuryScreen> createState() => _TreasuryScreenState();
@@ -299,6 +304,24 @@ class _TreasuryScreenState extends State<TreasuryScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg, style: const TextStyle(fontFamily: 'Cairo'))));
   }
 
+  Future<void> _printStatement() async {
+    final app = AppState.instance;
+    final st = treasuryState(app);
+    try {
+      await PdfGenerator.sharePdf('كشف الخزينة والبنوك',
+          PdfGenerator.treasuryStatementContent(
+            cash: st.cash,
+            banks: st.banks,
+            total: st.total,
+            tx: st.tx,
+            ownerCompany: app.myOwnerCompany,
+          ),
+          ownerCompany: app.myOwnerCompany);
+    } catch (_) {
+      _snack('تعذر إنشاء PDF.');
+    }
+  }
+
   List<String> _accountOptions(AppState app) => ['cash', for (final b in app.allBankAccounts.where(app.sameCompany)) b['id']?.toString() ?? ''];
 
   @override
@@ -349,6 +372,14 @@ class _TreasuryScreenState extends State<TreasuryScreen> {
                     onPressed: () => setState(() => _showBankForm = !_showBankForm),
                     icon: const Icon(Icons.add_card_rounded, size: 18),
                     label: const Text('حساب بنكي', style: TextStyle(fontFamily: 'Cairo')),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FilledButton.tonalIcon(
+                    onPressed: _printStatement,
+                    icon: const Icon(Icons.print_rounded, size: 18),
+                    label: const Text('كشف PDF', style: TextStyle(fontFamily: 'Cairo')),
                   ),
                 ),
               ],

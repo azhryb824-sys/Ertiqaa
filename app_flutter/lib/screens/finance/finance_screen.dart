@@ -777,6 +777,37 @@ class _FinanceScreenState extends State<FinanceScreen> with SingleTickerProvider
       'entries': entries,
     };
 
+    final trs = TreasuryScreen.computeState(app);
+    final cinvs = app.allCustomerInvoices.where(app.sameCompany).toList();
+    var cinvDue = 0.0, cinvPaid = 0.0, cinvTotal = 0.0;
+    final cinvRows = <Map<String, dynamic>>[];
+    for (final inv in cinvs) {
+      final info = CustomerInvoicesScreen.invoiceInfo(inv);
+      cinvDue += info.due;
+      cinvPaid += info.paid;
+      cinvTotal += info.total;
+      cinvRows.add({
+        'no': inv['invoiceNo'] ?? inv['id'] ?? '—',
+        'client': _invoiceClient(app, inv),
+        'total': info.total,
+        'paid': info.paid,
+        'due': info.due,
+        'status': info.status,
+      });
+    }
+    report['treasury'] = {
+      'cash': trs.cash,
+      'banksTotal': trs.banks.fold<double>(0, (s, b) => s + ((b['balance'] as num?)?.toDouble() ?? 0)),
+      'total': trs.total,
+      'banks': trs.banks,
+    };
+    report['customerInvoices'] = {
+      'due': cinvDue,
+      'paid': cinvPaid,
+      'total': cinvTotal,
+      'rows': cinvRows,
+    };
+
     try {
       await PdfGenerator.sharePdf('تقرير مالي',
           PdfGenerator.financialReportContent(report, app.myOwnerCompany),
@@ -795,6 +826,15 @@ class _FinanceScreenState extends State<FinanceScreen> with SingleTickerProvider
     final m = int.tryParse(parts[1]);
     if (m == null || m < 1 || m > 12) return ym;
     return '${_monthNames[m - 1]} $y';
+  }
+
+  static String _invoiceClient(AppState app, Map<String, dynamic> inv) {
+    final name = inv['clientName']?.toString() ?? '';
+    if (name.isNotEmpty) return name;
+    for (final c in app.allContracts) {
+      if (c.id == inv['contractId']?.toString()) return c.clientLabel;
+    }
+    return inv['clientCompanyName']?.toString() ?? '—';
   }
 }
 

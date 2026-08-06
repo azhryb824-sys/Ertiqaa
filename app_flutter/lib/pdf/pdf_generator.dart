@@ -766,6 +766,8 @@ class PdfGenerator {
             border: pw.TableBorder.all(color: const PdfColor.fromInt(0xFFdde5e3), width: 0.6),
           ),
         pw.SizedBox(height: 16),
+        reportExtraSections(r),
+        pw.SizedBox(height: 16),
         pw.Center(
           child: pw.Text('— نهاية التقرير —',
               style: pw.TextStyle(fontSize: 9, color: const PdfColor.fromInt(0xFF94a3b8))),
@@ -791,6 +793,74 @@ class PdfGenerator {
     );
   }
 
+  /// أقسام الخزينة وفواتير العملاء داخل التقرير المالي الشامل.
+  static pw.Widget reportExtraSections(Map<String, dynamic> report) {
+    final trs = (report['treasury'] as Map?) ?? const {};
+    final cinvs = (report['customerInvoices'] as Map?) ?? const {};
+    final banks = (trs['banks'] as List?) ?? <dynamic>[];
+    final cinvRows = (cinvs['rows'] as List?) ?? <dynamic>[];
+    final cinvDue = (cinvs['due'] as num?)?.toDouble() ?? 0;
+
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        if (trs.isNotEmpty) ...[
+          pw.SizedBox(height: 16),
+          pw.Text('الخزينة والبنوك', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: _green)),
+          pw.SizedBox(height: 4),
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceEvenly,
+            children: [
+              _summaryBox('رصيد الخزينة', AppUtils.moneyEn(trs['cash']), _green),
+              _summaryBox('إجمالي البنوك', AppUtils.moneyEn(trs['banksTotal']), const PdfColor.fromInt(0xFF2b6cb0)),
+              _summaryBox('الإجمالي', AppUtils.moneyEn(trs['total']), _gold),
+            ],
+          ),
+          if (banks.isNotEmpty) ...[
+            pw.SizedBox(height: 8),
+            pw.TableHelper.fromTextArray(
+              headers: ['البنك', 'اسم الحساب', 'الرصيد'],
+              data: [
+                for (final b in banks.cast<Map>())
+                  [b['bankName']?.toString() ?? '—', b['accountName']?.toString() ?? '—', AppUtils.moneyEn(b['balance'])],
+              ],
+              headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: const PdfColor.fromInt(0xFFffffff), fontSize: 8),
+              headerDecoration: const pw.BoxDecoration(color: _green),
+              cellStyle: const pw.TextStyle(fontSize: 8),
+              cellAlignments: {0: pw.Alignment.centerRight, 1: pw.Alignment.centerRight, 2: pw.Alignment.center},
+              border: pw.TableBorder.all(color: const PdfColor.fromInt(0xFFdde5e3), width: 0.6),
+            ),
+          ],
+        ],
+        if (cinvs.isNotEmpty) ...[
+          pw.SizedBox(height: 16),
+          pw.Text('فواتير العملاء — إجمالي ${AppUtils.moneyEn(cinvs['total'])} • محصل ${AppUtils.moneyEn(cinvs['paid'])} • متبقي ${AppUtils.moneyEn(cinvDue)}',
+              style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: _green)),
+          pw.SizedBox(height: 4),
+          if (cinvRows.isEmpty)
+            pw.Text('(لا توجد فواتير عملاء)', style: pw.TextStyle(fontSize: 10, color: const PdfColor.fromInt(0xFF888888)))
+          else
+            pw.TableHelper.fromTextArray(
+              headers: ['الرقم', 'العميل', 'الإجمالي', 'المحصل', 'المتبقي', 'الحالة'],
+              data: [
+                for (final r in cinvRows.cast<Map>())
+                  [
+                    r['no'].toString(), r['client'].toString(),
+                    AppUtils.moneyEn(r['total']), AppUtils.moneyEn(r['paid']),
+                    AppUtils.moneyEn(r['due']), r['status']?.toString() ?? '',
+                  ],
+              ],
+              headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: const PdfColor.fromInt(0xFFffffff), fontSize: 8),
+              headerDecoration: const pw.BoxDecoration(color: _green),
+              cellStyle: const pw.TextStyle(fontSize: 8),
+              cellAlignments: {0: pw.Alignment.center, 1: pw.Alignment.centerRight, 2: pw.Alignment.center, 3: pw.Alignment.center, 4: pw.Alignment.center, 5: pw.Alignment.center},
+              border: pw.TableBorder.all(color: const PdfColor.fromInt(0xFFdde5e3), width: 0.6),
+            ),
+        ],
+      ],
+    );
+  }
+
   static String _entryTypeLabel(String type) {
     const labels = {
       'sale': 'مبيعات', 'purchase': 'مشتريات', 'expense': 'مصروف',
@@ -803,5 +873,222 @@ class PdfGenerator {
   static String _truncate(String s, int max) {
     if (s.length <= max) return s;
     return '${s.substring(0, max)}...';
+  }
+
+  /// فاتورة عميل (مطابق customerInvoicePdfDefinition في web).
+  static pw.Widget customerInvoiceContent(Map<String, dynamic> inv, Map<String, dynamic> ownerCompany) {
+    final items = (inv['items'] as List?) ?? <dynamic>[];
+    final payments = (inv['payments'] as List?) ?? <dynamic>[];
+    var paid = (inv['paid'] as num?)?.toDouble() ?? 0;
+    for (final p in payments) {
+      paid += (p['amount'] as num?)?.toDouble() ?? 0;
+    }
+    final total = (inv['total'] as num?)?.toDouble() ?? 0;
+    final due = (total - paid).clamp(0.0, double.infinity).toDouble();
+    final subtotal = (inv['subtotal'] as num?)?.toDouble() ?? 0;
+    final tax = (inv['tax'] as num?)?.toDouble() ?? 0;
+    final discount = (inv['discount'] as num?)?.toDouble() ?? 0;
+    final clientName = inv['clientName']?.toString() ?? inv['clientCompanyName']?.toString() ?? '—';
+
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Center(
+          child: pw.Text('فاتورة عميل',
+              style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: _green)),
+        ),
+        pw.SizedBox(height: 10),
+        _field('رقم الفاتورة', inv['invoiceNo']?.toString() ?? inv['id']?.toString() ?? ''),
+        _field('العميل', clientName),
+        if ((inv['clientCompanyName']?.toString() ?? '').isNotEmpty)
+          _field('المنشأة / الرقم الموحد', '${inv['clientCompanyName']} ${(inv['clientCompanyUnifiedNumber']?.toString() ?? '').isNotEmpty ? '/ ${inv['clientCompanyUnifiedNumber']}' : ''}'),
+        _field('التاريخ', inv['date']?.toString() ?? '—'),
+        if ((inv['dueDate']?.toString() ?? '').isNotEmpty) _field('تاريخ الاستحقاق', inv['dueDate'].toString()),
+        pw.SizedBox(height: 14),
+        pw.Text('بنود الفاتورة', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: _green)),
+        pw.SizedBox(height: 4),
+        if (items.isEmpty)
+          pw.Text('(لا توجد بنود)', style: pw.TextStyle(fontSize: 10, color: const PdfColor.fromInt(0xFF888888)))
+        else
+          pw.TableHelper.fromTextArray(
+            headers: ['الوصف', 'الكمية', 'سعر الوحدة', 'الإجمالي'],
+            data: [
+              for (final it in items.cast<Map>())
+                [
+                  it['description']?.toString() ?? '',
+                  (it['qty'] as num?)?.toString() ?? '1',
+                  AppUtils.moneyEn(it['unitPrice']),
+                  AppUtils.moneyEn(((it['qty'] as num?)?.toDouble() ?? 1) * ((it['unitPrice'] as num?)?.toDouble() ?? 0)),
+                ],
+            ],
+            headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: const PdfColor.fromInt(0xFFffffff), fontSize: 9),
+            headerDecoration: const pw.BoxDecoration(color: _green),
+            cellStyle: const pw.TextStyle(fontSize: 9),
+            cellAlignments: {
+              0: pw.Alignment.centerRight,
+              1: pw.Alignment.center,
+              2: pw.Alignment.center,
+              3: pw.Alignment.center,
+            },
+            border: pw.TableBorder.all(color: const PdfColor.fromInt(0xFFdde5e3), width: 0.6),
+          ),
+        pw.SizedBox(height: 14),
+        pw.Text('ملخص المبالغ', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: _green)),
+        pw.SizedBox(height: 4),
+        _line('المجموع الفرعي', subtotal),
+        _line('الضريبة (${(inv['taxRate'] as num?)?.toString() ?? '0'}%)', tax),
+        _line('الخصم', discount),
+        _line('الإجمالي', total, bold: true, color: _gold),
+        _line('المحصل', paid),
+        _line('المتبقي', due, bold: true, color: due > 0 ? const PdfColor.fromInt(0xFFc0392b) : _green),
+        pw.SizedBox(height: 14),
+        pw.Text('سجل التحصيل', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: _green)),
+        pw.SizedBox(height: 4),
+        if (payments.isEmpty)
+          pw.Text('(لا توجد دفعات)', style: pw.TextStyle(fontSize: 10, color: const PdfColor.fromInt(0xFF888888)))
+        else
+          pw.TableHelper.fromTextArray(
+            headers: ['التاريخ', 'المبلغ', 'طريقة الدفع', 'البيان'],
+            data: [
+              for (final p in payments.cast<Map>())
+                [
+                  p['date']?.toString() ?? '—',
+                  AppUtils.moneyEn(p['amount']),
+                  p['paymentMethod']?.toString() ?? '—',
+                  p['note']?.toString() ?? '',
+                ],
+            ],
+            headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: const PdfColor.fromInt(0xFFffffff), fontSize: 8),
+            headerDecoration: const pw.BoxDecoration(color: _green),
+            cellStyle: const pw.TextStyle(fontSize: 8),
+            cellAlignments: {
+              0: pw.Alignment.center,
+              1: pw.Alignment.center,
+              2: pw.Alignment.center,
+              3: pw.Alignment.centerRight,
+            },
+            border: pw.TableBorder.all(color: const PdfColor.fromInt(0xFFdde5e3), width: 0.6),
+          ),
+        pw.SizedBox(height: 18),
+        pw.Divider(color: const PdfColor.fromInt(0xFFe2e8f0), height: 10),
+        pw.SizedBox(height: 6),
+        pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          children: [
+            pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              children: [
+                pw.Text('العميل', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: _green)),
+                pw.SizedBox(height: 4),
+                pw.Text('التوقيع: .................................', style: pw.TextStyle(fontSize: 9, color: const PdfColor.fromInt(0xFF94a3b8))),
+              ],
+            ),
+            pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              children: [
+                pw.Text('المصدر (المنشأة)', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: _green)),
+                pw.SizedBox(height: 4),
+                pw.Text(ownerCompany['name']?.toString() ?? 'شركة شموس للمصاعد', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: _green)),
+                pw.SizedBox(height: 4),
+                pw.Text('التوقيع / الختم: .................................', style: pw.TextStyle(fontSize: 9, color: const PdfColor.fromInt(0xFF94a3b8))),
+              ],
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// كشف الخزينة والبنوك (مطابق treasuryPdfDefinition في web).
+  static pw.Widget treasuryStatementContent({
+    required double cash,
+    required List<Map<String, dynamic>> banks,
+    required double total,
+    required List<Map<String, dynamic>> tx,
+    required Map<String, dynamic> ownerCompany,
+  }) {
+    const typeLabels = {
+      'opening': 'رصيد افتتاحي', 'deposit': 'إيداع', 'withdraw': 'سحب', 'transfer': 'تحويل',
+    };
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Center(
+          child: pw.Text('كشف الخزينة والبنوك',
+              style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: _green)),
+        ),
+        pw.SizedBox(height: 12),
+        pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.spaceEvenly,
+          children: [
+            _summaryBox('رصيد الخزينة', AppUtils.moneyEn(cash), _green),
+            _summaryBox('إجمالي البنوك', AppUtils.moneyEn(banks.fold<double>(0, (s, b) => s + ((b['balance'] as num?)?.toDouble() ?? 0))), const PdfColor.fromInt(0xFF2b6cb0)),
+            _summaryBox('الإجمالي', AppUtils.moneyEn(total), _gold),
+          ],
+        ),
+        if (banks.isNotEmpty) ...[
+          pw.SizedBox(height: 14),
+          pw.Text('الحسابات البنكية', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: _green)),
+          pw.SizedBox(height: 4),
+          pw.TableHelper.fromTextArray(
+            headers: ['البنك', 'اسم الحساب', 'رقم الحساب / الآيبان', 'الرصيد'],
+            data: [
+              for (final b in banks)
+                [
+                  b['bankName']?.toString() ?? '—',
+                  b['accountName']?.toString() ?? '—',
+                  b['accountNumber']?.toString() ?? b['iban']?.toString() ?? '—',
+                  AppUtils.moneyEn(b['balance']),
+                ],
+            ],
+            headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: const PdfColor.fromInt(0xFFffffff), fontSize: 8),
+            headerDecoration: const pw.BoxDecoration(color: _green),
+            cellStyle: const pw.TextStyle(fontSize: 8),
+            cellAlignments: {
+              0: pw.Alignment.centerRight,
+              1: pw.Alignment.centerRight,
+              2: pw.Alignment.center,
+              3: pw.Alignment.center,
+            },
+            border: pw.TableBorder.all(color: const PdfColor.fromInt(0xFFdde5e3), width: 0.6),
+          ),
+        ],
+        pw.SizedBox(height: 14),
+        pw.Text('حركات الخزينة والبنوك', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: _green)),
+        pw.SizedBox(height: 4),
+        if (tx.isEmpty)
+          pw.Text('(لا توجد حركات)', style: pw.TextStyle(fontSize: 10, color: const PdfColor.fromInt(0xFF888888)))
+        else
+          pw.TableHelper.fromTextArray(
+            headers: ['النوع', 'الحساب', 'المبلغ', 'التاريخ', 'البيان'],
+            data: [
+              for (final t in tx)
+                [
+                  typeLabels[t['type']?.toString()] ?? t['type']?.toString() ?? '',
+                  t['account']?.toString() ?? '—',
+                  AppUtils.moneyEn(t['amount']),
+                  t['date']?.toString() ?? '—',
+                  t['note']?.toString() ?? '',
+                ],
+            ],
+            headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: const PdfColor.fromInt(0xFFffffff), fontSize: 8),
+            headerDecoration: const pw.BoxDecoration(color: _green),
+            cellStyle: const pw.TextStyle(fontSize: 8),
+            cellAlignments: {
+              0: pw.Alignment.centerRight,
+              1: pw.Alignment.centerRight,
+              2: pw.Alignment.center,
+              3: pw.Alignment.center,
+              4: pw.Alignment.centerRight,
+            },
+            border: pw.TableBorder.all(color: const PdfColor.fromInt(0xFFdde5e3), width: 0.6),
+          ),
+        pw.SizedBox(height: 16),
+        pw.Center(
+          child: pw.Text('— نهاية الكشف —', style: pw.TextStyle(fontSize: 9, color: const PdfColor.fromInt(0xFF94a3b8))),
+        ),
+      ],
+    );
   }
 }
