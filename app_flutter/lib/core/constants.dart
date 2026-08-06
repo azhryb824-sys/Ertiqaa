@@ -14,6 +14,7 @@ class AppConstants {
     'misadVisitMessages', 'misadMeetings', 'misadSystemBanners',
     'misadKnowledgePages', 'misadAdminInvites',     'misadFinancialEntries',
     'misadReceipts', 'misadInvoices', 'misadCustodies', 'misadPayrolls',
+    'misadCustomerInvoices', 'misadTreasury', 'misadBankAccounts',
   ];
 
   static const String kClaims = 'misadClaims';
@@ -25,6 +26,9 @@ class AppConstants {
   static const String kDeviceId = 'misadDeviceId';
   static const String kContractPdfDownloads = 'misadContractPdfDownloads';
   static const String kQuotePdfDownloads = 'misadQuotePdfDownloads';
+  static const String kCustomerInvoices = 'misadCustomerInvoices';
+  static const String kTreasury = 'misadTreasury';
+  static const String kBankAccounts = 'misadBankAccounts';
 
   // ===== الأدوار =====
   static const String roleOwner = 'owner';

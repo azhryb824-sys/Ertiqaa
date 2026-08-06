@@ -10,6 +10,8 @@ import '../../widgets/common.dart';
 import 'staff_finance_screen.dart';
 import 'receipts_screen.dart';
 import 'claims_screen.dart';
+import 'customer_invoices_screen.dart';
+import 'treasury_screen.dart';
 
 /// لوحة الإدارة المالية المتطورة: نظرة عامة + قيود قابلة للفلترة
 /// + مالية الموظفين + سندات القبض + المستخلصات (صفحة موحّدة بتبويبات).
@@ -22,7 +24,7 @@ class FinanceScreen extends StatefulWidget {
 }
 
 class _FinanceScreenState extends State<FinanceScreen> with SingleTickerProviderStateMixin {
-  late final TabController _tabC = TabController(length: 5, initialIndex: widget.initialTab, vsync: this)
+  late final TabController _tabC = TabController(length: 7, initialIndex: widget.initialTab, vsync: this)
     ..addListener(() {
       if (_tabC.index != _tab) setState(() => _tab = _tabC.index);
     });
@@ -91,6 +93,8 @@ class _FinanceScreenState extends State<FinanceScreen> with SingleTickerProvider
                 Tab(text: 'مالية الموظفين'),
                 Tab(text: 'سندات القبض'),
                 Tab(text: 'المستخلصات'),
+                Tab(text: 'فواتير العملاء'),
+                Tab(text: 'الخزينة والبنوك'),
               ],
             ),
           ),
@@ -103,6 +107,8 @@ class _FinanceScreenState extends State<FinanceScreen> with SingleTickerProvider
                 const StaffFinanceScreen(),
                 const ReceiptsScreen(),
                 const ClaimsScreen(),
+                const CustomerInvoicesScreen(),
+                const TreasuryScreen(),
               ],
             ),
           ),
@@ -124,6 +130,11 @@ class _FinanceScreenState extends State<FinanceScreen> with SingleTickerProvider
     final custodies = app.allCustodies.where(app.sameCompany).toList();
     final payrolls = app.allPayrolls.where(app.sameCompany).toList();
     final activeCustody = custodies.where((c) => c['status']?.toString() != 'مسددة').length;
+    final cinvoices = app.allCustomerInvoices.where(app.sameCompany).toList();
+    var cinvDue = 0.0;
+    for (final inv in cinvoices) {
+      cinvDue += CustomerInvoicesScreen.invoiceInfo(inv).due;
+    }
 
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
@@ -179,6 +190,21 @@ class _FinanceScreenState extends State<FinanceScreen> with SingleTickerProvider
               const SizedBox(width: 10),
               Expanded(
                 child: _QuickTile(icon: Icons.payments_rounded, label: 'مسيرات الرواتب', count: '${payrolls.length}', onTap: () => app.go('staff-finance')),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              Expanded(
+                child: _QuickTile(icon: Icons.receipt_long_rounded, label: 'فواتير العملاء', count: '${cinvoices.length} • متبقي ${AppUtils.money(cinvDue)}', onTap: () => _tabC.animateTo(5)),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _QuickTile(icon: Icons.account_balance_rounded, label: 'الخزينة والبنوك', count: '${app.allBankAccounts.where(app.sameCompany).length} حساب', onTap: () => _tabC.animateTo(6)),
               ),
             ],
           ),
@@ -325,6 +351,17 @@ class _FinanceScreenState extends State<FinanceScreen> with SingleTickerProvider
       }
     }
 
+    final cinvs = app.allCustomerInvoices.where(app.sameCompany).toList();
+    var cinvCount = 0;
+    var cinvDue = 0.0;
+    for (final inv in cinvs) {
+      final due = CustomerInvoicesScreen.invoiceInfo(inv).due;
+      if (due > 0) {
+        cinvCount++;
+        cinvDue += due;
+      }
+    }
+
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       color: const Color(0xFFFDF6EC),
@@ -348,6 +385,8 @@ class _FinanceScreenState extends State<FinanceScreen> with SingleTickerProvider
                 '${activeCust.length} بمتبقي ${AppUtils.money(custTotal)}'),
             _alertRow(Icons.account_balance_wallet_rounded, AppTheme.primary, 'عقود برصيد غير محصّل',
                 '$unpaidContracts بمبلغ ${AppUtils.money(unpaidTotal)}'),
+            _alertRow(Icons.receipt_long_rounded, AppTheme.primary, 'فواتير عملاء غير مسددة',
+                '$cinvCount بمبلغ ${AppUtils.money(cinvDue)}'),
           ],
         ),
       ),
