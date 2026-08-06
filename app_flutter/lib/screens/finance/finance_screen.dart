@@ -7,17 +7,22 @@ import '../../state/app_state.dart';
 import '../../state/business_rules.dart';
 import '../../theme.dart';
 import '../../widgets/common.dart';
+import 'staff_finance_screen.dart';
+import 'receipts_screen.dart';
+import 'claims_screen.dart';
 
-/// لوحة الإدارة المالية المتطورة: نظرة عامة + قيود قابلة للفلترة.
+/// لوحة الإدارة المالية المتطورة: نظرة عامة + قيود قابلة للفلترة
+/// + مالية الموظفين + سندات القبض + المستخلصات (صفحة موحّدة بتبويبات).
 class FinanceScreen extends StatefulWidget {
-  const FinanceScreen({super.key});
+  final int initialTab;
+  const FinanceScreen({super.key, this.initialTab = 0});
 
   @override
   State<FinanceScreen> createState() => _FinanceScreenState();
 }
 
 class _FinanceScreenState extends State<FinanceScreen> with SingleTickerProviderStateMixin {
-  late final TabController _tabC = TabController(length: 2, vsync: this)
+  late final TabController _tabC = TabController(length: 5, initialIndex: widget.initialTab, vsync: this)
     ..addListener(() {
       if (_tabC.index != _tab) setState(() => _tab = _tabC.index);
     });
@@ -83,6 +88,9 @@ class _FinanceScreenState extends State<FinanceScreen> with SingleTickerProvider
               tabs: const [
                 Tab(text: 'نظرة عامة'),
                 Tab(text: 'القيود المالية'),
+                Tab(text: 'مالية الموظفين'),
+                Tab(text: 'سندات القبض'),
+                Tab(text: 'المستخلصات'),
               ],
             ),
           ),
@@ -92,6 +100,9 @@ class _FinanceScreenState extends State<FinanceScreen> with SingleTickerProvider
               children: [
                 _buildOverview(app, entries),
                 _buildEntries(app, entries),
+                const StaffFinanceScreen(),
+                const ReceiptsScreen(),
+                const ClaimsScreen(),
               ],
             ),
           ),
