@@ -2042,6 +2042,74 @@ if (isParts) {
     return makeDd(content, cf, opts);
   }
 
+  function customerInvoicePdfDefinition(inv, logoData, opts){
+    var cf = safeFooter();
+    var content = [];
+    appendDocumentHeader(content, logoData, opts);
+    var contract = {};
+    if (A.visibleContracts) contract = A.visibleContracts().find(function(x){ return x.id === inv.contractId; }) || {};
+    var paid = (inv.payments || []).reduce(function(s,p){ return s + Number(p.amount||0); }, 0) + Number(inv.paid||0);
+    var total = Number(inv.total||0);
+    var due = Math.max(0, total - paid);
+    var status = inv.status === 'ملغاة' ? 'ملغاة' : (due <= 0 && total > 0 ? 'مدفوعة' : (paid > 0 ? 'جزئية' : 'مستحقة'));
+    var clName = inv.clientName || (contract.id ? safeLabel(contract) : (inv.clientCompanyName || '—'));
+    content.push({ text: 'فاتورة عميل', fontSize: 14, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 2] });
+    content.push(summaryTable([
+      { label: 'رقم الفاتورة', value: inv.invoiceNo || inv.id },
+      { label: 'العميل', value: clName },
+      { label: 'المنشأة', value: inv.clientCompanyName || contract.clientCompanyName || '—' }
+    ]));
+    content.push(summaryTable([
+      { label: 'التاريخ', value: inv.date || '—' },
+      { label: 'تاريخ الاستحقاق', value: inv.dueDate || '—' },
+      { label: 'الحالة', value: status }
+    ]));
+    content.push({ text: 'بنود الفاتورة', fontSize: 10, bold: true, color: '#1e3a5f', margin: [0, 2, 0, 2] });
+    if ((inv.items||[]).length) {
+      var itemRows = inv.items.map(function(x){
+        return [
+          { text: x.description || '—', fontSize: 10, alignment: 'right' },
+          { text: String(x.qty||1), fontSize: 10, alignment: 'center' },
+          { text: safeMoney(x.unitPrice), fontSize: 10, alignment: 'center' },
+          { text: safeMoney(Number(x.qty||1)*Number(x.unitPrice||0)), fontSize: 10, alignment: 'center', bold: true }
+        ];
+      });
+      content.push({ table: { widths: ['*', 'auto', 'auto', 'auto'], headerRows: 1, body: [
+        [ { text: 'الوصف', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2,2,2,2] },
+          { text: 'الكمية', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2,2,2,2] },
+          { text: 'سعر الوحدة', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2,2,2,2] },
+          { text: 'الإجمالي', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2,2,2,2] } ]
+      ].concat(itemRows) }, margin: [0, 0, 0, 4] });
+    }
+    content.push({ text: 'ملخص المبالغ', fontSize: 10, bold: true, color: '#1e3a5f', margin: [0, 2, 0, 2] });
+    content.push({ table: { widths: ['*', 'auto'], headerRows: 1, body: [
+      [ { text: 'البند', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [1,1,1,1] },
+        { text: 'القيمة', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [1,1,1,1] } ],
+      [ { text: 'المجموع الفرعي', fontSize: 10 }, { text: safeMoney(inv.subtotal), fontSize: 10, alignment: 'center' } ],
+      [ { text: 'الضريبة (' + Number(inv.taxRate||0) + '%)', fontSize: 10 }, { text: safeMoney(inv.tax), fontSize: 10, alignment: 'center' } ],
+      [ { text: 'الخصم', fontSize: 10 }, { text: safeMoney(inv.discount||0), fontSize: 10, alignment: 'center' } ],
+      [ { text: 'الإجمالي', fontSize: 10, bold: true }, { text: safeMoney(total), fontSize: 10, alignment: 'center', bold: true } ],
+      [ { text: 'المحصل', fontSize: 10 }, { text: safeMoney(paid), fontSize: 10, alignment: 'center' } ],
+      [ { text: 'المتبقي', fontSize: 10, bold: true }, { text: safeMoney(due), fontSize: 10, alignment: 'center', bold: true, color: due > 0 ? '#dc2626' : '#2d7d6d' } ]
+    ] }, margin: [0, 0, 0, 4] });
+    if ((inv.payments||[]).length && (inv.payments||[]).some(function(p){ return p; })) {
+      content.push({ text: 'سجل التحصيل', fontSize: 10, bold: true, color: '#1e3a5f', margin: [0, 2, 0, 2] });
+      var payRows = inv.payments.map(function(p){
+        return [
+          { text: p.date || '—', fontSize: 10, alignment: 'center' },
+          { text: safeMoney(p.amount), fontSize: 10, alignment: 'center', bold: true },
+          { text: p.paymentMethod || '—', fontSize: 10, alignment: 'center' }
+        ];
+      });
+      content.push({ table: { widths: ['auto', 'auto', '*'], headerRows: 1, body: [
+        [ { text: 'التاريخ', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2,2,2,2] },
+          { text: 'المبلغ', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2,2,2,2] },
+          { text: 'طريقة الدفع', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2,2,2,2] } ]
+      ].concat(payRows) }, margin: [0, 0, 0, 4] });
+    }
+    return makeDd(content, cf, opts);
+  }
+
   function purchaseInvoicePdfDefinition(pi, logoData, opts){
     var cf = safeFooter();
     var content = [];
@@ -2512,6 +2580,14 @@ if (isParts) {
         if (A.visibleContracts) instContract = A.visibleContracts().find(function(x){ return x.id === instCid; });
         if (!instContract) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
         dd = installmentPdfDefinition(instContract, instLabel, logoData, opts);
+
+      } else if (type === 'customer-invoice') {
+        var cinvs;
+        try { cinvs = A._read ? A._read('misadCustomerInvoices') : JSON.parse(localStorage.getItem('misadCustomerInvoices') || '[]'); } catch(e){ cinvs = null; }
+        if (!cinvs || !cinvs.length) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
+        var cinv = cinvs.filter(function(x){ return A.sameCompany ? A.sameCompany(x) : true; }).find(function(x){ return x.id === id; });
+        if (!cinv) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
+        dd = customerInvoicePdfDefinition(cinv, logoData, opts);
 
       } else {
         if (A.downloadPdf) A.downloadPdf(type, id);
