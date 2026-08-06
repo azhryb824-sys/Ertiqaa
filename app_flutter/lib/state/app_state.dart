@@ -170,6 +170,12 @@ class AppState extends ChangeNotifier {
   List<Map<String, dynamic>> get allBankAccounts =>
       storage.list(AppConstants.kBankAccounts).map((e) => Map<String, dynamic>.from(e as Map)).toList();
 
+  List<Map<String, dynamic>> get allPurchaseInvoices =>
+      storage.list('misadPurchaseInvoices').map((e) => Map<String, dynamic>.from(e as Map)).toList();
+
+  List<Map<String, dynamic>> get allContractExpenses =>
+      storage.list('misadContractExpenses').map((e) => Map<String, dynamic>.from(e as Map)).toList();
+
   List<Map<String, dynamic>> get allDocs =>
       storage.list('misadCompanyDocs').map((e) => Map<String, dynamic>.from(e as Map)).toList();
 

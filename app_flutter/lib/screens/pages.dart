@@ -10,6 +10,7 @@ import 'tickets/ticket_detail_screen.dart';
 import 'visits/visits_screen.dart';
 import 'visits/visit_detail_screen.dart';
 import 'finance/finance_screen.dart';
+import 'finance/contract_finance_screen.dart';
 import 'finance/receipts_screen.dart';
 import 'finance/claims_screen.dart';
 import 'finance/staff_finance_screen.dart';
@@ -54,6 +55,7 @@ Widget pageFor(String key) {
     case 'overview': return const OverviewScreen();
     case 'contracts': return const ContractsScreen();
     case 'contract-detail': return const ContractDetailScreen();
+    case 'contract-finance': return const ContractFinanceScreen();
     case 'contract-form': return const ContractFormScreen();
     case 'tickets': return const TicketsScreen();
     case 'ticket-detail': return const TicketDetailScreen();

@@ -76,6 +76,7 @@ class ContractDetailScreen extends StatelessWidget {
                   ActionButton(icon: Icons.check_circle_rounded, label: 'تفعيل', color: AppTheme.success, onTap: () => _activate(context, app, c)),
                 if (c.status == 'ساري' || c.status == 'منتهيا')
                   ActionButton(icon: Icons.refresh_rounded, label: 'تجديد', color: AppTheme.primary, onTap: () => _renew(context, app, c)),
+                ActionButton(icon: Icons.account_balance_wallet_rounded, label: 'مالية العقد', color: AppTheme.gold, onTap: () => app.goWithData('contract-finance', {'id': c.id})),
                 if (c.status != 'ملغي' && c.status != 'محذوف')
                   ActionButton(icon: Icons.cancel_rounded, label: 'إلغاء', color: AppTheme.danger, onTap: () => _cancel(context, app, c)),
                 if (isManager)
