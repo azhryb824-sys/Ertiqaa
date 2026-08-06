@@ -1,7 +1,8 @@
-<?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">شموس</string>
-    <string name="title_activity_main">شموس</string>
+    <string name="app_name">ارتقاء</string>
+    <string name="title_activity_main">ارتقاء</string>
     <string name="package_name">com.ertiqaa.app</string>
-    <string name="custom_url_scheme">com.ertiqaa.app</string>
+    <string name="url_hint">أدخل الرابط هنا (e.g. https://...)</string>
+    <string name="btn_go">دخول</string>
+    <string name="custom_url_error">يرجى إدخال رابط صحيح</string>
 </resources>

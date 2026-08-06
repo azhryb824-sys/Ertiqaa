@@ -1,13 +1,15 @@
 package com.ertiqaa.app;
 
-import android.content.Context;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.webkit.CookieManager;
+import android.webkit.RenderProcessGoneDetail;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
+import android.webkit.WebViewClient;
 import android.widget.Button;
 import android.widget.EditText;
 import com.getcapacitor.BridgeActivity;
@@ -16,7 +18,7 @@ public class MainActivity extends BridgeActivity {
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        // 1. الأداء العتادي: تفعيل التسريع قبل بناء أي واجهة
+        // Ultimate hardware acceleration
         getWindow().setFlags(
             WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
             WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
@@ -24,11 +26,7 @@ public class MainActivity extends BridgeActivity {
         
         super.onCreate(savedInstanceState);
 
-        // 2. إدارة الواجهة بشكل مدمج وليس كطبقة فوقية (لتخفيف العبء)
-        setupRootInterface();
-    }
-
-    private void setupRootInterface() {
+        // UI Setup on top of Capacitor
         getWindow().getDecorView().post(() -> {
             try {
                 final View urlBar = getLayoutInflater().inflate(R.layout.url_bar, null);
@@ -48,8 +46,9 @@ public class MainActivity extends BridgeActivity {
                                 if (!url.startsWith("http")) url = "https://" + url;
                                 
                                 if (getBridge() != null && getBridge().getWebView() != null) {
-                                    applyDeepOptimizations(getBridge().getWebView());
-                                    getBridge().getWebView().loadUrl(url);
+                                    WebView webView = getBridge().getWebView();
+                                    applyUltraStabilitySettings(webView);
+                                    webView.loadUrl(url);
                                     urlBar.setVisibility(View.GONE);
                                 }
                             }
@@ -62,41 +61,51 @@ public class MainActivity extends BridgeActivity {
         });
     }
 
-    private void applyDeepOptimizations(WebView webView) {
+    private void applyUltraStabilitySettings(WebView webView) {
         WebSettings s = webView.getSettings();
         
-        // إعدادات الأنظمة الضخمة (Enterprise Settings)
+        // Base Stability
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
         s.setDatabaseEnabled(true);
         s.setAllowFileAccess(true);
+        s.setAllowContentAccess(true);
         
-        // تحسين الريندر للأنظمة الثقيلة
+        // Performance for heavy systems
+        s.setCacheMode(WebSettings.LOAD_DEFAULT);
         s.setUseWideViewPort(true);
         s.setLoadWithOverviewMode(true);
-        s.setSupportMultipleWindows(true);
         s.setJavaScriptCanOpenWindowsAutomatically(true);
+        s.setSupportMultipleWindows(true);
+        s.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         
-        // تفعيل أهم ميزة للأنظمة الثقيلة: الريندر المسبق خلف الكواليس
-        s.setOffscreenPreRaster(true); 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            s.setOffscreenPreRaster(true);
+        }
 
-        // إدارة الجلسة (Session) بشكل جذري
+        // Session & Security
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true);
 
-        // منع الانهيار بسبب استهلاك الـ RAM
+        // Hardware optimization at View level
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
         
-        // تنظيف الذاكرة القديمة قبل التحميل الجديد
-        webView.clearCache(false);
+        // Anti-Crash Monitor: Prevent app closure if heavy system crashes renderer
+        webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
+                // If it crashes due to memory, reload instead of closing
+                view.reload();
+                return true;
+            }
+        });
     }
 
     @Override
     public void onLowMemory() {
         super.onLowMemory();
-        // إجراء وقائي: تنظيف الذاكرة فور شعور النظام بالثقل بدلاً من الانهيار
         if (getBridge() != null && getBridge().getWebView() != null) {
-            getBridge().getWebView().freeMemory();
+            getBridge().getWebView().clearCache(false);
         }
     }
 }

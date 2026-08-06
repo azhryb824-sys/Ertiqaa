@@ -31,8 +31,11 @@
   }
 
   function safeLabel(obj){
-    if (A.contractLabel) return A.contractLabel(obj);
-    var label = obj.clientName || obj.clientId || "غير محدد";
+    if (A.contractLabel) {
+      var r = A.contractLabel(obj);
+      if (r && r !== "غير محدد") return r;
+    }
+    var label = obj.clientName || obj.clientId || obj.clientPhone || "غير محدد";
     return String(label).trim();
   }
 
@@ -62,14 +65,14 @@
     if (logoData) parts.push({ image: logoData, width: 28, height: 28, alignment: 'left' });
     parts.push({
       stack: [
-        { text: 'نظام شموس لإدارة المصاعد', fontSize: 16, bold: true, color: '#0d312f' },
-        { text: 'Shumoos Elevators Management System', fontSize: 9, color: '#748481' }
+        { text: 'نظام شموس لإدارة المصاعد', fontSize: 13, bold: true, color: '#1e3a5f' },
+        { text: 'Shumoos Elevators Management System', fontSize: 10, color: '#64748b' }
       ],
       alignment: 'center', width: '*'
     });
     return [
       { columns: parts, margin: [0, 0, 0, 4] },
-      { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 1.5, lineColor: '#c9964b' }], margin: [0, 0, 0, 6] }
+      { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 1.5, lineColor: '#c9a84c' }], margin: [0, 0, 0, 6] }
     ];
   }
 
@@ -81,42 +84,62 @@
     Array.prototype.push.apply(content, buildHeader(logoData));
   }
 
-  function buildSignature(side1, side2){
+  function buildSignature(side1, side2, companyOnly){
     var stamp = (A.companyStamp && A.companyStamp()) || '';
     var signature = (A.companySignature && A.companySignature()) || '';
     var partyOneApproval = [];
     if (signature) partyOneApproval.push({
       stack: [
-        { text: 'التوقيع', fontSize: 8, color: '#8b9f99', alignment: 'center' },
+        { text: 'التوقيع', fontSize: 8, color: '#94a3b8', alignment: 'center' },
         { image: signature, fit: [150, 88], alignment: 'center', margin: [0, 3, 0, 0] }
       ],
       width: '*'
     });
     if (stamp) partyOneApproval.push({
       stack: [
-        { text: 'الختم', fontSize: 8, color: '#8b9f99', alignment: 'center' },
+        { text: 'الختم', fontSize: 8, color: '#94a3b8', alignment: 'center' },
         { image: stamp, fit: [135, 96], alignment: 'center', margin: [0, 3, 0, 0] }
       ],
       width: '*'
     });
     var sig1 = partyOneApproval.length
       ? { columns: partyOneApproval, columnGap: 3, margin: [0, 5, 0, 0] }
-      : { text: 'التوقيع: ........................', fontSize: 10, color: '#8b9f99', alignment: 'center' };
+      : { text: 'التوقيع: ........................', fontSize: 10, color: '#94a3b8', alignment: 'center' };
+    if (companyOnly) {
+      return [
+        { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.5, lineColor: '#94a3b8' }], margin: [0, 0, 0, 6] },
+        {
+          columns: [
+            { text: '', width: '*' },
+            {
+              width: 280,
+              stack: [
+                { text: 'اعتماد الشركة', bold: true, fontSize: 12, color: '#64748b', alignment: 'center' },
+                { text: side1, fontSize: 13, color: '#1e3a5f', alignment: 'center', margin: [0, 2, 0, 2] },
+                sig1
+              ]
+            },
+            { text: '', width: '*' }
+          ],
+          margin: [0, 0, 0, 10]
+        }
+      ];
+    }
     return [
-      { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.5, lineColor: '#a0b8ad' }], margin: [0, 0, 0, 6] },
+      { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.5, lineColor: '#94a3b8' }], margin: [0, 0, 0, 6] },
       {
         columns: [
           {
             stack: [
-              { text: 'الطرف الثاني', bold: true, fontSize: 14, color: '#748481', alignment: 'center' },
-              { text: side2, fontSize: 13, color: '#0d312f', alignment: 'center', margin: [0, 2, 0, 2] },
-              { text: 'التوقيع: ........................', fontSize: 10, color: '#8b9f99', alignment: 'center' }
+              { text: 'الطرف الثاني', bold: true, fontSize: 12, color: '#64748b', alignment: 'center' },
+              { text: side2, fontSize: 13, color: '#1e3a5f', alignment: 'center', margin: [0, 2, 0, 2] },
+              { text: 'التوقيع: ........................', fontSize: 10, color: '#94a3b8', alignment: 'center' }
             ]
           },
           {
             stack: [
-              { text: 'الطرف الأول', bold: true, fontSize: 14, color: '#748481', alignment: 'center' },
-              { text: side1, fontSize: 13, color: '#0d312f', alignment: 'center', margin: [0, 2, 0, 2] },
+              { text: 'الطرف الأول', bold: true, fontSize: 12, color: '#64748b', alignment: 'center' },
+              { text: side1, fontSize: 13, color: '#1e3a5f', alignment: 'center', margin: [0, 2, 0, 2] },
               sig1
             ]
           }
@@ -127,8 +150,8 @@
   }
 
   function summaryTable(rows){
-    var header = rows.map(function(r){ return { text: r.label, bold: true, alignment: 'right', color: '#fff', fillColor: '#0d312f' }; });
-    var values = rows.map(function(r){ return { text: r.value || 'غير محدد', bold: true, alignment: 'right', color: '#0d312f' }; });
+    var header = rows.map(function(r){ return { text: r.label, bold: true, alignment: 'right', color: '#fff', fillColor: '#1e3a5f' }; });
+    var values = rows.map(function(r){ return { text: r.value || 'غير محدد', bold: true, alignment: 'right', color: '#1e3a5f' }; });
     return {
       table: {
         widths: rows.map(function(){ return '*'; }),
@@ -137,64 +160,76 @@
       layout: {
         hLineWidth: function(i){ return i === 0 ? 0 : 0.35; },
         vLineWidth: function(){ return 0; },
-        hLineColor: function(){ return '#c9d8d2'; },
-        vLineColor: function(){ return '#c9d8d2'; },
+        hLineColor: function(){ return '#cbd5e1'; },
+        vLineColor: function(){ return '#cbd5e1'; },
         paddingLeft: function(){ return 8; },
         paddingRight: function(){ return 8; },
         paddingTop: function(){ return 4; },
         paddingBottom: function(){ return 4; },
-        fillColor: function(i){ return i === 0 ? null : '#f1f6f3'; }
+        fillColor: function(i){ return i === 0 ? null : '#f8f7f4'; }
       },
       margin: [0, 0, 0, 10]
     };
   }
 
   function statusBadge(status){
-    var color = '#3c8b70';
-    if (!status) { status = ''; color = '#666'; }
-    if (status.indexOf('بانتظار') >= 0) color = '#8b601f';
-    if (status.indexOf('ملغي') >= 0 || status.indexOf('ملغى') >= 0) color = '#c85c59';
-    if (status.indexOf('منته') >= 0) color = '#666';
-    if (status.indexOf('مغلق') >= 0) color = '#666';
+    if (status === 'بانتظار المراجعة والاعتماد') status = 'قيد الاعتماد';
+    var color = '#2d7d6d';
+    if (!status) { status = ''; color = '#6b7280'; }
+    if (status.indexOf('بانتظار') >= 0) color = '#b8862d';
+    if (status.indexOf('ملغي') >= 0 || status.indexOf('ملغى') >= 0) color = '#dc2626';
+    if (status.indexOf('منته') >= 0) color = '#6b7280';
+    if (status.indexOf('مغلق') >= 0) color = '#6b7280';
     return { text: status, fontSize: 10, color: '#fff', background: color, alignment: 'center', margin: [0, 2, 0, 2], width: 90 };
   }
 
   function elevatorTable(ei){
-    if (!ei || typeof ei !== 'object' || typeof ei.type === 'undefined') return null;
-    var data = [
-      { label: 'نوع المصعد', value: ei.type },
-      { label: 'السعة', value: ei.capacity },
-      { label: 'السرعة', value: ei.speed },
-      { label: 'عدد التوقفات', value: ei.stops },
-      { label: 'رقم المصعد', value: ei.elevatorId },
-      { label: 'الموقع', value: ei.location }
-    ].filter(function(r){ return r.value; });
+    if (!ei || typeof ei !== 'object') return null;
+    var labels = {
+      elevatorType:'نوع المصعد',usage:'الاستخدام',capacity:'الحمولة',persons:'عدد الأشخاص',stops:'عدد الوقفات',speed:'السرعة',travelHeight:'ارتفاع المشوار',shaftLength:'طول البئر',shaftWidth:'عرض البئر',pitDepth:'عمق الحفرة',overhead:'الارتفاع العلوي',entrances:'عدد المداخل',doorDirection:'اتجاه الأبواب',speedSystem:'نظام السرعة',doorType:'نوع الأبواب',
+      motorType:'نوع المحرك',motorManufacturer:'ماركة المصعد',motorPower:'قدرة المحرك',motorSpeed:'سرعة المحرك',controller:'الكنترول',ropeManufacturer:'الشركة المصنعة للحبال',ropesCount:'عدد الحبال',ropeDiameter:'قطر الحبال',counterweight:'وزن الثقال',railManufacturer:'الشركة المصنعة للسكك',railSize:'مقاس السكك',originCountry:'بلد المنشأ',
+      cabinSize:'أبعاد الكابينة',floorType:'نوع الأرضية',wallType:'نوع الجدران',ceilingType:'نوع السقف',lightingType:'نوع الإنارة',displayType:'نوع شاشة العرض',risotType:'نوع البرشوت',mirrors:'وجود مرايا',fan:'وجود مروحة',voiceAnnouncement:'وجود الإعلان الصوتي',braille:'وجود Braille',
+      doorManufacturer:'الشركة المصنعة للأبواب',doorWidth:'عرض الباب',doorHeight:'ارتفاع الباب',doorOpenTime:'زمن فتح الباب',doorCloseTime:'زمن إغلاق الباب',doorLockType:'نوع أقفال الأبواب',
+      bufferType:'نوع Buffer',rescueSystem:'نظام الإنقاذ',coolingSystem:'نظام التبريد',intercom:'وجود إنتركم',camera:'وجود كاميرا',fireMode:'وجود Fire Mode',
+      voltage:'الجهد',frequency:'التردد',phases:'عدد الفازات',travelCableSize:'مقاس الكيبل المرن',powerConsumption:'استهلاك الكهرباء',warranty:'مدة الضمان',notes:'ملاحظات المواصفات',
+      type:'نوع المصعد',elevatorId:'رقم المصعد',location:'الموقع',count:'العدد',brand:'العلامة التجارية',age:'عدد الوقفات'
+    };
+    var preferredKeys = Object.keys(labels);
+    var seen = {};
+    var data = preferredKeys.filter(function(key){
+      if (seen[key] || ei[key] == null || String(ei[key]).trim() === '') return false;
+      seen[key] = true;
+      if (key === 'type' && ei.elevatorType) return false;
+      if (key === 'brand' && ei.motorManufacturer) return false;
+      if (key === 'age' && ei.stops) return false;
+      return true;
+    }).map(function(key){ return { label: labels[key], value: String(ei[key]) }; });
     if (!data.length) return null;
     return [
-      { text: 'بيانات المصعد', fontSize: 12, bold: true, color: '#0d312f', margin: [0, 0, 0, 4] },
+      { text: 'بيانات المصعد', fontSize: 12, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 4] },
       {
         table: {
           widths: [120, '*'],
           body: [[
-            { text: 'البيان', bold: true, color: '#fff', fillColor: '#0d312f', alignment: 'right' },
-            { text: 'القيمة', bold: true, color: '#fff', fillColor: '#0d312f', alignment: 'right' }
+            { text: 'البيان', bold: true, color: '#fff', fillColor: '#1e3a5f', alignment: 'right' },
+            { text: 'القيمة', bold: true, color: '#fff', fillColor: '#1e3a5f', alignment: 'right' }
           ]].concat(data.map(function(r){
             return [
-              { text: r.label, bold: true, fillColor: '#dceee4', fontSize: 9, alignment: 'right', color: '#0d312f' },
-              { text: r.value, fontSize: 9, alignment: 'right', color: '#1a2e2b' }
+              { text: r.label, bold: true, fillColor: '#e8e6e1', fontSize: 10, alignment: 'right', color: '#1e3a5f' },
+              { text: r.value, fontSize: 10, alignment: 'right', color: '#334155' }
             ];
           }))
         },
         layout: {
           hLineWidth: function(){ return 0.5; },
           vLineWidth: function(){ return 0.5; },
-          hLineColor: function(){ return '#a0b8ad'; },
-          vLineColor: function(){ return '#a0b8ad'; },
+          hLineColor: function(){ return '#94a3b8'; },
+          vLineColor: function(){ return '#94a3b8'; },
           paddingLeft: function(){ return 8; },
           paddingRight: function(){ return 8; },
           paddingTop: function(){ return 5; },
           paddingBottom: function(){ return 5; },
-          fillColor: function(i){ return i < 2 ? null : (i % 2 === 0 ? null : '#e6f0ea'); }
+          fillColor: function(i){ return i < 2 ? null : (i % 2 === 0 ? null : '#f1f0ec'); }
         },
         margin: [0, 0, 0, 10]
       }
@@ -212,9 +247,9 @@
       else if (item && item.title) label = item.title;
       var desc = (typeof item === 'object' && item) ? (item.description || item.desc || '') : '';
       items.push([
-        { text: String(idx + 1), alignment: 'center', color: '#d4a24e', bold: true, fontSize: 10 },
-        { text: label, fontSize: 10, alignment: 'right', color: '#1a2e2b' },
-        { text: desc, fontSize: 11, color: '#748481', alignment: 'right' }
+        { text: String(idx + 1), alignment: 'center', color: '#c9a84c', bold: true, fontSize: 10 },
+        { text: label, fontSize: 10, alignment: 'right', color: '#334155' },
+        { text: desc, fontSize: 10, color: '#64748b', alignment: 'right' }
       ]);
     });
     return [
@@ -226,47 +261,49 @@
           dontBreakRows: true,
           widths: [22, '*', 70],
           body: [[
-            { text: '#', bold: true, color: '#fff', fillColor: '#0d312f', alignment: 'center' },
-            { text: 'البند', bold: true, color: '#fff', fillColor: '#0d312f', alignment: 'right' },
-            { text: 'البيان', bold: true, color: '#fff', fillColor: '#0d312f', alignment: 'right' }
+            { text: '#', bold: true, color: '#fff', fillColor: '#1e3a5f', alignment: 'center' },
+            { text: 'البند', bold: true, color: '#fff', fillColor: '#1e3a5f', alignment: 'right' },
+            { text: 'البيان', bold: true, color: '#fff', fillColor: '#1e3a5f', alignment: 'right' }
           ]].concat(items)
         },
         layout: {
           hLineWidth: function(){ return 0.5; },
           vLineWidth: function(){ return 0.5; },
-          hLineColor: function(){ return '#a0b8ad'; },
-          vLineColor: function(){ return '#a0b8ad'; },
+          hLineColor: function(){ return '#94a3b8'; },
+          vLineColor: function(){ return '#94a3b8'; },
           paddingLeft: function(){ return 6; },
           paddingRight: function(){ return 6; },
           paddingTop: function(){ return 4; },
           paddingBottom: function(){ return 4; },
-          fillColor: function(i){ return i % 2 === 0 ? null : '#e6f0ea'; }
+          fillColor: function(i){ return i % 2 === 0 ? null : '#f1f0ec'; }
         },
         margin: [0, 0, 0, 10]
       }
     ];
   }
 
-  function paymentPlanTable(value){
+  function paymentPlanTable(value, customPlan){
     var total = Number(value || 0);
-    var plan = [
+    var plan = (customPlan && customPlan.length) ? customPlan.map(function(p){
+      return { label: p.label, desc: p.description || '', pct: p.percent > 1 ? p.percent/100 : (p.percent || 0) };
+    }) : [
       { label: 'دفعة مقدمة', desc: 'تسدد فور التوقيع وقبل بدء العمل', pct: 0.5 },
       { label: 'دفعة ثانية', desc: 'عند الانتهاء من التركيب', pct: 0.35 },
       { label: 'دفعة ثالثة', desc: 'عند الانتهاء من الاستلام النهائي والتشغيل', pct: 0.15 }
     ];
     var body = [[
-      { text: 'الدفعة', bold: true, color: '#fff', fillColor: '#0d312f', alignment: 'right' },
-      { text: 'البيان', bold: true, color: '#fff', fillColor: '#0d312f', alignment: 'right' },
-      { text: 'النسبة', bold: true, color: '#fff', fillColor: '#0d312f', alignment: 'center' },
-      { text: 'المبلغ', bold: true, color: '#fff', fillColor: '#0d312f', alignment: 'center' }
+      { text: 'الدفعة', bold: true, color: '#fff', fillColor: '#1e3a5f', alignment: 'right' },
+      { text: 'البيان', bold: true, color: '#fff', fillColor: '#1e3a5f', alignment: 'right' },
+      { text: 'النسبة', bold: true, color: '#fff', fillColor: '#1e3a5f', alignment: 'center' },
+      { text: 'المبلغ', bold: true, color: '#fff', fillColor: '#1e3a5f', alignment: 'center' }
     ]];
     plan.forEach(function(p){
       var amount = total * p.pct;
       body.push([
-        { text: p.label, fontSize: 9, bold: true, alignment: 'right', color: '#0d312f' },
-        { text: p.desc, fontSize: 8, color: '#748481', alignment: 'right' },
-        { text: Math.round(p.pct * 100) + '%', fontSize: 9, alignment: 'center', color: '#0d312f' },
-        { text: safeMoney(amount), fontSize: 9, bold: true, color: '#d4a24e', alignment: 'center' }
+        { text: p.label, fontSize: 10, bold: true, alignment: 'right', color: '#1e3a5f' },
+        { text: p.desc, fontSize: 10, color: '#64748b', alignment: 'right' },
+        { text: Math.round(p.pct * 100) + '%', fontSize: 10, alignment: 'center', color: '#1e3a5f' },
+        { text: safeMoney(amount), fontSize: 10, bold: true, color: '#c9a84c', alignment: 'center' }
       ]);
     });
     return [
@@ -282,13 +319,13 @@
         layout: {
           hLineWidth: function(){ return 0.5; },
           vLineWidth: function(){ return 0.5; },
-          hLineColor: function(){ return '#a0b8ad'; },
-          vLineColor: function(){ return '#a0b8ad'; },
+          hLineColor: function(){ return '#94a3b8'; },
+          vLineColor: function(){ return '#94a3b8'; },
           paddingLeft: function(){ return 6; },
           paddingRight: function(){ return 6; },
           paddingTop: function(){ return 4; },
           paddingBottom: function(){ return 4; },
-          fillColor: function(i){ return i === 0 ? null : (i % 2 === 0 ? null : '#e6f0ea'); }
+          fillColor: function(i){ return i === 0 ? null : (i % 2 === 0 ? null : '#f1f0ec'); }
         },
         margin: [0, 0, 0, 10]
       }
@@ -301,14 +338,17 @@
     arr.forEach(function(item){
       var t = '', d = '';
       if (typeof item === 'string') { t = item; }
-      else if (item && item.section) { t = item.section; d = item.description || item.title || ''; }
+      else if (item && item.section) { t = item.title || item.section; d = item.description || ''; }
       else if (item && item.title) { t = item.title; d = item.description || ''; }
       else if (item && item.name) { t = item.name; d = item.description || item.desc || ''; }
       else { try { t = JSON.stringify(item); } catch(e){} }
-      items.push({ text: t, bold: true, fontSize: 11, color: '#17413e', margin: [0, 0, 0, 1], alignment: 'right' });
-      if (d) items.push({ text: d, fontSize: 11, color: '#3b564f', margin: [0, 0, 0, 4], alignment: 'right' });
+      items.push({ text: t, bold: true, fontSize: 10, color: '#1e293b', margin: [0, 0, 0, 1], alignment: 'right' });
+      if (d) items.push({ text: d, fontSize: 10, color: '#475569', margin: [0, 0, 0, 2], alignment: 'right' });
+      if (item && typeof item === 'object' && item.price != null && Number(item.price) !== 0) {
+        items.push({ text: 'القيمة: ' + safeMoney(item.price), fontSize: 10, bold: true, color: '#b8862d', margin: [0, 0, 0, 4], alignment: 'right' });
+      }
     });
-    var titleEl = { text: title, fontSize: 14, bold: true, color: '#0d312f', margin: [0, 0, 0, 4] };
+    var titleEl = { text: title, fontSize: 12, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 4] };
     if (items.length > 0) {
       return [{
         stack: [titleEl, items[0]],
@@ -318,66 +358,139 @@
     return [titleEl, { text: '', margin: [0, 0, 0, 4] }];
   }
 
+  function partsTable(arr, title){
+    if (!arr || !arr.length) return null;
+    var body = [[
+      { text: 'الصنف', bold: true, color: '#fff', fillColor: '#1e3a5f', alignment: 'right' },
+      { text: 'الكمية', bold: true, color: '#fff', fillColor: '#1e3a5f', alignment: 'center' },
+      { text: 'سعر الوحدة', bold: true, color: '#fff', fillColor: '#1e3a5f', alignment: 'center' },
+      { text: 'الإجمالي', bold: true, color: '#fff', fillColor: '#1e3a5f', alignment: 'center' }
+    ]];
+    var total = 0;
+    arr.forEach(function(item){
+      var name = item.title || item.name || '';
+      var qty = Number(item.qty || 1);
+      var unitPrice = Number(item.unitPrice || item.price || 0);
+      var lineTotal = Number(item.price || unitPrice * qty);
+      total += lineTotal;
+      body.push([
+        { text: name, fontSize: 10, alignment: 'right', color: '#334155' },
+        { text: String(qty), fontSize: 10, alignment: 'center', color: '#334155' },
+        { text: safeMoney(unitPrice), fontSize: 10, alignment: 'center', color: '#334155' },
+        { text: safeMoney(lineTotal), fontSize: 10, alignment: 'center', bold: true, color: '#1e3a5f' }
+      ]);
+    });
+    body.push([
+      { text: 'الإجمالي', colSpan: 3, alignment: 'left', bold: true, fontSize: 10, color: '#b8862d' },
+      {}, {},
+      { text: safeMoney(total), alignment: 'center', bold: true, fontSize: 10, color: '#b8862d' }
+    ]);
+    return [
+      { text: title, fontSize: 12, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 4] },
+      {
+        table: { headerRows: 1, keepWithHeaderRows: 1, dontBreakRows: true, widths: ['*', 50, 70, 80], body: body },
+        layout: {
+          hLineWidth: function(){ return 0.5; },
+          vLineWidth: function(){ return 0.5; },
+          hLineColor: function(){ return '#94a3b8'; },
+          vLineColor: function(){ return '#94a3b8'; },
+          paddingLeft: function(){ return 6; },
+          paddingRight: function(){ return 6; },
+          paddingTop: function(){ return 4; },
+          paddingBottom: function(){ return 4; },
+          fillColor: function(i){ return i === 0 ? null : (i % 2 === 0 ? null : '#f1f0ec'); }
+        },
+        margin: [0, 0, 0, 10]
+      }
+    ];
+  }
+
   var _sharedDd = {
     rtl: true,
     styles: {
-      sectionTitle: { fontSize: 16, bold: true, color: '#0d312f', margin: [0, 0, 0, 4] },
-      summaryLabel: { fontSize: 10, color: '#5c7670', bold: true },
-      summaryValue: { fontSize: 13, color: '#0d312f', bold: true }
+      sectionTitle: { fontSize: 12, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 2] },
+      summaryLabel: { fontSize: 10, color: '#64748b', bold: true },
+      summaryValue: { fontSize: 10, color: '#1e3a5f', bold: true }
     },
-    defaultStyle: { font: 'Cairo', fontSize: 13, lineHeight: 1.5, color: '#1a2e2b', bold: true },
+    defaultStyle: { font: 'Cairo', fontSize: 10, lineHeight: 1.15, color: '#334155', bold: true },
     pageSize: 'A4',
-    pageMargins: [28, 64.35, 28, 85.04],
-    header: function(){
+    pageMargins: [24, 68, 24, 78],
+    header: function(currentPage, pageCount){
+      var co = (A.activeOwnerCompany && A.activeOwnerCompany()) || null;
+      var companyName = (co && co.name) || 'نظام شموس';
       return {
         stack: [
-          { text: 'نظام شموس', fontSize: 7, color: '#8b9f99', alignment: 'center', margin: [0, 6, 0, 0] },
-          { canvas: [{ type: 'line', x1: 28, y1: 0, x2: 568, y2: 0, lineWidth: 0.3, lineColor: '#d4a24e' }] }
+          { text: companyName, fontSize: 9, color: '#1e3a5f', alignment: 'center', margin: [0, 8, 0, 2], bold: true },
+          { canvas: [{ type: 'line', x1: 28, y1: 0, x2: 568, y2: 0, lineWidth: 0.5, lineColor: '#c9a84c' }] },
+          { text: '', margin: [0, 0, 0, 6] }
         ]
       };
     },
     footer: function(currentPage, pageCount, cleanFooter){
       var f = [];
-      f.push({ canvas: [{ type: 'line', x1: 28, y1: 0, x2: 568, y2: 0, lineWidth: 0.3, lineColor: '#d4a24e' }], margin: [0, 0, 0, 2] });
-      if (cleanFooter) f.push({ text: cleanFooter, fontSize: 7, color: '#748481', alignment: 'center', margin: [0, 0, 0, 1] });
-      f.push({ text: '' + currentPage + ' / ' + pageCount, fontSize: 7, color: '#8b9f99', alignment: 'center' });
+      f.push({ canvas: [{ type: 'line', x1: 28, y1: 0, x2: 568, y2: 0, lineWidth: 0.3, lineColor: '#c9a84c' }], margin: [0, 0, 0, 2] });
+      if (cleanFooter) f.push({ text: cleanFooter, fontSize: 7, color: '#64748b', alignment: 'center', margin: [0, 0, 0, 1] });
+      f.push({ text: '' + currentPage + ' / ' + pageCount, fontSize: 7, color: '#94a3b8', alignment: 'center' });
       return { stack: f, margin: [28, 0, 28, 6] };
     }
   };
 
-  function normalizePdfNodes(nodes){
+  function normalizePdfNodes(nodes, insideTable){
     if (!nodes) return;
     if (Array.isArray(nodes)) {
-      nodes.forEach(normalizePdfNodes);
+      nodes.forEach(function(node){ normalizePdfNodes(node, insideTable); });
       return;
     }
     if (typeof nodes !== 'object') return;
 
-    if (Number(nodes.lineHeight) > 1.55) nodes.lineHeight = 1.55;
-    if (nodes.bold && Number(nodes.fontSize) >= 12 && typeof nodes.text !== 'undefined') {
+    if (Number(nodes.lineHeight) > 1.2) nodes.lineHeight = 1.2;
+    var isMainHeading = nodes.bold && Number(nodes.fontSize) >= 12 && typeof nodes.text !== 'undefined';
+    var isGoldSubheading = nodes.bold && Number(nodes.fontSize) >= 10 && nodes.color === '#c9a84c' && typeof nodes.text !== 'undefined';
+    if (!insideTable && (isMainHeading || isGoldSubheading)) {
       nodes.headlineLevel = 1;
     }
 
     if (nodes.table && Array.isArray(nodes.table.body)) {
+      var firstRow = nodes.table.body[0];
+      var hasVisualHeader = Array.isArray(firstRow) && firstRow.length > 0 && firstRow.every(function(cell){
+        return cell && typeof cell === 'object' && (cell.fillColor === '#1e3a5f' || cell.color === '#fff');
+      });
+      if (!Number(nodes.table.headerRows) && hasVisualHeader) nodes.table.headerRows = 1;
       if (Number(nodes.table.headerRows) > 0) {
-        nodes.table.keepWithHeaderRows = Math.min(2, Math.max(1, nodes.table.body.length - Number(nodes.table.headerRows)));
+        nodes.table.keepWithHeaderRows = Math.min(2, Math.max(2, nodes.table.body.length - Number(nodes.table.headerRows)));
         nodes.table.dontBreakRows = true;
       }
       nodes.layout = {
         hLineWidth: function(i, node){ return (i === 0 || i === node.table.body.length) ? 0.6 : 0.3; },
         vLineWidth: function(){ return 0; },
-        hLineColor: function(i){ return i === 0 ? '#0d312f' : '#c8d7d1'; },
-        vLineColor: function(){ return '#c8d7d1'; },
+        hLineColor: function(i){ return i === 0 ? '#1e3a5f' : '#cbd5e1'; },
+        vLineColor: function(){ return '#cbd5e1'; },
         paddingLeft: function(){ return 6; },
         paddingRight: function(){ return 6; },
         paddingTop: function(){ return 3; },
         paddingBottom: function(){ return 3; },
-        fillColor: function(rowIndex){ return rowIndex > 0 && rowIndex % 2 === 0 ? '#f3f7f5' : null; }
+        fillColor: function(rowIndex){ return rowIndex > 0 && rowIndex % 2 === 0 ? '#f5f4f1' : null; }
       };
     }
 
-    ['stack', 'columns', 'ul', 'ol'].forEach(function(key){ normalizePdfNodes(nodes[key]); });
-    if (nodes.table) normalizePdfNodes(nodes.table.body);
+    ['stack', 'columns', 'ul', 'ol'].forEach(function(key){ normalizePdfNodes(nodes[key], insideTable); });
+    if (nodes.table) normalizePdfNodes(nodes.table.body, true);
+  }
+
+  function bindHeadingsToFollowingText(content){
+    if (!Array.isArray(content)) return;
+    for (var i = 0; i < content.length - 1; i++) {
+      var heading = content[i];
+      var next = content[i + 1];
+      if (!heading || heading.headlineLevel !== 1 || heading.unbreakable) continue;
+      if (!next || next.table || next.pageBreak || next.unbreakable) continue;
+      if (typeof next.text === 'undefined') continue;
+      content.splice(i, 2, {
+        stack: [heading, next],
+        unbreakable: true,
+        headlineLevel: 1
+      });
+    }
   }
 
   function makeDd(content, cleanFooter, opts){
@@ -385,12 +498,13 @@
       return typeof v === 'function' ? undefined : v;
     }));
     normalizePdfNodes(content);
+    bindHeadingsToFollowingText(content);
     dd.content = content;
     dd.pageBreakBefore = function(currentNode, followingNodesOnPage){
-      return currentNode.headlineLevel === 1 && followingNodesOnPage.length < 2;
+      return (currentNode.headlineLevel === 1 || currentNode.headlineLevel === 2) && followingNodesOnPage.length < 2;
     };
     if (opts && opts.letterhead) {
-      dd.pageMargins = [28, 208.08, 28, 85.04];
+      dd.pageMargins = [24, 208, 24, 78];
       dd.header = function(){ return null; };
       dd.footer = function(){ return null; };
       var bg = A.companyLetterhead ? A.companyLetterhead() : '';
@@ -399,7 +513,7 @@
         return { image: bg, width: 595, height: 842, absolutePosition: { x: 0, y: 0 } };
       };
     } else if (opts && opts.clean) {
-      dd.pageMargins = [28, 84.35, 28, 85.04];
+      dd.pageMargins = [24, 88, 24, 78];
       dd.header = function(){ return null; };
       dd.footer = function(){ return null; };
     } else {
@@ -421,6 +535,7 @@
     if (c.clientId) p2Extra.push('رقم الهوية: ' + String(c.clientId));
     if (c.clientCompanyName && c.clientCompanyName !== '') p2Extra.push('اسم المنشأة: ' + String(c.clientCompanyName));
     if (c.clientCompanyUnifiedNumber && c.clientCompanyUnifiedNumber !== '') p2Extra.push('الرقم الموحد: ' + String(c.clientCompanyUnifiedNumber));
+    if (c.clientPhone && c.clientPhone !== '') p2Extra.push('جوال: ' + String(c.clientPhone));
     if (p2Extra.length) p2 += ' - ' + p2Extra.join(' - ');
 
     var dateRef = c.startDate || c.createdAt || '';
@@ -437,21 +552,21 @@
       : 'على صيانة المصعد (المصاعد) وفق بنود الصيانة الدورية والشروط والمواصفات الواردة في هذا العقد.';
 
     return [
-      { text: [{ text: 'إنه في يوم ', fontSize: 11, color: '#3b564f' }, { text: datePart, fontSize: 11, color: '#3b564f' }, { text: ' تم الاتفاق بين:', fontSize: 11, color: '#3b564f' }], alignment: 'right', margin: [0, 0, 0, 4] },
+      { text: [{ text: 'إنه في يوم ', fontSize: 10, color: '#475569' }, { text: datePart, fontSize: 10, color: '#475569' }, { text: ' تم الاتفاق بين:', fontSize: 10, color: '#475569' }], alignment: 'right', margin: [0, 0, 0, 4] },
       { stack: [
-          { text: [{ text: 'الطرف الأول: ', bold: true, fontSize: 11, color: '#0d312f' }, { text: p1, fontSize: 11, color: '#3b564f' }], margin: [0, 2, 0, 1], alignment: 'right' },
-          { text: [{ text: 'الطرف الثاني: ', bold: true, fontSize: 11, color: '#0d312f' }, { text: p2, fontSize: 11, color: '#3b564f' }], margin: [0, 0, 0, 4], alignment: 'right' }
+          { text: [{ text: 'الطرف الأول: ', bold: true, fontSize: 10, color: '#1e3a5f' }, { text: p1, fontSize: 10, color: '#475569' }], margin: [0, 2, 0, 1], alignment: 'right' },
+          { text: [{ text: 'الطرف الثاني: ', bold: true, fontSize: 10, color: '#1e3a5f' }, { text: p2, fontSize: 10, color: '#475569' }], margin: [0, 0, 0, 4], alignment: 'right' }
       ]},
-      { text: actionText, fontSize: 11, bold: true, color: '#0d312f', margin: [0, 0, 0, 10], alignment: 'right' }
+      { text: actionText, fontSize: 10, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 10], alignment: 'right' }
     ];
   }
 
   function sectionTitle(text, margin){
-    return { text: text, fontSize: 15, bold: true, color: '#0d312f', margin: margin || [0, 0, 0, 4], alignment: 'right', headlineLevel: 1 };
+    return { text: text, fontSize: 12, bold: true, color: '#1e3a5f', margin: margin || [0, 0, 0, 4], alignment: 'right', headlineLevel: 1 };
   }
 
   function scopeText(text, fallback){
-    return { text: text || fallback, fontSize: 12, color: '#3b564f', margin: [0, 0, 0, 8], alignment: 'right', lineHeight: 1.55 };
+    return { text: text || fallback, fontSize: 12, color: '#475569', margin: [0, 0, 0, 8], alignment: 'right', lineHeight: 1.15 };
   }
 
   var specGroups = [
@@ -463,13 +578,13 @@
         ['travelHeight', 'ارتفاع المشوار'], ['shaftLength', 'طول البئر'], ['shaftWidth', 'عرض البئر'],
         ['pitDepth', 'عمق الحفرة'], ['overhead', 'الارتفاع العلوي'], ['entrances', 'عدد المداخل'],
         ['doorDirection', 'اتجاه الأبواب'], ['speedSystem', 'نظام السرعة'],
-        ['doorType', 'نوع الأبواب']
+        ['doorType', 'نوع الأبواب'], ['motorManufacturer', 'ماركة المصعد']
       ]
     },
     {
       tab: 'المحرك والكنترول',
       fields: [
-        ['motorType', 'نوع المحرك'], ['motorManufacturer', 'الشركة المصنعة للمحرك'],
+        ['motorType', 'نوع المحرك'],
         ['motorPower', 'قدرة المحرك'], ['motorSpeed', 'سرعة المحرك'], ['controller', 'الكنترول'],
         ['ropeManufacturer', 'الشركة المصنعة للحبال'], ['ropesCount', 'عدد الحبال'],
         ['ropeDiameter', 'قطر الحبال'], ['counterweight', 'وزن الثقال'],
@@ -482,7 +597,7 @@
       fields: [
         ['cabinSize', 'أبعاد الكابينة'], ['floorType', 'نوع الأرضية'], ['wallType', 'نوع الجدران'],
         ['ceilingType', 'نوع السقف'], ['lightingType', 'نوع الإنارة'], ['displayType', 'نوع شاشة العرض'],
-        ['risotType', 'نوع الريشوت'], ['mirrors', 'وجود مرايا'], ['fan', 'وجود مروحة'],
+        ['risotType', 'نوع البرشوت'], ['mirrors', 'وجود مرايا'], ['fan', 'وجود مروحة'],
         ['voiceAnnouncement', 'Voice Announcement'], ['braille', 'Braille']
       ]
     },
@@ -532,8 +647,8 @@
       var val = info[f[0]];
       if (val && val !== '') {
         basicRows.push([
-          { text: f[1], bold: true, fontSize: 11, fillColor: '#dceee4', alignment: 'right', color: '#0d312f' },
-          { text: val, fontSize: 11, alignment: 'right', color: '#0d312f' }
+          { text: f[1], bold: true, fontSize: 10, fillColor: '#e8e6e1', alignment: 'right', color: '#1e3a5f' },
+          { text: val, fontSize: 10, alignment: 'right', color: '#1e3a5f' }
         ]);
       }
     });
@@ -547,13 +662,13 @@
         layout: {
           hLineWidth: function(){ return 0.5; },
           vLineWidth: function(){ return 0.5; },
-          hLineColor: function(){ return '#a0b8ad'; },
-          vLineColor: function(){ return '#a0b8ad'; },
+          hLineColor: function(){ return '#94a3b8'; },
+          vLineColor: function(){ return '#94a3b8'; },
           paddingLeft: function(){ return 8; },
           paddingRight: function(){ return 8; },
           paddingTop: function(){ return 4; },
           paddingBottom: function(){ return 4; },
-          fillColor: function(i){ return i % 2 === 0 ? null : '#e6f0ea'; }
+          fillColor: function(i){ return i % 2 === 0 ? null : '#f1f0ec'; }
         },
         margin: [0, 0, 0, 6]
       });
@@ -564,8 +679,8 @@
       var val = info[f[0]];
       if (val && val !== '') {
         rows.push([
-          { text: f[1], bold: true, fontSize: 11, fillColor: '#dceee4', alignment: 'right', color: '#0d312f' },
-          { text: val, fontSize: 11, alignment: 'right', color: '#1a2e2b' }
+          { text: f[1], bold: true, fontSize: 10, fillColor: '#e8e6e1', alignment: 'right', color: '#1e3a5f' },
+          { text: val, fontSize: 10, alignment: 'right', color: '#334155' }
         ]);
       }
     });
@@ -579,13 +694,13 @@
         layout: {
           hLineWidth: function(){ return 0.5; },
           vLineWidth: function(){ return 0.5; },
-          hLineColor: function(){ return '#a0b8ad'; },
-          vLineColor: function(){ return '#a0b8ad'; },
+          hLineColor: function(){ return '#94a3b8'; },
+          vLineColor: function(){ return '#94a3b8'; },
           paddingLeft: function(){ return 8; },
           paddingRight: function(){ return 8; },
           paddingTop: function(){ return 5; },
           paddingBottom: function(){ return 5; },
-          fillColor: function(i){ return i % 2 === 0 ? null : '#e6f0ea'; }
+          fillColor: function(i){ return i % 2 === 0 ? null : '#f1f0ec'; }
         },
         margin: [0, 0, 0, 8]
       });
@@ -604,8 +719,8 @@
         var val = info[f[0]];
         if (val && val !== '') {
           rows.push([
-            { text: f[1], bold: true, fontSize: 11, fillColor: '#dceee4', alignment: 'right', color: '#0d312f' },
-            { text: val, fontSize: 11, alignment: 'right', color: '#1a2e2b' }
+            { text: f[1], bold: true, fontSize: 10, fillColor: '#e8e6e1', alignment: 'right', color: '#1e3a5f' },
+            { text: val, fontSize: 10, alignment: 'right', color: '#334155' }
           ]);
         }
       });
@@ -613,7 +728,7 @@
         if (overallTitle && !out.length) {
           out.push(sectionTitle(overallTitle, [0, 0, 0, 4]));
         }
-        out.push({ text: group.tab, fontSize: 10, bold: true, color: '#d4a24e', margin: [0, 0, 0, 2], alignment: 'right' });
+        out.push({ text: group.tab, fontSize: 10, bold: true, color: '#c9a84c', margin: [0, 0, 0, 2], alignment: 'right' });
         out.push({
           table: {
             headerRows: 0,
@@ -623,13 +738,13 @@
           layout: {
             hLineWidth: function(){ return 0.5; },
             vLineWidth: function(){ return 0.5; },
-            hLineColor: function(){ return '#a0b8ad'; },
-            vLineColor: function(){ return '#a0b8ad'; },
+            hLineColor: function(){ return '#94a3b8'; },
+            vLineColor: function(){ return '#94a3b8'; },
             paddingLeft: function(){ return 8; },
             paddingRight: function(){ return 8; },
             paddingTop: function(){ return 5; },
             paddingBottom: function(){ return 5; },
-            fillColor: function(i){ return i % 2 === 0 ? null : '#e6f0ea'; }
+            fillColor: function(i){ return i % 2 === 0 ? null : '#f1f0ec'; }
           },
           margin: [0, 0, 0, 8]
         });
@@ -659,34 +774,34 @@
 
   function maintenancePdfClauses(){
     return [
-      { text: 'خامساً: الضمان على أعمال الصيانة', fontSize: 14, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
-      { text: 'تتحمل الشركة المصنعة أو الموردة أو الشركة المنفذة لأعمال الصيانة (الطرف الأول) مسؤولية ضمان أعمال الصيانة التي تقوم بها وتكون مسؤولة عن أي عيوب أو أخطاء في تلك الأعمال.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] },
-      { text: 'يكون الضمان ساري المفعول لمدة عام من تاريخ بداية العقد على الأجزاء التي تمت صيانتها أو استبدالها في حالة الصيانة الناتجة عن سوء التركيب أو التصنيع أو عدم سلامة التصنيع.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] },
-      { text: 'مدة الضمان لعملية الصيانة تكون عاماً من تاريخ التنفيذ، وفي حال وجود أي عيوب في أعمال الصيانة يجب على الطرف الأول إعادة الصيانة أو إصلاح العيوب خلال مدة لا تتجاوز خمسة عشر يوماً من تاريخ الإشعار وبما لا يخل بضمان أعمال الصيانة.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] },
-      { text: 'في حالة وجود أي عيوب أو أخطاء في الصيانة من وجهة نظر الطرف الثاني، عليه إخطار الطرف الأول بذلك ويجب أن يتضمن الإخطار وصفاً كاملاً للعيوب أو الأخطاء.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 8] },
-      { text: 'سادساً: التزامات الطرف الثاني', fontSize: 14, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
-      { text: 'يلتزم الطرف الثاني بتوفير متطلبات السلامة لحماية العاملين في الموقع، وتوفير مساحة عمل آمنة ومناسبة لفريق الصيانة، مع توفير الإضاءة والطاقة الكهربائية اللازمة لتنفيذ أعمالهم بأمان وسلامة.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] },
-      { text: 'إخلاء مسؤولية الطرف الأول عن أي حوادث أو إصابات أو أضرار تلحق بالغير أو بالعاملين في الموقع نتيجة إهمال الطرف الثاني أو عدم توفير بيئة عمل آمنة.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] },
-      { text: 'يلتزم الطرف الثاني بإبلاغ الطرف الأول فوراً في حال حدوث أي عطل مفاجئ في المصعد.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] },
-      { text: 'في حال عدم قيام الطرف الثاني بالتزاماته، يحق للطرف الأول تعليق الخدمة حتى يتم الالتزام.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 8] },
-      { text: 'سابعاً: المسؤولية والسلامة', fontSize: 14, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
-      { text: 'يكون الطرف الأول مسؤولاً عن سلامة تنفيذ أعمال الصيانة وفقاً لأصول المهنة والشروط المتفق عليها.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] },
-      { text: 'يكون الطرف الثاني مسؤولاً عن سلامة الموقع وتوفير بيئة عمل آمنة وفقاً للوائح وأنظمة السلامة المهنية.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] },
-      { text: 'يكون الطرف الأول مسؤولاً عن سلامة وأداء المصعد (المصاعد) بعد الصيانة.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 8] },
-      { text: 'ثامناً: التأخير أو التقصير', fontSize: 14, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
-      { text: [{ text: 'التأخير أو التقصير: ', bold: true, fontSize: 11, color: '#17413e' }, { text: 'في حال تقصير أو تأخير الطرف الأول في تنفيذ أعمال الصيانة الدورية، يجب عليه إخطار الطرف الثاني بأسباب التأخير.', fontSize: 11, color: '#3b564f' }], alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] },
-      { text: [{ text: 'الإخلال بالالتزامات: ', bold: true, fontSize: 11, color: '#17413e' }, { text: 'في حال إخلال الطرف الأول بالتزاماته الجوهرية، يحق للطرف الثاني تعليق استحقاق الدفعات المستحقة للطرف الأول.', fontSize: 11, color: '#3b564f' }], alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] },
-      { text: [{ text: 'حدود المسؤولية: ', bold: true, fontSize: 11, color: '#17413e' }, { text: 'لا يتحمل الطرف الأول المسؤولية عن الأضرار غير المباشرة (سواء كانت مادية أو معنوية) مثل فقدان الأرباح أو توقف العمل أو غيرها، وتكون المسؤولية في جميع الأحوال محصورة بقيمة العقد المدفوعة من الطرف الثاني للطرف الأول.', fontSize: 11, color: '#3b564f' }], alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] },
-      { text: [{ text: 'إيقاف العقد: ', bold: true, fontSize: 11, color: '#17413e' }, { text: 'يحق للطرف الأول إيقاف العقد في حال عدم قيام الطرف الثاني بدفع الدفعات المستحقة في مواعيدها، على أن يكون الإيقاف بعد إنذار خطي لمدة لا تقل عن 7 أيام.', fontSize: 11, color: '#3b564f' }], alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 8] },
-      { text: 'تاسعاً: فسخ العقد', fontSize: 14, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
-      { text: 'يحق لأي من الطرفين فسخ العقد في حال إخلال الطرف الآخر بالتزاماته الجوهرية مع إنذار خطي لمدة لا تقل عن 30 يوماً.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] },
-      { text: 'في حال فسخ العقد، يستحق الطرف الأول قيمة الأعمال التي تم تنفيذها فعلاً.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] },
-      { text: 'لا يحق للطرف الثاني فسخ العقد بسبب ظروفه المادية أو الإدارية أو تغير موقفه المالي، أو لأي سبب غير مبرر، وإلا أعتبر ذلك إخلالاً بالتزاماته.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 8] },
-      { text: 'عاشراً: المسؤولية عن الأعطال التي تتطلب قطع غيار', fontSize: 14, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
-      { text: [{ text: 'الأعطال التي تتطلب قطع غيار: ', bold: true, fontSize: 11, color: '#17413e' }, { text: 'في حال وجود عطل بالمصعد يتطلب تغيير قطعة غيار، تتحمل الطرف الثاني قيمة القطعة وتكاليف الشحن والتركيب والنقل والخدمات اللوجستية، على أن تقوم الطرف الأول بتوفير القطعة وتنفيذ أعمال الاستبدال بأسرع وقت ممكن، ويتم وضع خطة لتفادي توقف المصعد لفترات طويلة.', fontSize: 11, color: '#3b564f' }], alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] },
-      { text: [{ text: 'الأعطال غير المشمولة: ', bold: true, fontSize: 11, color: '#17413e' }, { text: 'أما الأعطال الناتجة عن سوء الاستخدام أو التعديلات غير المصرح بها من قبل الطرف الثاني أو الغير، أو الأعطال الناتجة عن سوء التركيب أو التصنيع من قبل الغير والشركات المنفذة للتركيب أو التصنيع، أو ظروف قاهرة مثل كوارث طبيعية أو حرائق أو فيضانات أو سرقات وتخريب، أو انقطاع التيار الكهربائي أو عدم استقرار الجهد الكهربائي، أو عدم تنفيذ الصيانة الوقائية الدورية المتفق عليها في العقد، أو وجود أي تعديلات هيكلية في المبنى تؤثر على سلامة المصعد، فلا تكون الطرف الأول مسؤولة عنها وتتحمل الطرف الثاني أي تكاليف إضافية لإعادة التأهيل والصيانة.', fontSize: 11, color: '#3b564f' }], alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 8] },
-      { text: 'نسخ العقد', fontSize: 14, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
-      { text: 'تم تحرير هذا العقد من نسختين (2) بيد كل طرف نسخة واحدة، وتعتبر جميعها نسخاً أصلية، وتسري أحكام هذا العقد اعتباراً من تاريخ توقيعه من الطرفين.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.8, margin: [0, 0, 0, 4] }
+      { text: 'خامساً: الضمان على أعمال الصيانة', fontSize: 12, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 4], alignment: 'right' },
+      { text: 'تتحمل الشركة المصنعة أو الموردة أو الشركة المنفذة لأعمال الصيانة (الطرف الأول) مسؤولية ضمان أعمال الصيانة التي تقوم بها وتكون مسؤولة عن أي عيوب أو أخطاء في تلك الأعمال.', fontSize: 10, color: '#475569', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] },
+      { text: 'يكون الضمان ساري المفعول لمدة عام من تاريخ بداية العقد على الأجزاء التي تمت صيانتها أو استبدالها في حالة الصيانة الناتجة عن سوء التركيب أو التصنيع أو عدم سلامة التصنيع.', fontSize: 10, color: '#475569', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] },
+      { text: 'مدة الضمان لعملية الصيانة تكون عاماً من تاريخ التنفيذ، وفي حال وجود أي عيوب في أعمال الصيانة يجب على الطرف الأول إعادة الصيانة أو إصلاح العيوب خلال مدة لا تتجاوز خمسة عشر يوماً من تاريخ الإشعار وبما لا يخل بضمان أعمال الصيانة.', fontSize: 10, color: '#475569', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] },
+      { text: 'في حالة وجود أي عيوب أو أخطاء في الصيانة من وجهة نظر الطرف الثاني، عليه إخطار الطرف الأول بذلك ويجب أن يتضمن الإخطار وصفاً كاملاً للعيوب أو الأخطاء.', fontSize: 10, color: '#475569', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 8] },
+      { text: 'سادساً: التزامات الطرف الثاني', fontSize: 12, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 4], alignment: 'right' },
+      { text: 'يلتزم الطرف الثاني بتوفير متطلبات السلامة لحماية العاملين في الموقع، وتوفير مساحة عمل آمنة ومناسبة لفريق الصيانة، مع توفير الإضاءة والطاقة الكهربائية اللازمة لتنفيذ أعمالهم بأمان وسلامة.', fontSize: 10, color: '#475569', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] },
+      { text: 'إخلاء مسؤولية الطرف الأول عن أي حوادث أو إصابات أو أضرار تلحق بالغير أو بالعاملين في الموقع نتيجة إهمال الطرف الثاني أو عدم توفير بيئة عمل آمنة.', fontSize: 10, color: '#475569', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] },
+      { text: 'يلتزم الطرف الثاني بإبلاغ الطرف الأول فوراً في حال حدوث أي عطل مفاجئ في المصعد.', fontSize: 10, color: '#475569', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] },
+      { text: 'في حال عدم قيام الطرف الثاني بالتزاماته، يحق للطرف الأول تعليق الخدمة حتى يتم الالتزام.', fontSize: 10, color: '#475569', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 8] },
+      { text: 'سابعاً: المسؤولية والسلامة', fontSize: 12, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 4], alignment: 'right' },
+      { text: 'يكون الطرف الأول مسؤولاً عن سلامة تنفيذ أعمال الصيانة وفقاً لأصول المهنة والشروط المتفق عليها.', fontSize: 10, color: '#475569', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] },
+      { text: 'يكون الطرف الثاني مسؤولاً عن سلامة الموقع وتوفير بيئة عمل آمنة وفقاً للوائح وأنظمة السلامة المهنية.', fontSize: 10, color: '#475569', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] },
+      { text: 'يكون الطرف الأول مسؤولاً عن سلامة وأداء المصعد (المصاعد) بعد الصيانة.', fontSize: 10, color: '#475569', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 8] },
+      { text: 'ثامناً: التأخير أو التقصير', fontSize: 12, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 4], alignment: 'right' },
+      { text: [{ text: 'التأخير أو التقصير: ', bold: true, fontSize: 10, color: '#1e293b' }, { text: 'في حال تقصير أو تأخير الطرف الأول في تنفيذ أعمال الصيانة الدورية، يجب عليه إخطار الطرف الثاني بأسباب التأخير.', fontSize: 10, color: '#475569' }], alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] },
+      { text: [{ text: 'الإخلال بالالتزامات: ', bold: true, fontSize: 10, color: '#1e293b' }, { text: 'في حال إخلال الطرف الأول بالتزاماته الجوهرية، يحق للطرف الثاني تعليق استحقاق الدفعات المستحقة للطرف الأول.', fontSize: 10, color: '#475569' }], alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] },
+      { text: [{ text: 'حدود المسؤولية: ', bold: true, fontSize: 10, color: '#1e293b' }, { text: 'لا يتحمل الطرف الأول المسؤولية عن الأضرار غير المباشرة (سواء كانت مادية أو معنوية) مثل فقدان الأرباح أو توقف العمل أو غيرها، وتكون المسؤولية في جميع الأحوال محصورة بقيمة العقد المدفوعة من الطرف الثاني للطرف الأول.', fontSize: 10, color: '#475569' }], alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] },
+      { text: [{ text: 'إيقاف العقد: ', bold: true, fontSize: 10, color: '#1e293b' }, { text: 'يحق للطرف الأول إيقاف العقد في حال عدم قيام الطرف الثاني بدفع الدفعات المستحقة في مواعيدها، على أن يكون الإيقاف بعد إنذار خطي لمدة لا تقل عن 7 أيام.', fontSize: 10, color: '#475569' }], alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 8] },
+      { text: 'تاسعاً: فسخ العقد', fontSize: 12, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 4], alignment: 'right' },
+      { text: 'يحق لأي من الطرفين فسخ العقد في حال إخلال الطرف الآخر بالتزاماته الجوهرية مع إنذار خطي لمدة لا تقل عن 30 يوماً.', fontSize: 10, color: '#475569', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] },
+      { text: 'في حال فسخ العقد، يستحق الطرف الأول قيمة الأعمال التي تم تنفيذها فعلاً.', fontSize: 10, color: '#475569', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] },
+      { text: 'لا يحق للطرف الثاني فسخ العقد بسبب ظروفه المادية أو الإدارية أو تغير موقفه المالي، أو لأي سبب غير مبرر، وإلا أعتبر ذلك إخلالاً بالتزاماته.', fontSize: 10, color: '#475569', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 8] },
+      { text: 'عاشراً: المسؤولية عن الأعطال التي تتطلب قطع غيار', fontSize: 12, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 4], alignment: 'right' },
+      { text: [{ text: 'الأعطال التي تتطلب قطع غيار: ', bold: true, fontSize: 10, color: '#1e293b' }, { text: 'في حال وجود عطل بالمصعد يتطلب تغيير قطعة غيار، تتحمل الطرف الثاني قيمة القطعة وتكاليف الشحن والتركيب والنقل والخدمات اللوجستية، على أن تقوم الطرف الأول بتوفير القطعة وتنفيذ أعمال الاستبدال بأسرع وقت ممكن، ويتم وضع خطة لتفادي توقف المصعد لفترات طويلة.', fontSize: 10, color: '#475569' }], alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] },
+      { text: [{ text: 'الأعطال غير المشمولة: ', bold: true, fontSize: 10, color: '#1e293b' }, { text: 'أما الأعطال الناتجة عن سوء الاستخدام أو التعديلات غير المصرح بها من قبل الطرف الثاني أو الغير، أو الأعطال الناتجة عن سوء التركيب أو التصنيع من قبل الغير والشركات المنفذة للتركيب أو التصنيع، أو ظروف قاهرة مثل كوارث طبيعية أو حرائق أو فيضانات أو سرقات وتخريب، أو انقطاع التيار الكهربائي أو عدم استقرار الجهد الكهربائي، أو عدم تنفيذ الصيانة الوقائية الدورية المتفق عليها في العقد، أو وجود أي تعديلات هيكلية في المبنى تؤثر على سلامة المصعد، فلا تكون الطرف الأول مسؤولة عنها وتتحمل الطرف الثاني أي تكاليف إضافية لإعادة التأهيل والصيانة.', fontSize: 10, color: '#475569' }], alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 8] },
+      { text: 'نسخ العقد', fontSize: 12, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 4], alignment: 'right' },
+      { text: 'تم تحرير هذا العقد من نسختين (2) بيد كل طرف نسخة واحدة، وتعتبر جميعها نسخاً أصلية، وتسري أحكام هذا العقد اعتباراً من تاريخ توقيعه من الطرفين.', fontSize: 10, color: '#475569', alignment: 'right', lineHeight: 1.15, margin: [0, 0, 0, 4] }
     ];
   }
 
@@ -706,8 +821,8 @@
         widths: ['*', 'auto'],
         body: [
           [
-            { text: 'عقد ' + (c.type || ''), bold: true, fontSize: 18, color: '#0d312f', alignment: 'right' },
-            { text: 'رقم العقد: ' + c.id, bold: true, fontSize: 10, color: '#fff', fillColor: '#0d312f', alignment: 'center', margin: [4, 2, 4, 2] }
+            { text: 'عقد ' + (c.type || ''), bold: true, fontSize: 14, color: '#1e3a5f', alignment: 'right' },
+            { text: 'رقم العقد: ' + c.id, bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [4, 2, 4, 2] }
           ]
         ]
       },
@@ -725,9 +840,9 @@
     if (isInstall) {
       content.push({
         stack: [
-          { text: 'بسم الله الرحمن الرحيم', fontSize: 10, color: '#8b9f99', alignment: 'center', margin: [0, 0, 0, 2] },
-          { text: 'عقد تركيب مصعد', fontSize: 14, bold: true, color: '#0d312f', alignment: 'center', margin: [0, 0, 0, 4] },
-          { text: 'يسعدنا نحن ' + companyName + ' أن نتقدم لسعادتكم بهذا العقد لتوريد وتركيب مصعد في موقعكم الموضح أدناه، وفق المواصفات الفنية والبنود العامة المعتمدة.', fontSize: 11, color: '#3b564f', alignment: 'right', margin: [0, 0, 0, 6], lineHeight: 1.8 }
+          { text: 'بسم الله الرحمن الرحيم', fontSize: 10, color: '#94a3b8', alignment: 'center', margin: [0, 0, 0, 2] },
+          { text: 'عقد تركيب مصعد', fontSize: 12, bold: true, color: '#1e3a5f', alignment: 'center', margin: [0, 0, 0, 4] },
+          { text: 'يسعدنا نحن ' + companyName + ' أن نتقدم لسعادتكم بهذا العقد لتوريد وتركيب مصعد في موقعكم الموضح أدناه، وفق المواصفات الفنية والبنود العامة المعتمدة.', fontSize: 10, color: '#475569', alignment: 'right', margin: [0, 0, 0, 6], lineHeight: 1.15 }
         ],
         margin: [0, 0, 0, 6]
       });
@@ -737,30 +852,46 @@
       { label: 'بداية العقد', value: c.startDate },
       { label: 'نهاية العقد', value: c.endDate },
       { label: 'منشأة الإصدار', value: companyName }
-    ].concat(isInstall?[{label:'مدة التركيب',value:(c.installationInfo?.installDuration||'45 يوماً')}]:[]).concat(isInstall&&c.deliveryDate?[{label:'تاريخ التسليم',value:c.deliveryDate}]:[])));
+    ].concat(isInstall?[{label:'مدة التركيب',value:(c.installationInfo?.installDuration||'45 يوماً')}]:[]).concat(isInstall&&c.deliveryDate?[{label:'تاريخ التسليم',value:c.deliveryDate}]:[]).concat(c.paymentMethod?[{label:'طريقة الدفع',value:c.paymentMethod}]:[])));
+
+    if (c.transferNotices?.length || c.transferNoticeData) {
+      var allNotices = c.transferNotices || [];
+      if (c.transferNoticeData) allNotices = [{data:c.transferNoticeData,name:c.transferNoticeName||'إشعار تحويل'}].concat(allNotices);
+      allNotices.forEach(function(n, i){
+        if (n.data && n.data.indexOf('data:image/') === 0) {
+          content.push({ image: n.data, width: 200, alignment: 'center', margin: [0, 4, 0, 4] });
+        }
+      });
+    }
+
+    if (c.financialNotes) {
+      content.push({ text: 'ملاحظات مالية', fontSize: 12, bold: true, color: '#1e3a5f', margin: [0, 6, 0, 4], alignment: 'right' });
+      content.push({ text: c.financialNotes, fontSize: 10, color: '#475569', margin: [0, 0, 0, 6], alignment: 'right' });
+    }
 
     var intro = contractIntroParagraph(c, isInstall);
     if (intro) Array.prototype.push.apply(content, intro);
 
     if (isInstall) {
       var scopeDefault = 'يشمل العقد توريد وتركيب المصعد والسكة والأبواب والكابينة والمكينة ولوحة التحكم والتشغيل والاختبار والتسليم النهائي وفقاً للمواصفات الفنية الواردة بهذا العقد، مع توفير الضمان اللازم للأجزاء الموردة حسب ما هو متفق عليه.';
-      Array.prototype.push.apply(content, sectionBlock('أولاً', 'نطاق التوريد والتركيب', scopeText(c.details, scopeDefault)));
+      var sec = ['أولاً', 'ثانياً', 'ثالثاً', 'رابعاً', 'خامساً', 'سادساً', 'سابعاً', 'ثامناً', 'تاسعاً', 'عاشراً'];
+      var si = 0;
+      Array.prototype.push.apply(content, sectionBlock(sec[si++], 'نطاق التوريد والتركيب', scopeText(c.details, scopeDefault)));
 
-      var st = specTable(c.elevatorInfo, 'البند ثانياً: المواصفات الفنية للمصعد');
+      var st = specTable(c.elevatorInfo, 'البند ' + sec[si++] + ': المواصفات الفنية للمصعد');
       if (st && st.length) {
         Array.prototype.push.apply(content, st);
       }
 
-      var pt = paymentPlanTable(c.value);
+      var pt = paymentPlanTable(c.value, c.paymentPlan);
       if (pt) {
-        Array.prototype.push.apply(content, sectionBlock('ثالثاً', 'شروط الدفع', pt));
+        Array.prototype.push.apply(content, sectionBlock(sec[si++], 'شروط الدفع', pt));
       }
 
-      var ti = renderItems(c.items, 'رابعاً: البنود الافتراضية');
-      if (ti) Array.prototype.push.apply(content, ti);
-      var ci = renderItems(c.customItems, 'خامساً: البنود الإضافية');
-      if (ci) Array.prototype.push.apply(content, ci);
-      else if (!ti) content.push(sectionTitle('رابعاً: البنود'));
+      var ti = renderItems(c.items, sec[si] + ': البنود الافتراضية');
+      if (ti) { Array.prototype.push.apply(content, ti); si++; }
+      var ci = renderItems(c.customItems, sec[si] + ': البنود الإضافية');
+      if (ci) { Array.prototype.push.apply(content, ci); si++; }
 
       var buildings = c.buildings || [];
       if (buildings.length > 0) {
@@ -768,20 +899,17 @@
         buildings.forEach(function(b){
           bd.push({
             stack: [
-              { text: b.name || 'غير محدد', bold: true, fontSize: 10, color: '#17413e', margin: [0, 0, 0, 1], alignment: 'right' },
-              { text: [b.district, b.mapUrl].filter(Boolean).join(' - ') || '', fontSize: 11, color: '#748481', margin: [0, 0, 0, 4], alignment: 'right' }
+              { text: b.name || 'غير محدد', bold: true, fontSize: 10, color: '#1e293b', margin: [0, 0, 0, 1], alignment: 'right' },
+              { text: [b.district, b.mapUrl].filter(Boolean).join(' - ') || '', fontSize: 10, color: '#64748b', margin: [0, 0, 0, 4], alignment: 'right' }
             ],
             margin: [0, 0, 0, 2]
           });
         });
-        Array.prototype.push.apply(content, sectionBlock('سادساً', 'المباني والمواقع', bd));
-      }
-      if (c.maintenanceChecklist && c.maintenanceChecklist.length > 0) {
-        var mi = maintenanceTable(c.maintenanceChecklist);
-        if (mi) Array.prototype.push.apply(content, sectionBlock('سابعاً', 'بنود الصيانة المتفق عليها', mi));
+        Array.prototype.push.apply(content, sectionBlock(sec[si++], 'المباني والمواقع', bd));
       }
       if (c.deliveryDate && c.maintenanceEndDate) {
-        content.push(sectionBlock('ثامناً', 'فترة الصيانة', { text: 'تبدأ فترة الصيانة من تاريخ تسليم المصعد (' + c.deliveryDate + ') إلى تاريخ (' + c.maintenanceEndDate + ')، على أن تشمل أعمال الصيانة الدورية والطارئة وفق بنود الصيانة المتفق عليها أعلاه.', fontSize: 11, color: '#3b564f', alignment: 'right', lineHeight: 1.8 }));
+        var p = { text: 'تبدأ فترة الصيانة من تاريخ تسليم المصعد (' + c.deliveryDate + ') إلى تاريخ (' + c.maintenanceEndDate + ')، على أن تشمل أعمال الصيانة الدورية والطارئة وفق بنود الصيانة المتفق عليها أعلاه.', fontSize: 10, color: '#475569', alignment: 'right', lineHeight: 1.15 };
+        content.push(sectionBlock(sec[si++], 'فترة الصيانة', p));
       }
     } else {
       var scopeDefault = 'يشمل العقد أعمال الصيانة الدورية للمصعد (المصاعد) وفق بنود الصيانة والشروط والمواصفات الواردة في هذا العقد، للحفاظ على سلامة وأداء المصعد طوال مدة العقد.';
@@ -789,7 +917,6 @@
 
       var st = maintenanceSpecTable(c.elevatorInfo, 'البند ثانياً: المواصفات الفنية للمصعد');
       if (st && st.length) {
-        st[0].pageBreak = 'before';
         Array.prototype.push.apply(content, st);
       }
 
@@ -802,8 +929,8 @@
         buildings.forEach(function(b){
           bd.push({
             stack: [
-              { text: b.name || 'غير محدد', bold: true, fontSize: 10, color: '#17413e', margin: [0, 0, 0, 1], alignment: 'right' },
-              { text: [b.district, b.mapUrl].filter(Boolean).join(' - ') || '', fontSize: 11, color: '#748481', margin: [0, 0, 0, 4], alignment: 'right' }
+              { text: b.name || 'غير محدد', bold: true, fontSize: 10, color: '#1e293b', margin: [0, 0, 0, 1], alignment: 'right' },
+              { text: [b.district, b.mapUrl].filter(Boolean).join(' - ') || '', fontSize: 10, color: '#64748b', margin: [0, 0, 0, 4], alignment: 'right' }
             ],
             margin: [0, 0, 0, 2]
           });
@@ -829,9 +956,12 @@
 
   // ==================== QUOTE ====================
   function quotePdfDefinition(q, logoData, opts){
-    var total = Number(q.totalWithTax != null ? q.totalWithTax : (q.subtotal != null ? q.subtotal : (q.value || 0)));
+    var total = Number(q.totalWithTax != null ? q.totalWithTax : (q.value != null ? q.value : (q.subtotal || 0)));
+    var subtotal = Number(q.subtotal != null ? q.subtotal : total);
+    var taxAmount = Number(q.taxAmount != null ? q.taxAmount : Math.max(0, total - subtotal));
     var party = q.client || q.clientCompanyName || q.clientName || "غير محدد";
     var isInstall = q.type === "تركيب";
+    var isParts = q.type === "توريد وتركيب قطع غيار";
     var companyName = activeCompanyName();
     var cf = safeFooter();
     var content = [];
@@ -839,7 +969,7 @@
 
     content.push({
       columns: [
-        { text: 'عرض سعر' + (q.type ? ' - ' + q.type : ''), bold: true, fontSize: 16, color: '#0d312f' },
+        { text: 'عرض سعر' + (q.type ? ' - ' + q.type : ''), bold: true, fontSize: 14, color: '#1e3a5f' },
         statusBadge(q.status || 'بانتظار الرد')
       ],
       margin: [0, 0, 0, 6]
@@ -849,12 +979,12 @@
         widths: ['*', 'auto'],
         body: [
           [
-            { text: 'رقم عرض السعر: ' + q.id, bold: true, fontSize: 14, color: '#d4a24e', alignment: 'right' },
-            { text: 'الإجمالي', fontSize: 10, color: '#748481', alignment: 'center' }
+            { text: 'رقم عرض السعر: ' + q.id, bold: true, fontSize: 12, color: '#c9a84c', alignment: 'right' },
+            { text: 'الإجمالي', fontSize: 10, color: '#64748b', alignment: 'center' }
           ],
           [
             { text: '', border: [false, false, false, false] },
-            { text: safeMoney(total), bold: true, fontSize: 18, color: '#d4a24e', alignment: 'center' }
+            { text: safeMoney(total), bold: true, fontSize: 12, color: '#c9a84c', alignment: 'center' }
           ]
         ]
       },
@@ -863,16 +993,50 @@
     });
     content.push({
       stack: [
-        { text: 'الطرف الموجه إليه عرض السعر', fontSize: 12, bold: true, color: '#0d312f', margin: [0, 0, 0, 2] },
-        { text: party, bold: true, fontSize: 14, color: '#0d312f', margin: [0, 2, 0, 4], alignment: 'right' }
+        { text: 'الطرف الموجه إليه عرض السعر', fontSize: 12, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 2] },
+        { text: party, bold: true, fontSize: 12, color: '#1e3a5f', margin: [0, 2, 0, 4], alignment: 'right' }
       ],
       margin: [0, 0, 0, 8]
     });
-    content.push(summaryTable([
+    var quoteSummary = [
       { label: 'العنوان', value: q.title || 'عرض سعر' },
       { label: 'تاريخ الإصدار', value: q.createdAt },
       { label: 'مرجع الكشف', value: q.reportId || '?' }
-    ]));
+    ];
+    if (q.clientName) quoteSummary.push({ label: 'اسم العميل', value: q.clientName });
+    if (q.clientId) quoteSummary.push({ label: 'هوية العميل', value: q.clientId });
+    if (q.clientCompanyName) quoteSummary.push({ label: 'منشأة العميل', value: q.clientCompanyName });
+    if (q.clientCompanyUnifiedNumber) quoteSummary.push({ label: 'الرقم الموحد', value: q.clientCompanyUnifiedNumber });
+    content.push(summaryTable(quoteSummary));
+
+    var financialRows = [
+      [{ text: 'القيمة الأساسية', alignment: 'right' }, { text: safeMoney(subtotal), alignment: 'center', bold: true }]
+    ];
+    if (taxAmount > 0) {
+      financialRows.push([
+        { text: 'القيمة المضافة' + (q.taxRate ? ' (' + (Number(q.taxRate) > 1 ? Number(q.taxRate) : Number(q.taxRate) * 100) + '%)' : ''), alignment: 'right' },
+        { text: safeMoney(taxAmount), alignment: 'center', bold: true }
+      ]);
+    }
+    financialRows.push([
+      { text: 'الإجمالي', alignment: 'right', bold: true, color: '#b8862d' },
+      { text: safeMoney(total), alignment: 'center', bold: true, color: '#b8862d' }
+    ]);
+    content.push({
+      table: { widths: ['*', 110], body: financialRows },
+      layout: {
+        hLineWidth: function(){ return 0.5; },
+        vLineWidth: function(){ return 0.5; },
+        hLineColor: function(){ return '#cbd5e1'; },
+        vLineColor: function(){ return '#cbd5e1'; },
+        paddingLeft: function(){ return 7; },
+        paddingRight: function(){ return 7; },
+        paddingTop: function(){ return 5; },
+        paddingBottom: function(){ return 5; },
+        fillColor: function(i){ return i === financialRows.length - 1 ? '#fdf6e8' : (i % 2 ? '#f5f4f1' : null); }
+      },
+      margin: [0, 0, 0, 10]
+    });
 
     var et = elevatorTable(q.elevatorInfo);
     if (et) Array.prototype.push.apply(content, et);
@@ -881,9 +1045,9 @@
       var plan = (q.paymentPlan && q.paymentPlan.length) ? q.paymentPlan : [];
       if (plan.length) {
         var planRows = [[
-          { text: 'الدفعة', bold: true, color: '#fff', fillColor: '#0d312f', alignment: 'right' },
-          { text: 'البيان', bold: true, color: '#fff', fillColor: '#0d312f', alignment: 'right' },
-          { text: 'القيمة', bold: true, color: '#fff', fillColor: '#0d312f', alignment: 'center' }
+          { text: 'الدفعة', bold: true, color: '#fff', fillColor: '#1e3a5f', alignment: 'right' },
+          { text: 'البيان', bold: true, color: '#fff', fillColor: '#1e3a5f', alignment: 'right' },
+          { text: 'القيمة', bold: true, color: '#fff', fillColor: '#1e3a5f', alignment: 'center' }
         ]];
         plan.forEach(function(p){
           var label = p.label || (Array.isArray(p) ? p[0] : 'دفعة');
@@ -891,41 +1055,46 @@
           var pct = p.percent > 1 ? p.percent / 100 : (p.percent || (Array.isArray(p) ? p[2] : 0));
           var amount = total * pct;
           planRows.push([
-            { text: label, fontSize: 9, alignment: 'right' },
-            { text: desc, fontSize: 8, color: '#748481', alignment: 'right' },
-            { text: safeMoney(amount), alignment: 'center', fontSize: 9, bold: true }
+            { text: label, fontSize: 10, alignment: 'right' },
+            { text: desc, fontSize: 10, color: '#64748b', alignment: 'right' },
+            { text: safeMoney(amount), alignment: 'center', fontSize: 10, bold: true }
           ]);
         });
         planRows.push([
-          { text: 'الإجمالي', colSpan: 2, alignment: 'left', bold: true, fontSize: 10, color: '#8b601f' },
+          { text: 'الإجمالي', colSpan: 2, alignment: 'left', bold: true, fontSize: 10, color: '#b8862d' },
           {},
-          { text: safeMoney(total), alignment: 'center', bold: true, fontSize: 10, color: '#8b601f' }
+          { text: safeMoney(total), alignment: 'center', bold: true, fontSize: 10, color: '#b8862d' }
         ]);
-        content.push({ text: 'جدول الدفعات', fontSize: 12, bold: true, color: '#0d312f', margin: [0, 0, 0, 4] });
+        content.push({ text: 'جدول الدفعات', fontSize: 12, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 4] });
         content.push({
           table: { headerRows: 1, keepWithHeaderRows: 2, dontBreakRows: true, widths: ['*', '*', 80], body: planRows },
           layout: {
             hLineWidth: function(){ return 0.5; },
             vLineWidth: function(){ return 0.5; },
-            hLineColor: function(){ return '#a0b8ad'; },
-            vLineColor: function(){ return '#a0b8ad'; },
+            hLineColor: function(){ return '#94a3b8'; },
+            vLineColor: function(){ return '#94a3b8'; },
             paddingLeft: function(){ return 6; },
             paddingRight: function(){ return 6; },
             paddingTop: function(){ return 4; },
             paddingBottom: function(){ return 4; },
-            fillColor: function(i){ return i === 0 ? null : (i % 2 === 0 ? null : '#e6f0ea'); }
+            fillColor: function(i){ return i === 0 ? null : (i % 2 === 0 ? null : '#f1f0ec'); }
           },
           margin: [0, 0, 0, 10]
         });
       }
     }
 
-    if (!isInstall) {
+    if (isParts) {
+      var pt = partsTable(q.partsItems, 'قطع الغيار المطلوب توريدها وتركيبها');
+      if (pt) Array.prototype.push.apply(content, pt);
+    }
+
+    if (!isInstall && !isParts) {
       var mt = maintenanceTable(q.maintenanceChecklist);
       if (mt) Array.prototype.push.apply(content, mt);
     }
 
-    var pi = renderItems(q.partsItems, 'قطع الغيار بأقل أسعار الموردين');
+    var pi = !isParts ? renderItems(q.partsItems, 'قطع الغيار بأقل أسعار الموردين') : null;
     if (pi) Array.prototype.push.apply(content, pi);
     var ti = renderItems(q.items, 'البنود الافتراضية');
     if (ti) Array.prototype.push.apply(content, ti);
@@ -933,15 +1102,25 @@
     if (ci) Array.prototype.push.apply(content, ci);
 
     if (q.details) {
-      content.push({ text: 'التفاصيل', fontSize: 12, bold: true, color: '#0d312f', margin: [0, 0, 0, 4] });
-      content.push({ text: q.details, fontSize: 11, color: '#3b564f', margin: [0, 0, 0, 10], alignment: 'right' });
+      content.push({ text: 'التفاصيل', fontSize: 12, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 4] });
+      content.push({ text: q.details, fontSize: 10, color: '#475569', margin: [0, 0, 0, 10], alignment: 'right' });
     }
 
-    content.push({
-      stack: buildSignature(companyName, party),
-      unbreakable: true,
-      margin: [0, 0, 0, 0]
-    });
+if (isParts) {
+      content.push({
+        stack: [
+          { text: '', margin: [0, 0, 0, 0] },
+          { stack: buildSignature(companyName, party, true), pageBreak: 'avoid', margin: [0, 0, 0, 0] }
+        ],
+        unbreakable: true
+      });
+    } else {
+      content.push({
+        stack: buildSignature(companyName, party, true),
+        unbreakable: true,
+        margin: [0, 0, 0, 0]
+      });
+    }
     return makeDd(content, cf, opts);
   }
 
@@ -954,7 +1133,7 @@
 
     content.push({
       columns: [
-        { text: 'تقرير زيارة فنية', bold: true, fontSize: 16, color: '#0d312f' },
+        { text: 'تقرير زيارة فنية', bold: true, fontSize: 14, color: '#1e3a5f' },
         statusBadge(r.status || 'بانتظار اعتماد العميل')
       ],
       margin: [0, 0, 0, 6]
@@ -964,8 +1143,8 @@
         widths: ['*', 'auto'],
         body: [
           [
-            { text: 'رقم التقرير: ' + r.id, bold: true, fontSize: 14, color: '#d4a24e', alignment: 'right' },
-            { text: r.technician || r.technicianId || 'الفني', fontSize: 10, color: '#748481', alignment: 'center' }
+            { text: 'رقم التقرير: ' + r.id, bold: true, fontSize: 12, color: '#c9a84c', alignment: 'right' },
+            { text: r.technician || r.technicianId || 'الفني', fontSize: 10, color: '#64748b', alignment: 'center' }
           ]
         ]
       },
@@ -984,8 +1163,8 @@
     function section(title, text){
       if (!text) return null;
       return [
-        { text: title, fontSize: 14, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' },
-        { text: text, fontSize: 11, color: '#3b564f', margin: [0, 0, 0, 10], alignment: 'right' }
+        { text: title, fontSize: 12, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 4], alignment: 'right' },
+        { text: text, fontSize: 10, color: '#475569', margin: [0, 0, 0, 10], alignment: 'right' }
       ];
     }
 
@@ -995,9 +1174,9 @@
     if (s2) Array.prototype.push.apply(content, s2);
 
     if (r.parts || r.recommendations) {
-      content.push({ text: 'قطع الغيار المطلوبة / المستخدمة والتوصيات', fontSize: 14, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' });
-      if (r.parts) content.push({ text: r.parts, fontSize: 11, color: '#3b564f', margin: [0, 0, 0, 4], alignment: 'right' });
-      if (r.recommendations) content.push({ text: r.recommendations, fontSize: 11, color: '#3b564f', margin: [0, 0, 0, 10], alignment: 'right' });
+      content.push({ text: 'قطع الغيار المطلوبة / المستخدمة والتوصيات', fontSize: 12, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 4], alignment: 'right' });
+      if (r.parts) content.push({ text: r.parts, fontSize: 10, color: '#475569', margin: [0, 0, 0, 4], alignment: 'right' });
+      if (r.recommendations) content.push({ text: r.recommendations, fontSize: 10, color: '#475569', margin: [0, 0, 0, 10], alignment: 'right' });
     }
 
     var s3 = section('صور أو روابط مرفقة', r.attachments);
@@ -1020,15 +1199,15 @@
 
     content.push({
       columns: [
-        { text: 'بلاغ - ' + t.id, bold: true, fontSize: 16, color: '#0d312f' },
+        { text: 'بلاغ - ' + t.id, bold: true, fontSize: 14, color: '#1e3a5f' },
         statusBadge(t.status)
       ],
       margin: [0, 0, 0, 6]
     });
     content.push({
       stack: [
-        { text: t.title, bold: true, fontSize: 14, color: '#0d312f', margin: [0, 0, 0, 2], alignment: 'right' },
-        { text: t.description || '', fontSize: 11, color: '#3b564f', margin: [0, 0, 0, 6], alignment: 'right' }
+        { text: t.title, bold: true, fontSize: 12, color: '#1e3a5f', margin: [0, 0, 0, 2], alignment: 'right' },
+        { text: t.description || '', fontSize: 10, color: '#475569', margin: [0, 0, 0, 6], alignment: 'right' }
       ],
       margin: [0, 0, 0, 8]
     });
@@ -1054,13 +1233,164 @@
   // ==================== CLAIM ====================
   function claimPdfDefinition(cl, logoData, opts){
     var companyName = activeCompanyName();
+    var contract;
+    if (A.visibleContracts) contract = A.visibleContracts().find(function(x){ return x.id === cl.contractId; });
+    var partyName = cl.clientName || (contract && (contract.clientName || contract.clientCompanyName || contract.clientPhone)) || safeLabel(cl);
+    if (!partyName || partyName === 'غير محدد' || partyName.trim() === 'غير محدد') {
+      if (A.contractLabel) partyName = A.contractLabel(cl);
+      if (!partyName || partyName === 'غير محدد') partyName = (contract && A.contractLabel) ? A.contractLabel(contract) : (contract ? (contract.clientName || contract.clientCompanyName || 'غير محدد') : 'غير محدد');
+    }
+    var isReceipt = !!cl.receiptEntryId || cl.period === 'سند قبض';
     var cf = safeFooter();
     var content = [];
     appendDocumentHeader(content, logoData, opts);
 
+    if (isReceipt) {
+      // ============ سند قبض ============
+      var linkedEntry = null;
+      var allEntriesForReceipt = [];
+      try {
+        allEntriesForReceipt = A._read ? A._read('misadFinancialEntries') : JSON.parse(localStorage.getItem('misadFinancialEntries') || '[]');
+        if (cl.receiptEntryId) linkedEntry = allEntriesForReceipt.find(function(x){ return x.id === cl.receiptEntryId; });
+        if (!linkedEntry && cl.contractId) linkedEntry = allEntriesForReceipt.filter(function(x){ return x.contractId === cl.contractId && x.direction === 'in'; }).slice().reverse().find(function(x){ return Number(x.amount||0) === Number(cl.value||0); });
+      } catch(e){}
+
+      var receiptNo = cl.id || '—';
+      var receiptDate = (linkedEntry && linkedEntry.date) || cl.createdAt || '—';
+      var paymentMethod = (linkedEntry && linkedEntry.paymentMethod) || '—';
+      var installmentLabel = (linkedEntry && (linkedEntry.paymentLabel || linkedEntry.description)) || (cl.purpose || 'دفعة من عقد');
+
+      content.push({
+        columns: [
+          { text: 'سند قبض', bold: true, fontSize: 16, color: '#1e3a5f' },
+          statusBadge(cl.status || 'معتمد')
+        ],
+        margin: [0, 0, 0, 6]
+      });
+      content.push({ canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.5, lineColor: '#c9a84c' }], margin: [0, 0, 0, 6] });
+
+      content.push({
+        columns: [
+          {
+            stack: [
+              { text: 'رقم السند', fontSize: 9, color: '#94a3b8', alignment: 'right' },
+              { text: receiptNo, bold: true, fontSize: 11, color: '#1e3a5f', alignment: 'right' }
+            ],
+            width: '50%'
+          },
+          {
+            stack: [
+              { text: 'تاريخ الإصدار', fontSize: 9, color: '#94a3b8', alignment: 'left' },
+              { text: receiptDate, bold: true, fontSize: 11, color: '#1e3a5f', alignment: 'left' }
+            ],
+            width: '50%'
+          }
+        ],
+        margin: [0, 0, 0, 12]
+      });
+
+      content.push({
+        text: 'استلمنا من السيد / الطرف الثاني الموضحة بياناته أدناه مبلغ',
+        fontSize: 11, bold: true, color: '#1e3a5f', alignment: 'center', margin: [0, 0, 0, 4]
+      });
+      content.push({
+        table: {
+          widths: ['*'],
+          body: [[
+            {
+              stack: [
+                { text: 'المبلغ', fontSize: 9, color: '#94a3b8', alignment: 'center', margin: [0, 0, 0, 2] },
+                { text: safeMoney(cl.value), bold: true, fontSize: 20, color: '#b8862d', alignment: 'center' }
+              ],
+              alignment: 'center',
+              fillColor: '#fdf6e8',
+              margin: [10, 10, 10, 10]
+            }
+          ]]
+        },
+        layout: {
+          hLineWidth: function(){ return 1; },
+          vLineWidth: function(){ return 0; },
+          hLineColor: function(){ return '#c9a84c'; },
+          paddingLeft: function(){ return 0; },
+          paddingRight: function(){ return 0; },
+          paddingTop: function(){ return 0; },
+          paddingBottom: function(){ return 0; }
+        },
+        margin: [0, 0, 0, 10]
+      });
+
+      content.push(summaryTable([
+        { label: 'استلمنا من', value: partyName },
+        { label: 'العقد', value: cl.contractId || 'غير محدد' },
+        { label: 'البيان / الدفعة', value: installmentLabel },
+        { label: 'طريقة الدفع', value: paymentMethod }
+      ]));
+
+      if (contract && contract.type === 'تركيب') {
+        var plan = (contract.paymentPlan && contract.paymentPlan.length) ? contract.paymentPlan : [];
+        var rlabel = (linkedEntry && linkedEntry.paymentLabel) || '';
+        if (rlabel && plan.length) {
+          var ridx = -1;
+          for (var rpi = 0; rpi < plan.length; rpi++) { var rll = Array.isArray(plan[rpi]) ? plan[rpi][0] : plan[rpi].label; if (rll === rlabel) { ridx = rpi; break; } }
+          if (ridx >= 0) {
+            var rp = plan[ridx];
+            var rpct = Array.isArray(rp) ? rp[2] : rp.percent;
+            rpct = rpct > 1 ? rpct / 100 : (rpct || 0);
+            var rtotal = Number(contract.value || 0);
+            var rexpected = rtotal * rpct;
+            var rpaid = allEntriesForReceipt.filter(function(x){ return x.contractId === contract.id && x.direction === 'in'; }).reduce(function(s,x){ return s + Number(x.amount||0); }, 0);
+            var rremaining = Math.max(0, rtotal - rpaid);
+            content.push(summaryTable([
+              { label: 'إجمالي العقد', value: safeMoney(rtotal) },
+              { label: 'الدفعة', value: rlabel },
+              { label: 'المستحق لهذه الدفعة', value: safeMoney(rexpected) },
+              { label: 'المتبقي بعد هذه الدفعة', value: safeMoney(rremaining) }
+            ]));
+          }
+        }
+      }
+
+      if (cl.details) {
+        content.push({ text: 'بيان', fontSize: 11, bold: true, color: '#1e3a5f', margin: [0, 4, 0, 2], alignment: 'right' });
+        content.push({ text: cl.details, fontSize: 10, color: '#475569', margin: [0, 0, 0, 6], alignment: 'right' });
+      }
+
+      content.push({
+        stack: [
+          { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.3, lineColor: '#e2e8f0' }], margin: [0, 0, 0, 6] },
+          {
+            columns: [
+              {
+                stack: [
+                  { text: 'العميل (الطرف الثاني)', fontSize: 10, bold: true, color: '#1e3a5f', alignment: 'center', margin: [0, 0, 0, 4] },
+                  { text: partyName, fontSize: 11, color: '#1e3a5f', bold: true, alignment: 'center', margin: [0, 0, 0, 4] },
+                  { text: 'التوقيع: ...............................', fontSize: 10, color: '#94a3b8', alignment: 'center' }
+                ]
+              },
+              {
+                stack: [
+                  { text: 'المصدر (المنشأة)', fontSize: 10, bold: true, color: '#1e3a5f', alignment: 'center', margin: [0, 0, 0, 4] },
+                  { text: companyName, fontSize: 11, color: '#1e3a5f', bold: true, alignment: 'center' },
+                  (function(){ var stamp = (A.companyStamp && A.companyStamp()) || ''; var signature = (A.companySignature && A.companySignature()) || ''; var imgs = []; if (signature) imgs.push({ image: signature, fit: [120, 70], alignment: 'center', margin: [0, 3, 0, 0] }); if (stamp) imgs.push({ image: stamp, fit: [120, 90], alignment: 'center', margin: [0, 3, 0, 0] }); if (imgs.length) return { stack: [{ text: 'التوقيع / الختم', fontSize: 8, color: '#94a3b8', alignment: 'center' }].concat(imgs) }; return { text: 'التوقيع / الختم: ...............................', fontSize: 10, color: '#94a3b8', alignment: 'center' }; })()
+                ]
+              }
+            ],
+            columnGap: 20,
+            margin: [0, 4, 0, 6]
+          }
+        ],
+        unbreakable: true,
+        margin: [0, 0, 0, 0]
+      });
+
+      return makeDd(content, cf, opts);
+    }
+
+    // ============ مستخلص مالي (عادي) ============
     content.push({
       columns: [
-        { text: 'مستخلص مالي', bold: true, fontSize: 16, color: '#0d312f' },
+        { text: 'مستخلص مالي', bold: true, fontSize: 14, color: '#1e3a5f' },
         statusBadge(cl.status || 'قيد المراجعة')
       ],
       margin: [0, 0, 0, 6]
@@ -1070,12 +1400,12 @@
         widths: ['*', 'auto'],
         body: [
           [
-            { text: 'رقم المستخلص: ' + cl.id, bold: true, fontSize: 14, color: '#d4a24e', alignment: 'right' },
-            { text: 'قيمة المستخلص', fontSize: 10, color: '#748481', alignment: 'center' }
+            { text: 'رقم المستخلص: ' + cl.id, bold: true, fontSize: 12, color: '#c9a84c', alignment: 'right' },
+            { text: 'قيمة المستخلص', fontSize: 10, color: '#64748b', alignment: 'center' }
           ],
           [
             { text: '', border: [false, false, false, false] },
-            { text: safeMoney(cl.value), bold: true, fontSize: 18, color: '#d4a24e', alignment: 'center' }
+            { text: safeMoney(cl.value), bold: true, fontSize: 12, color: '#c9a84c', alignment: 'center' }
           ]
         ]
       },
@@ -1084,29 +1414,844 @@
     });
     content.push(summaryTable([
       { label: 'العقد', value: cl.contractId || 'غير محدد' },
-      { label: 'الطرف الثاني', value: cl.clientName || safeLabel(cl) },
+      { label: 'الطرف الثاني', value: partyName },
       { label: 'الفترة', value: cl.period || 'غير محددة' },
       { label: 'تاريخ الإنشاء', value: cl.createdAt }
     ]));
 
-    content.push({ text: 'بيان المستخلص', fontSize: 14, bold: true, color: '#0d312f', margin: [0, 0, 0, 4], alignment: 'right' });
+    content.push({ text: 'بيان المستخلص', fontSize: 12, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 4], alignment: 'right' });
     content.push({
       text: 'مستخلص عن الفترة الموضحة أعلاه بمبلغ إجمالي ' + safeMoney(cl.value) + ' وفق بيانات العقد والخدمات المسجلة في النظام.',
-      fontSize: 11, color: '#3b564f', margin: [0, 0, 0, 10], alignment: 'right'
+      fontSize: 10, color: '#475569', margin: [0, 0, 0, 10], alignment: 'right'
     });
 
     content.push({
-      stack: buildSignature(companyName, cl.clientName || safeLabel(cl) || 'الطرف الثاني'),
+      stack: buildSignature(companyName, partyName || 'الطرف الثاني'),
       unbreakable: true,
       margin: [0, 0, 0, 0]
     });
     return makeDd(content, cf, opts);
   }
 
+  // ==================== RECEIPT ====================
+  function receiptPdfDefinition(r, logoData, opts){
+    var companyName = activeCompanyName();
+    var cf = safeFooter();
+    var content = [];
+    appendDocumentHeader(content, logoData, opts);
+
+    content.push({
+      columns: [
+        { text: 'سند قبض', bold: true, fontSize: 16, color: '#1e3a5f' },
+        statusBadge(r.status || 'معتمد')
+      ],
+      margin: [0, 0, 0, 6]
+    });
+
+    var separator = { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.5, lineColor: '#c9a84c' }], margin: [0, 0, 0, 6] };
+    content.push(separator);
+
+    content.push({
+      columns: [
+        {
+          stack: [
+            { text: 'رقم السند', fontSize: 9, color: '#94a3b8', alignment: 'right' },
+            { text: r.id, bold: true, fontSize: 11, color: '#1e3a5f', alignment: 'right' }
+          ],
+          width: '50%'
+        },
+        {
+          stack: [
+            { text: 'تاريخ الإصدار', fontSize: 9, color: '#94a3b8', alignment: 'left' },
+            { text: r.createdAt || '—', bold: true, fontSize: 11, color: '#1e3a5f', alignment: 'left' }
+          ],
+          width: '50%'
+        }
+      ],
+      margin: [0, 0, 0, 12]
+    });
+
+    content.push({
+      table: {
+        widths: ['*'],
+        body: [
+          [
+            {
+              stack: [
+                { text: 'المبلغ', fontSize: 9, color: '#94a3b8', alignment: 'center', margin: [0, 0, 0, 2] },
+                { text: safeMoney(r.amount), bold: true, fontSize: 18, color: '#b8862d', alignment: 'center' }
+              ],
+              alignment: 'center',
+              fillColor: '#fdf6e8',
+              margin: [10, 8, 10, 8]
+            }
+          ]
+        ]
+      },
+      layout: {
+        hLineWidth: function(){ return 1; },
+        vLineWidth: function(){ return 0; },
+        hLineColor: function(){ return '#c9a84c'; },
+        paddingLeft: function(){ return 0; },
+        paddingRight: function(){ return 0; },
+        paddingTop: function(){ return 0; },
+        paddingBottom: function(){ return 0; }
+      },
+      margin: [0, 0, 0, 10]
+    });
+
+    content.push({ canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.3, lineColor: '#e2e8f0' }], margin: [0, 0, 0, 6] });
+
+    var contract = (A.visibleContracts && A.visibleContracts()) ? A.visibleContracts().find(function(x){ return x.id === r.contractId; }) : null;
+    var paymentDate = r.createdAt || '—';
+    if (contract && contract.type === 'صيانة' && contract.startDate) paymentDate = contract.startDate;
+
+    var paymentMethod = '—';
+    try {
+      var allEntries = A._read ? A._read('misadFinancialEntries') : JSON.parse(localStorage.getItem('misadFinancialEntries') || '[]');
+      var linkedEntries = allEntries.filter(function(e){ return e.receiptId === r.id || e.contractId === r.contractId; });
+      if (linkedEntries.length) {
+        var methods = {};
+        linkedEntries.forEach(function(e){
+          if (e.paymentMethod && e.paymentMethod !== 'سند قبض') methods[e.paymentMethod] = true;
+        });
+        var keys = Object.keys(methods);
+        if (keys.length) paymentMethod = keys.join(', ');
+        else paymentMethod = linkedEntries[0].paymentMethod || 'سند قبض';
+      }
+    } catch(e){}
+
+    var summaryItems = [
+      { label: 'العميل', value: r.clientName || r.clientCompanyName || 'غير محدد' },
+      { label: 'العقد', value: r.contractId || 'غير مرتبط' },
+      { label: 'طريقة الدفع', value: paymentMethod },
+      { label: 'تاريخ الدفع', value: paymentDate }
+    ];
+    if (r.purpose) summaryItems.push({ label: 'الغرض', value: r.purpose });
+    if (r.clientCompanyUnifiedNumber) summaryItems.push({ label: 'الرقم الموحد', value: r.clientCompanyUnifiedNumber });
+    content.push(summaryTable(summaryItems));
+
+    if (r.details) {
+      content.push({ text: 'تفاصيل إضافية', fontSize: 12, bold: true, color: '#1e3a5f', margin: [0, 6, 0, 4], alignment: 'right' });
+      content.push({ text: r.details, fontSize: 10, color: '#475569', margin: [0, 0, 0, 10], alignment: 'right' });
+    }
+
+    content.push({
+      stack: [
+        { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.3, lineColor: '#e2e8f0' }], margin: [0, 0, 0, 6] },
+        {
+          columns: [
+            {
+              stack: [
+                { text: 'المستلم (العميل)', fontSize: 10, bold: true, color: '#1e3a5f', alignment: 'center', margin: [0, 0, 0, 4] },
+                { text: 'الاسم: ...............................', fontSize: 10, color: '#94a3b8', alignment: 'center' },
+                { text: 'التوقيع: ...............................', fontSize: 10, color: '#94a3b8', alignment: 'center' }
+              ]
+            },
+            {
+              stack: [
+                { text: 'المصدر (المنشأة)', fontSize: 10, bold: true, color: '#1e3a5f', alignment: 'center', margin: [0, 0, 0, 4] },
+                { text: companyName, fontSize: 10, color: '#1e3a5f', bold: true, alignment: 'center' },
+                (function(){ var stamp = (A.companyStamp && A.companyStamp()) || ''; var signature = (A.companySignature && A.companySignature()) || ''; var imgs = []; if (signature) imgs.push({ image: signature, fit: [120, 70], alignment: 'center', margin: [0, 3, 0, 0] }); if (stamp) imgs.push({ image: stamp, fit: [120, 90], alignment: 'center', margin: [0, 3, 0, 0] }); if (imgs.length) return { stack: [{ text: 'التوقيق / الختم', fontSize: 8, color: '#94a3b8', alignment: 'center' }].concat(imgs) }; return { text: 'التوقيق / الختم: ...............................', fontSize: 10, color: '#94a3b8', alignment: 'center' }; })()
+              ]
+            }
+          ],
+          columnGap: 20,
+          margin: [0, 4, 0, 0]
+        }
+      ],
+      unbreakable: true,
+      margin: [0, 0, 0, 0]
+    });
+    return makeDd(content, cf, opts);
+  }
+
+  // ==================== STAFF FINANCE ====================
+  function custodyPdfDefinition(c, logoData, opts){
+    var companyName = activeCompanyName();
+    var cf = safeFooter();
+    var content = [];
+    appendDocumentHeader(content, logoData, opts);
+    content.push({ columns: [ { text: 'سند عهدة', bold: true, fontSize: 16, color: '#1e3a5f' }, statusBadge(c.status || 'نشطة') ], margin: [0, 0, 0, 6] });
+    content.push({ canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.5, lineColor: '#c9a84c' }], margin: [0, 0, 0, 6] });
+    content.push({
+      columns: [
+        { stack: [ { text: 'رقم السند', fontSize: 9, color: '#94a3b8', alignment: 'right' }, { text: c.id, bold: true, fontSize: 11, color: '#1e3a5f', alignment: 'right' } ], width: '50%' },
+        { stack: [ { text: 'تاريخ الإصدار', fontSize: 9, color: '#94a3b8', alignment: 'left' }, { text: c.createdAt || '—', bold: true, fontSize: 11, color: '#1e3a5f', alignment: 'left' } ], width: '50%' }
+      ],
+      margin: [0, 0, 0, 12]
+    });
+    content.push({
+      table: { widths: ['*'], body: [ [ { stack: [ { text: 'قيمة العهدة', fontSize: 9, color: '#94a3b8', alignment: 'center', margin: [0, 0, 0, 2] }, { text: safeMoney(c.value), bold: true, fontSize: 18, color: '#b8862d', alignment: 'center' } ], alignment: 'center', fillColor: '#fdf6e8', margin: [10, 8, 10, 8] } ] ] },
+      layout: { hLineWidth: function(){ return 1; }, vLineWidth: function(){ return 0; }, hLineColor: function(){ return '#c9a84c'; }, paddingLeft: function(){ return 0; }, paddingRight: function(){ return 0; }, paddingTop: function(){ return 0; }, paddingBottom: function(){ return 0; } },
+      margin: [0, 0, 0, 10]
+    });
+    var summaryItems = [
+      { label: 'الموظف', value: c.staffName || c.staffIdentity || 'غير محدد' },
+      { label: 'الهوية', value: c.staffIdentity || '—' },
+      { label: 'المخصوم من الراتب', value: safeMoney(c.deducted || 0) },
+      { label: 'المتبقي', value: safeMoney(c.remaining || 0) }
+    ];
+    if (c.description) summaryItems.push({ label: 'البيان', value: c.description });
+    content.push(summaryTable(summaryItems));
+    content.push({
+      stack: [
+        { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.3, lineColor: '#e2e8f0' }], margin: [0, 0, 0, 6] },
+        {
+          columns: [
+            { stack: [ { text: 'الموظف (المستلم)', fontSize: 10, bold: true, color: '#1e3a5f', alignment: 'center', margin: [0, 0, 0, 4] }, { text: 'الاسم: ...............................', fontSize: 10, color: '#94a3b8', alignment: 'center' }, { text: 'التوقيع: ...............................', fontSize: 10, color: '#94a3b8', alignment: 'center' } ] },
+            { stack: [ { text: 'المصدر (المنشأة)', fontSize: 10, bold: true, color: '#1e3a5f', alignment: 'center', margin: [0, 0, 0, 4] }, { text: companyName, fontSize: 10, color: '#1e3a5f', bold: true, alignment: 'center' }, { text: 'التوقيع / الختم: ...............................', fontSize: 10, color: '#94a3b8', alignment: 'center' } ] }
+          ],
+          columnGap: 20,
+          margin: [0, 4, 0, 0]
+        }
+      ],
+      unbreakable: true,
+      margin: [0, 0, 0, 0]
+    });
+    return makeDd(content, cf, opts);
+  }
+
+  function payrollPdfDefinition(p, logoData, opts){
+    var companyName = activeCompanyName();
+    var cf = safeFooter();
+    var content = [];
+    appendDocumentHeader(content, logoData, opts);
+    content.push({ columns: [ { text: 'مسير رواتب', bold: true, fontSize: 16, color: '#1e3a5f' }, statusBadge(p.status || 'مسدد') ], margin: [0, 0, 0, 6] });
+    content.push(summaryTable([
+      { label: 'الفترة', value: p.period || '—' },
+      { label: 'عدد الموظفين', value: String((p.rows || []).length) },
+      { label: 'الإجمالي الصافي', value: safeMoney(p.totalNet) },
+      { label: 'خصم العهد', value: safeMoney(p.totalCustodyDeducted || 0) }
+    ]));
+    var payrollRows = (p.rows || []).map(function(row){
+      return [
+        { text: row.staffName || '—', bold: true, fontSize: 10, color: '#1e3a5f', alignment: 'right' },
+        { text: safeMoney(row.base), fontSize: 10, alignment: 'center' },
+        { text: safeMoney(row.allowances), fontSize: 10, alignment: 'center' },
+        { text: safeMoney(row.deductions), fontSize: 10, alignment: 'center' },
+        { text: safeMoney(row.custodyDeduction), fontSize: 10, alignment: 'center' },
+        { text: safeMoney(row.net), bold: true, fontSize: 10, color: '#1e3a5f', alignment: 'center' }
+      ];
+    });
+    var payrollHeader = [
+      { text: 'الموظف', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'right' },
+      { text: 'الراتب', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center' },
+      { text: 'البدلات', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center' },
+      { text: 'الخصومات', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center' },
+      { text: 'العهدة', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center' },
+      { text: 'الصافي', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center' }
+    ];
+    content.push({
+      table: { widths: ['*', 70, 70, 70, 70, 80], body: [payrollHeader].concat(payrollRows) },
+      layout: 'lightHorizontalLines',
+      margin: [0, 0, 0, 10]
+    });
+    content.push({ canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.3, lineColor: '#e2e8f0' }], margin: [0, 0, 0, 6] });
+    content.push({
+      columns: [
+        { stack: [ { text: 'إعداد (الإدارة المالية)', fontSize: 10, bold: true, color: '#1e3a5f', alignment: 'center', margin: [0, 0, 0, 4] }, { text: 'التوقيع: ...............................', fontSize: 10, color: '#94a3b8', alignment: 'center' } ] },
+        { stack: [ { text: 'اعتماد (المالك)', fontSize: 10, bold: true, color: '#1e3a5f', alignment: 'center', margin: [0, 0, 0, 4] }, { text: 'التوقيع: ...............................', fontSize: 10, color: '#94a3b8', alignment: 'center' } ] }
+      ],
+      columnGap: 20,
+      margin: [0, 6, 0, 0]
+    });
+    return makeDd(content, cf, opts);
+  }
+
+  function salaryReceiptPdfDefinition(r, logoData, opts){
+    var companyName = activeCompanyName();
+    var cf = safeFooter();
+    var content = [];
+    appendDocumentHeader(content, logoData, opts);
+    content.push({ columns: [ { text: 'سند قبض راتب', bold: true, fontSize: 16, color: '#1e3a5f' }, statusBadge('معتمد') ], margin: [0, 0, 0, 6] });
+    content.push({ canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.5, lineColor: '#c9a84c' }], margin: [0, 0, 0, 6] });
+    content.push({
+      table: { widths: ['*'], body: [ [ { stack: [ { text: 'صافي الراتب المستلم', fontSize: 9, color: '#94a3b8', alignment: 'center', margin: [0, 0, 0, 2] }, { text: safeMoney(r.amount), bold: true, fontSize: 18, color: '#b8862d', alignment: 'center' } ], alignment: 'center', fillColor: '#fdf6e8', margin: [10, 8, 10, 8] } ] ] },
+      layout: { hLineWidth: function(){ return 1; }, vLineWidth: function(){ return 0; }, hLineColor: function(){ return '#c9a84c'; }, paddingLeft: function(){ return 0; }, paddingRight: function(){ return 0; }, paddingTop: function(){ return 0; }, paddingBottom: function(){ return 0; } },
+      margin: [0, 0, 0, 10]
+    });
+    var salaryDetails = (r.details || []).map(function(d){ return { label: d.label, value: safeMoney(d.value) }; });
+    salaryDetails.push({ label: 'الصافي', value: safeMoney(r.amount) });
+    content.push(summaryTable([
+      { label: 'الموظف', value: r.staffName || '—' },
+      { label: 'الهوية', value: r.staffIdentity || '—' },
+      { label: 'الفترة', value: r.period || '—' }
+    ].concat(salaryDetails)));
+    content.push({
+      stack: [
+        { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.3, lineColor: '#e2e8f0' }], margin: [0, 0, 0, 6] },
+        { text: 'أستلمت أنا (الموظف) من مؤسسة (' + companyName + ') مبلغ ' + safeMoney(r.amount) + ' ريال صافي راتب عن فترة (' + (r.period || '—') + ')، وتقررت بذلك براءة ذمتي.', fontSize: 10, color: '#475569', alignment: 'right', margin: [0, 0, 0, 8] },
+        {
+          columns: [
+            { stack: [ { text: 'الموظف (المستلم)', fontSize: 10, bold: true, color: '#1e3a5f', alignment: 'center', margin: [0, 0, 0, 4] }, { text: 'الاسم: ...............................', fontSize: 10, color: '#94a3b8', alignment: 'center' }, { text: 'التوقيع: ...............................', fontSize: 10, color: '#94a3b8', alignment: 'center' } ] },
+            { stack: [ { text: 'المصدر (المنشأة)', fontSize: 10, bold: true, color: '#1e3a5f', alignment: 'center', margin: [0, 0, 0, 4] }, { text: companyName, fontSize: 10, color: '#1e3a5f', bold: true, alignment: 'center' }, { text: 'التوقيع / الختم: ...............................', fontSize: 10, color: '#94a3b8', alignment: 'center' } ] }
+          ],
+          columnGap: 20,
+          margin: [0, 4, 0, 0]
+        }
+      ],
+      unbreakable: true,
+      margin: [0, 0, 0, 0]
+    });
+    return makeDd(content, cf, opts);
+  }
+
+  function contractFinancePdfDefinition(c, logoData, opts){
+    var companyName = activeCompanyName();
+    var cf = safeFooter();
+    var content = [];
+    appendDocumentHeader(content, logoData, opts);
+    content.push({ text: 'إيصال سداد مالي', fontSize: 14, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 2] });
+    content.push({
+      table: {
+        widths: ['*', '*', '*'],
+        body: [
+          [
+            { text: 'رقم العقد', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [1, 1, 1, 1] },
+            { text: 'الطرف الثاني', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [1, 1, 1, 1] },
+            { text: 'إجمالي العقد', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [1, 1, 1, 1] }
+          ],
+          [
+            { text: String(c.id), bold: true, fontSize: 10, color: '#1e3a5f', alignment: 'center', margin: [1, 1, 1, 1] },
+            { text: safeLabel(c), bold: true, fontSize: 10, color: '#1e3a5f', alignment: 'center', margin: [1, 1, 1, 1] },
+            { text: safeMoney(c.value), bold: true, fontSize: 10, color: '#1e3a5f', alignment: 'center', margin: [1, 1, 1, 1] }
+          ]
+        ]
+      },
+      layout: {
+        hLineWidth: function(i){ return i === 0 ? 0 : 0.35; },
+        vLineWidth: function(){ return 0; },
+        hLineColor: function(){ return '#cbd5e1'; },
+        vLineColor: function(){ return '#cbd5e1'; },
+        paddingLeft: function(){ return 4; },
+        paddingRight: function(){ return 4; },
+        paddingTop: function(){ return 1; },
+        paddingBottom: function(){ return 1; },
+        fillColor: function(i){ return i === 0 ? null : '#f8f7f4'; }
+      },
+      margin: [0, 0, 0, 2]
+    });
+    var allEntries = [], paid = 0, remaining = 0, overdue = 0, installmentEntries = [];
+    try {
+      allEntries = JSON.parse(localStorage.getItem('misadFinancialEntries') || '[]');
+      installmentEntries = allEntries.filter(function(x){ return x.contractId === c.id && x.direction === 'in'; });
+      paid = installmentEntries.reduce(function(s,x){ return s + Number(x.amount||0); }, 0);
+      remaining = Math.max(0, Number(c.value||0) - paid);
+      overdue = 0;
+      if (Number(c.value||0) > 0 && c.type === 'تركيب') {
+        var plan = (c.paymentPlan && c.paymentPlan.length) ? c.paymentPlan : [{label:"الدفعة الأولى",percent:0.5},{label:"الدفعة الثانية",percent:0.35},{label:"الدفعة الثالثة",percent:0.15}];
+        var completion = c.stageCompletion || {};
+        var pctOfPlan = function(p){ var v; if(Array.isArray(p)){ v = p[2]; } else { v = p.percent; } return v > 1 ? v / 100 : (v || 0); };
+        var labelOfPlan = function(p){ return Array.isArray(p) ? p[0] : (p.label || ''); };
+        plan.forEach(function(p){
+          var expected = Number(c.value||0) * pctOfPlan(p);
+          var received = installmentEntries.filter(function(x){ return x.paymentLabel === labelOfPlan(p); }).reduce(function(a,x){ return a + Number(x.amount||0); }, 0);
+          var premaining = Math.max(0, expected - received);
+          var pdone = !!(completion[labelOfPlan(p)] && completion[labelOfPlan(p)].done);
+          if (pdone && premaining > 0) overdue += premaining;
+        });
+      }
+    } catch(e){}
+    content.push({
+      table: {
+        widths: ['25%', '25%', '25%', '25%'],
+        body: [
+          [
+            { text: '', fontSize: 10, alignment: 'center' },
+            { text: 'المدفوع', bold: true, fontSize: 10, color: '#64748b', alignment: 'center' },
+            { text: 'المتبقي', bold: true, fontSize: 10, color: '#64748b', alignment: 'center' },
+            { text: 'المتأخر', bold: true, fontSize: 10, color: '#64748b', alignment: 'center' }
+          ],
+          [
+            { text: '', alignment: 'center' },
+            { text: safeMoney(paid), bold: true, fontSize: 10, color: '#2d7d6d', alignment: 'center', margin: [0, 3, 0, 3] },
+            { text: safeMoney(remaining), bold: true, fontSize: 10, color: remaining > 0 ? '#dc2626' : '#2d7d6d', alignment: 'center', margin: [0, 3, 0, 3] },
+            { text: safeMoney(overdue), bold: true, fontSize: 10, color: overdue > 0 ? '#dc2626' : '#2d7d6d', alignment: 'center', margin: [0, 3, 0, 3] }
+          ]
+        ]
+      },
+      layout: 'noBorders',
+      margin: [0, 0, 0, 2]
+    });
+    if (installmentEntries.length) {
+      var sorted = installmentEntries.sort(function(a,b){ return (b.createdAtMs||0) - (a.createdAtMs||0); }).slice(0, 5);
+      var rows = sorted.map(function(e){
+        return [
+          { text: e.description || e.paymentLabel || '—', fontSize: 10, alignment: 'right' },
+          { text: safeMoney(e.amount), fontSize: 10, alignment: 'center', bold: true },
+          { text: e.date || '—', fontSize: 10, alignment: 'center' },
+          { text: e.paymentMethod || '—', fontSize: 10, alignment: 'center' }
+        ];
+      });
+      content.push({ text: 'سجل الدفعات', fontSize: 10, bold: true, color: '#1e3a5f', margin: [0, 2, 0, 2] });
+      content.push({
+        table: {
+          widths: ['*', 'auto', 'auto', 'auto'],
+          headerRows: 1,
+          body: [
+            [
+              { text: 'البيان', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] },
+              { text: 'المبلغ', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] },
+              { text: 'تاريخ الدفع', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] },
+              { text: 'طريقة الدفع', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] }
+            ]
+          ].concat(rows)
+        },
+        margin: [0, 0, 0, 4]
+      });
+    }
+    if (c.type === 'تركيب') {
+      try {
+        var plan = (c.paymentPlan && c.paymentPlan.length) ? c.paymentPlan : [{label:"الدفعة الأولى",percent:0.5},{label:"الدفعة الثانية",percent:0.35},{label:"الدفعة الثالثة",percent:0.15}];
+        var completion = c.stageCompletion || {};
+        var pctOfPlan = function(p){ var v; if(Array.isArray(p)){ v = p[2]; } else { v = p.percent; } return v > 1 ? v / 100 : (v || 0); };
+        var labelOfPlan = function(p){ return Array.isArray(p) ? p[0] : (p.label || ''); };
+        var planRows = plan.map(function(p){
+          var expected = Number(c.value||0) * pctOfPlan(p);
+          var ppaid = installmentEntries.filter(function(x){ return x.paymentLabel === labelOfPlan(p); }).reduce(function(s,x){ return s + Number(x.amount||0); }, 0);
+          var premaining = Math.max(0, expected - ppaid);
+          var pdone = !!(completion[labelOfPlan(p)] && completion[labelOfPlan(p)].done);
+          return [
+            { text: labelOfPlan(p), fontSize: 10, alignment: 'right' },
+            { text: safeMoney(expected), fontSize: 10, alignment: 'center' },
+            { text: safeMoney(ppaid), fontSize: 10, alignment: 'center' },
+            { text: safeMoney(premaining), fontSize: 10, alignment: 'center', bold: true, color: premaining > 0 ? '#dc2626' : '#2d7d6d' },
+            { text: pdone ? (premaining > 0 ? 'متأخرة' : 'مكتملة') : 'لم تبدأ', fontSize: 10, alignment: 'center', bold: true, color: pdone ? (premaining > 0 ? '#dc2626' : '#2d7d6d') : '#94a3b8' }
+          ];
+        });
+        content.push({ text: 'خطة الدفعات', fontSize: 10, bold: true, color: '#1e3a5f', margin: [0, 2, 0, 2] });
+        content.push({
+          table: {
+            widths: ['*', 'auto', 'auto', 'auto', 'auto'],
+            headerRows: 1,
+            body: [
+              [
+                { text: 'الدفعة', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [1, 1, 1, 1] },
+                { text: 'المستحق', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [1, 1, 1, 1] },
+                { text: 'المدفوع', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [1, 1, 1, 1] },
+                { text: 'المتبقي', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [1, 1, 1, 1] },
+                { text: 'الحالة', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [1, 1, 1, 1] }
+              ]
+            ].concat(planRows)
+          },
+          margin: [0, 0, 0, 4]
+        });
+      } catch(e){}
+    }
+    var stamp = (A.companyStamp && A.companyStamp()) || '';
+    var sig = (A.companySignature && A.companySignature()) || '';
+    var partyOneApproval = [];
+    if (sig) partyOneApproval.push({
+      stack: [
+        { text: 'التوقيع', fontSize: 9, color: '#94a3b8', alignment: 'center' },
+        { image: sig, fit: [220, 140], alignment: 'center', margin: [0, 2, 0, 0] }
+      ],
+      width: '*'
+    });
+    if (stamp) partyOneApproval.push({
+      stack: [
+        { text: 'الختم', fontSize: 9, color: '#94a3b8', alignment: 'center' },
+        { image: stamp, fit: [200, 140], alignment: 'center', margin: [0, 2, 0, 0] }
+      ],
+      width: '*'
+    });
+    content.push({
+      stack: [
+        { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.3, lineColor: '#94a3b8' }], margin: [0, 0, 0, 1] },
+        {
+          stack: [
+            { text: companyName, bold: true, fontSize: 10, color: '#1e3a5f', alignment: 'center', margin: [0, 0, 0, 0] },
+            partyOneApproval.length
+              ? { columns: partyOneApproval, columnGap: 4, margin: [0, 1, 0, 0] }
+              : { text: 'التوقيع: ........................', fontSize: 10, color: '#94a3b8', alignment: 'center' }
+          ],
+          alignment: 'center'
+        }
+      ],
+      unbreakable: true,
+      margin: [0, 2, 0, 0]
+    });
+    return makeDd(content, cf, opts);
+  }
+  // ==================== MAIN ENTRY ====================
+  function contractPaymentsPdfDefinition(c, logoData, opts){
+    var cf = safeFooter();
+    var content = [];
+    appendDocumentHeader(content, logoData, opts);
+    content.push({ text: 'كشف دفعات العقد', fontSize: 14, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 2] });
+    content.push(summaryTable([
+      { label: 'رقم العقد', value: String(c.id) },
+      { label: 'الطرف الثاني', value: safeLabel(c) },
+      { label: 'إجمالي العقد', value: safeMoney(c.value) }
+    ]));
+    var entries = [];
+    try { entries = JSON.parse(localStorage.getItem('misadFinancialEntries') || '[]'); } catch(e){}
+    var inEntries = entries.filter(function(x){ return x.contractId === c.id && x.direction === 'in'; })
+      .sort(function(a,b){ return (b.createdAtMs||0) - (a.createdAtMs||0); });
+    var paid = inEntries.reduce(function(s,x){ return s + Number(x.amount||0); }, 0);
+    var remaining = Math.max(0, Number(c.value||0) - paid);
+    content.push(summaryTable([
+      { label: 'المدفوع', value: safeMoney(paid) },
+      { label: 'المتبقي', value: safeMoney(remaining) }
+    ]));
+    if (c.type === 'تركيب') {
+      var plan = (c.paymentPlan && c.paymentPlan.length) ? c.paymentPlan : [{label:"الدفعة الأولى",percent:0.5},{label:"الدفعة الثانية",percent:0.35},{label:"الدفعة الثالثة",percent:0.15}];
+      var pctOfPlan = function(p){ var v; if(Array.isArray(p)){ v = p[2]; } else { v = p.percent; } return v > 1 ? v / 100 : (v || 0); };
+      var labelOfPlan = function(p){ return Array.isArray(p) ? p[0] : (p.label || ''); };
+      var planRows = plan.map(function(p){
+        var expected = Number(c.value||0) * pctOfPlan(p);
+        var ppaid = inEntries.filter(function(x){ return x.paymentLabel === labelOfPlan(p); }).reduce(function(s,x){ return s + Number(x.amount||0); }, 0);
+        var premaining = Math.max(0, expected - ppaid);
+        return [
+          { text: labelOfPlan(p), fontSize: 10, alignment: 'right' },
+          { text: safeMoney(expected), fontSize: 10, alignment: 'center' },
+          { text: safeMoney(ppaid), fontSize: 10, alignment: 'center' },
+          { text: safeMoney(premaining), fontSize: 10, alignment: 'center', bold: true, color: premaining > 0 ? '#dc2626' : '#2d7d6d' }
+        ];
+      });
+      content.push({ text: 'خطة الدفعات', fontSize: 10, bold: true, color: '#1e3a5f', margin: [0, 2, 0, 2] });
+      content.push({
+        table: {
+          widths: ['*', 'auto', 'auto', 'auto'],
+          headerRows: 1,
+          body: [
+            [
+              { text: 'الدفعة', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [1, 1, 1, 1] },
+              { text: 'المستحق', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [1, 1, 1, 1] },
+              { text: 'المدفوع', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [1, 1, 1, 1] },
+              { text: 'المتبقي', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [1, 1, 1, 1] }
+            ]
+          ].concat(planRows)
+        },
+        margin: [0, 0, 0, 4]
+      });
+    }
+    content.push({ text: 'سجل الدفعات', fontSize: 10, bold: true, color: '#1e3a5f', margin: [0, 2, 0, 2] });
+    if (inEntries.length) {
+      var rows = inEntries.map(function(e){
+        return [
+          { text: e.description || e.paymentLabel || '—', fontSize: 10, alignment: 'right' },
+          { text: safeMoney(e.amount), fontSize: 10, alignment: 'center', bold: true },
+          { text: e.date || '—', fontSize: 10, alignment: 'center' },
+          { text: e.paymentMethod || '—', fontSize: 10, alignment: 'center' }
+        ];
+      });
+      content.push({ table: { widths: ['*', 'auto', 'auto', 'auto'], headerRows: 1, body: [
+        [
+          { text: 'البيان', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] },
+          { text: 'المبلغ', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] },
+          { text: 'تاريخ الدفع', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] },
+          { text: 'طريقة الدفع', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] }
+        ]
+      ].concat(rows) }, margin: [0, 0, 0, 4] });
+    } else {
+      content.push({ text: 'لا توجد دفعات مسجلة', fontSize: 10, color: '#94a3b8', margin: [0, 0, 0, 4] });
+    }
+    return makeDd(content, cf, opts);
+  }
+
+  function purchaseInvoicePdfDefinition(pi, logoData, opts){
+    var cf = safeFooter();
+    var content = [];
+    appendDocumentHeader(content, logoData, opts);
+    var supplier = {};
+    try {
+      var supList = JSON.parse(localStorage.getItem('misadSuppliers') || '[]');
+      supplier = supList.find(function(s){ return s.id === pi.supplierId; }) || {};
+    } catch(e){}
+    var contract = {};
+    if (A.visibleContracts) contract = A.visibleContracts().find(function(x){ return x.id === pi.contractId; }) || {};
+    content.push({ text: 'فاتورة شراء', fontSize: 14, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 2] });
+    content.push(summaryTable([
+      { label: 'رقم الفاتورة', value: pi.invoiceNo || pi.id },
+      { label: 'المورد', value: supplier.name || pi.supplierId || '—' },
+      { label: 'العقد', value: pi.contractId ? (pi.contractId + ' - ' + safeLabel(contract)) : 'بدون ربط' }
+    ]));
+    content.push(summaryTable([
+      { label: 'التاريخ', value: pi.date || '—' },
+      { label: 'قبل الضريبة', value: safeMoney(pi.subtotal) },
+      { label: 'الضريبة (' + Number(pi.taxRate||0) + '%)', value: safeMoney(pi.tax) },
+      { label: 'الإجمالي', value: safeMoney(pi.total) }
+    ]));
+    if (pi.payments && pi.payments.length) {
+      content.push({ text: 'سجل السداد', fontSize: 10, bold: true, color: '#1e3a5f', margin: [0, 2, 0, 2] });
+      var pRows = pi.payments.map(function(p){
+        return [
+          { text: p.note || 'دفعة مورد', fontSize: 10, alignment: 'right' },
+          { text: safeMoney(p.amount), fontSize: 10, alignment: 'center', bold: true },
+          { text: p.date || '—', fontSize: 10, alignment: 'center' },
+          { text: p.paymentMethod || '—', fontSize: 10, alignment: 'center' }
+        ];
+      });
+      content.push({ table: { widths: ['*', 'auto', 'auto', 'auto'], headerRows: 1, body: [
+        [
+          { text: 'البيان', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] },
+          { text: 'المبلغ', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] },
+          { text: 'التاريخ', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] },
+          { text: 'طريقة الدفع', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] }
+        ]
+      ].concat(pRows) }, margin: [0, 0, 0, 4] });
+    }
+    content.push(summaryTable([
+      { label: 'المدفوع', value: safeMoney(pi.paid) },
+      { label: 'المتبقي', value: safeMoney(Math.max(0, Number(pi.total||0) - Number(pi.paid||0))) },
+      { label: 'الحالة', value: pi.status || 'مستحقة' }
+    ]));
+    if (pi.notes) content.push({ text: 'ملاحظات: ' + pi.notes, fontSize: 10, color: '#64748b', margin: [0, 2, 0, 2] });
+    return makeDd(content, cf, opts);
+  }
+
+  function contractExpensesPdfDefinition(c, logoData, opts){
+    var cf = safeFooter();
+    var content = [];
+    appendDocumentHeader(content, logoData, opts);
+    content.push({ text: 'كشف مصروفات العقد', fontSize: 14, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 2] });
+    content.push(summaryTable([
+      { label: 'رقم العقد', value: String(c.id) },
+      { label: 'الطرف الثاني', value: safeLabel(c) },
+      { label: 'قيمة العقد', value: safeMoney(c.value) }
+    ]));
+    var list = [];
+    try { list = JSON.parse(localStorage.getItem('misadContractExpenses') || '[]'); } catch(e){}
+    list = list.filter(function(x){ return x.contractId === c.id; })
+      .sort(function(a,b){ return (b.createdAtMs||0) - (a.createdAtMs||0); });
+    var total = list.reduce(function(s,x){ return s + Number(x.amount||0); }, 0);
+    content.push(summaryTable([{ label: 'إجمالي المصروفات', value: safeMoney(total) }]));
+    content.push({ text: 'المصروفات', fontSize: 10, bold: true, color: '#1e3a5f', margin: [0, 2, 0, 2] });
+    if (list.length) {
+      var rows = list.map(function(x){
+        return [
+          { text: x.description || '—', fontSize: 10, alignment: 'right' },
+          { text: x.category || '—', fontSize: 10, alignment: 'center' },
+          { text: safeMoney(x.amount), fontSize: 10, alignment: 'center', bold: true },
+          { text: x.date || '—', fontSize: 10, alignment: 'center' }
+        ];
+      });
+      content.push({ table: { widths: ['*', 'auto', 'auto', 'auto'], headerRows: 1, body: [
+        [
+          { text: 'البيان', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] },
+          { text: 'التصنيف', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] },
+          { text: 'المبلغ', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] },
+          { text: 'التاريخ', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] }
+        ]
+      ].concat(rows) }, margin: [0, 0, 0, 4] });
+    } else {
+      content.push({ text: 'لا توجد مصروفات مسجلة', fontSize: 10, color: '#94a3b8', margin: [0, 0, 0, 4] });
+    }
+    return makeDd(content, cf, opts);
+  }
+
+  function contractProfitPdfDefinition(c, logoData, opts){
+    var cf = safeFooter();
+    var content = [];
+    appendDocumentHeader(content, logoData, opts);
+    content.push({ text: 'تقرير ربحية العقد', fontSize: 14, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 2] });
+    content.push(summaryTable([
+      { label: 'رقم العقد', value: String(c.id) },
+      { label: 'الطرف الثاني', value: safeLabel(c) },
+      { label: 'قيمة العقد', value: safeMoney(c.value) }
+    ]));
+    var entries = [], invList = [], expList = [];
+    try { entries = JSON.parse(localStorage.getItem('misadFinancialEntries') || '[]'); } catch(e){}
+    try { invList = JSON.parse(localStorage.getItem('misadPurchaseInvoices') || '[]'); } catch(e){}
+    try { expList = JSON.parse(localStorage.getItem('misadContractExpenses') || '[]'); } catch(e){}
+    var paid = entries.filter(function(x){ return x.contractId === c.id && x.direction === 'in'; })
+      .reduce(function(s,x){ return s + Number(x.amount||0); }, 0);
+    var purchases = invList.filter(function(x){ return x.contractId === c.id; })
+      .reduce(function(s,x){ return s + Number(x.total||0); }, 0);
+    var expenses = expList.filter(function(x){ return x.contractId === c.id; })
+      .reduce(function(s,x){ return s + Number(x.amount||0); }, 0);
+    var net = paid - purchases - expenses;
+    var total = Number(c.value||0);
+    var margin = total > 0 ? (net / total) * 100 : 0;
+    var rows = [
+      { label: 'إجمالي المحصل', value: safeMoney(paid) },
+      { label: 'تكلفة المشتريات', value: safeMoney(purchases) },
+      { label: 'مصروفات العقد', value: safeMoney(expenses) },
+      { label: 'إجمالي التكاليف', value: safeMoney(purchases + expenses) },
+      { label: 'صافي الربح', value: safeMoney(net) },
+      { label: 'هامش الربح', value: margin.toFixed(1) + '%' }
+    ];
+    content.push({
+      table: {
+        widths: ['*', '*'],
+        body: rows.map(function(r){
+          return [
+            { text: r.label, fontSize: 10, color: '#64748b', alignment: 'right', margin: [2, 2, 2, 2] },
+            { text: r.value, fontSize: 10, bold: true, color: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] }
+          ];
+        })
+      },
+      layout: {
+        hLineWidth: function(i){ return i === 0 ? 0 : 0.35; },
+        vLineWidth: function(){ return 0; },
+        hLineColor: function(){ return '#cbd5e1'; },
+        vLineColor: function(){ return '#cbd5e1'; },
+        paddingLeft: function(){ return 8; },
+        paddingRight: function(){ return 8; },
+        paddingTop: function(){ return 4; },
+        paddingBottom: function(){ return 4; },
+        fillColor: function(i){ return i === 0 ? null : '#f8f7f4'; }
+      },
+      margin: [0, 0, 0, 4]
+    });
+    return makeDd(content, cf, opts);
+  }
+  function financeSummaryPdfDefinition(logoData, opts){
+    var cf = safeFooter();
+    var content = [];
+    appendDocumentHeader(content, logoData, opts);
+    content.push({ text: 'التقرير المالي الشامل', fontSize: 14, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 2] });
+    var entries = [];
+    try {
+      var raw = (A._read ? A._read('misadFinancialEntries') : JSON.parse(localStorage.getItem('misadFinancialEntries') || '[]'));
+      entries = raw.filter(function(x){ return A.sameCompany ? A.sameCompany(x) : true; });
+    } catch(e){}
+    var income = entries.filter(function(x){ return x.direction === 'in'; }).reduce(function(s,x){ return s + Number(x.amount||0); }, 0);
+    var expense = entries.filter(function(x){ return x.direction === 'out'; }).reduce(function(s,x){ return s + Number(x.amount||0); }, 0);
+    content.push(summaryTable([
+      { label: 'إجمالي الوارد', value: safeMoney(income) },
+      { label: 'إجمالي الصادر', value: safeMoney(expense) },
+      { label: 'الصافي', value: safeMoney(income - expense) }
+    ]));
+    var sorted = entries.slice().sort(function(a,b){ return (b.createdAtMs||0) - (a.createdAtMs||0); });
+    content.push({ text: 'أحدث القيود', fontSize: 10, bold: true, color: '#1e3a5f', margin: [0, 2, 0, 2] });
+    if (sorted.length) {
+      var rows = sorted.slice(0, 60).map(function(e){
+        return [
+          { text: e.description || '—', fontSize: 10, alignment: 'right' },
+          { text: e.direction === 'in' ? 'وارد' : 'صادر', fontSize: 10, alignment: 'center' },
+          { text: safeMoney(e.amount), fontSize: 10, alignment: 'center', bold: true },
+          { text: e.date || '—', fontSize: 10, alignment: 'center' }
+        ];
+      });
+      content.push({ table: { widths: ['*', 'auto', 'auto', 'auto'], headerRows: 1, body: [
+        [
+          { text: 'الوصف', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] },
+          { text: 'الاتجاه', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] },
+          { text: 'المبلغ', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] },
+          { text: 'التاريخ', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] }
+        ]
+      ].concat(rows) }, margin: [0, 0, 0, 4] });
+    } else {
+      content.push({ text: 'لا توجد قيود مالية', fontSize: 10, color: '#94a3b8', margin: [0, 0, 0, 4] });
+    }
+    return makeDd(content, cf, opts);
+  }
+  function staffFinancePdfDefinition(id, logoData, opts){
+    var cf = safeFooter();
+    var content = [];
+    appendDocumentHeader(content, logoData, opts);
+    var staffs = [];
+    try { staffs = (A._read ? A._read('misadCompanyStaff') : JSON.parse(localStorage.getItem('misadCompanyStaff') || '[]')); } catch(e){}
+    var staff = staffs.filter(function(x){ return (x.identity || x.id || x.idx) === id || (x.identity === id) || (x.id === id) || (x.idx === id); })[0] || {};
+    content.push({ text: 'كشف مالي للموظف', fontSize: 14, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 2] });
+    content.push({ text: staff.name || id, fontSize: 12, color: '#3a4f5a', margin: [0, 0, 0, 4] });
+    var entries = [];
+    try {
+      var raw = (A._read ? A._read('misadFinancialEntries') : JSON.parse(localStorage.getItem('misadFinancialEntries') || '[]'));
+      entries = raw.filter(function(x){ return A.sameCompany ? A.sameCompany(x) : true; }).filter(function(x){ return (x.staffId || '') === id || (x.staffId || '') === staff.identity || (x.staffId || '') === staff.id; });
+    } catch(e){}
+    var adv = entries.reduce(function(s,x){ return s + (x.type === 'advance' ? Number(x.amount||0) : 0); }, 0);
+    var allw = entries.reduce(function(s,x){ return s + (x.type === 'allowance' && x.direction === 'in' ? Number(x.amount||0) : 0); }, 0);
+    var ded = entries.reduce(function(s,x){ return s + (x.type === 'deduction' ? Number(x.amount||0) : 0); }, 0);
+    content.push(summaryTable([
+      { label: 'السلف', value: safeMoney(adv) },
+      { label: 'الحوافز', value: safeMoney(allw) },
+      { label: 'الخصومات', value: safeMoney(ded) }
+    ]));
+    content.push({ text: 'القيود المالية', fontSize: 10, bold: true, color: '#1e3a5f', margin: [0, 2, 0, 2] });
+    var t = entries.slice().sort(function(a,b){ return (a.createdAtMs||0) - (b.createdAtMs||0); });
+    if (t.length) {
+      var rows = t.map(function(e){
+        return [
+          { text: e.description || '—', fontSize: 10, alignment: 'right' },
+          { text: e.direction === 'in' ? 'وارد' : 'صادر', fontSize: 10, alignment: 'center' },
+          { text: safeMoney(e.amount), fontSize: 10, alignment: 'center', bold: true },
+          { text: e.date || '—', fontSize: 10, alignment: 'center' }
+        ];
+      });
+      content.push({ table: { widths: ['*', 'auto', 'auto', 'auto'], headerRows: 1, body: [
+        [
+          { text: 'الوصف', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] },
+          { text: 'الاتجاه', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] },
+          { text: 'المبلغ', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] },
+          { text: 'التاريخ', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] }
+        ]
+      ].concat(rows) }, margin: [0, 0, 0, 4] });
+    } else {
+      content.push({ text: 'لا توجد قيود مالية', fontSize: 10, color: '#94a3b8', margin: [0, 0, 0, 4] });
+    }
+    return makeDd(content, cf, opts);
+  }
+  function supplierFinancePdfDefinition(id, logoData, opts){
+    var cf = safeFooter();
+    var content = [];
+    appendDocumentHeader(content, logoData, opts);
+    var suppliers = [];
+    try { suppliers = (A._read ? A._read('misadSuppliers') : JSON.parse(localStorage.getItem('misadSuppliers') || '[]')); } catch(e){}
+    var supplier = suppliers.filter(function(x){ return A.sameCompany ? A.sameCompany(x) : true; }).find(function(x){ return (x.id || x.idx) === id; }) || {};
+    content.push({ text: 'كشف مالي للمورد', fontSize: 14, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 2] });
+    content.push({ text: supplier.name || id, fontSize: 12, color: '#3a4f5a', margin: [0, 0, 0, 4] });
+    var invoices = [];
+    try {
+      var raw = (A._read ? A._read('misadPurchaseInvoices') : JSON.parse(localStorage.getItem('misadPurchaseInvoices') || '[]'));
+      invoices = raw.filter(function(x){ return A.sameCompany ? A.sameCompany(x) : true; }).filter(function(x){ return (x.supplierId || '') === id || (x.supplierId || '') === supplier.id; });
+    } catch(e){}
+    var total = invoices.reduce(function(s,x){ return s + Number(x.total||0); }, 0);
+    var paid = invoices.reduce(function(s,x){ return s + Number(x.paid||0); }, 0);
+    content.push(summaryTable([
+      { label: 'إجمالي الفواتير', value: safeMoney(total) },
+      { label: 'المدفوع', value: safeMoney(paid) },
+      { label: 'المستحق', value: safeMoney(total - paid) }
+    ]));
+    content.push({ text: 'فواتير الشراء', fontSize: 10, bold: true, color: '#1e3a5f', margin: [0, 2, 0, 2] });
+    if (invoices.length) {
+      var rows = invoices.map(function(x){
+        return [
+          { text: x.invoiceNo || x.id, fontSize: 10, alignment: 'right' },
+          { text: x.contractId || '—', fontSize: 10, alignment: 'center' },
+          { text: safeMoney(x.total), fontSize: 10, alignment: 'center', bold: true },
+          { text: safeMoney(x.paid), fontSize: 10, alignment: 'center' },
+          { text: safeMoney(Number(x.total||0) - Number(x.paid||0)), fontSize: 10, alignment: 'center' }
+        ];
+      });
+      content.push({ table: { widths: ['*', 'auto', 'auto', 'auto', 'auto'], headerRows: 1, body: [
+        [
+          { text: 'الفاتورة', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] },
+          { text: 'العقد', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] },
+          { text: 'الإجمالي', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] },
+          { text: 'المدفوع', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] },
+          { text: 'المستحق', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] }
+        ]
+      ].concat(rows) }, margin: [0, 0, 0, 4] });
+    } else {
+      content.push({ text: 'لا توجد فواتير', fontSize: 10, color: '#94a3b8', margin: [0, 0, 0, 4] });
+    }
+    return makeDd(content, cf, opts);
+  }
   // ==================== MAIN ENTRY ====================
   function pdfLog(msg){ console.log("PDFGEN", msg); if (A.toast) A.toast(msg); }
 
+  function createPdfBlob(dd){
+    return pdfMake.createPdf(dd).getBlob();
+  }
+
+  async function downloadPdfDefinition(dd, filename){
+    var blob = await createPdfBlob(dd);
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+  }
+
   window.generatePdf = async function(type, id, opts){
+    if (type === 'quote' && !(opts && opts.clean)) opts = Object.assign({}, opts || {}, {letterhead:true});
     console.log("PDFGEN", "pdfmake attempt", type, id, "ready:", pdfmakeReady);
     if (opts && opts.letterhead && A.canUseCompanyLetterhead && !A.canUseCompanyLetterhead()) {
       pdfLog('غير مصرح باستخدام مطبوعات الشركة');
@@ -1117,6 +2262,7 @@
       return;
     }
     if (!pdfmakeReady) {
+      if (type === 'quote') { pdfLog('تعذر تجهيز ملف عرض السعر حالياً، أعد المحاولة'); return; }
       if (opts && opts.letterhead) {
         pdfLog('تعذر توليد PDF على مطبوعات الشركة حالياً');
         return;
@@ -1142,6 +2288,10 @@
         if (A.visibleContracts) contract = A.visibleContracts().find(function(x){ return x.id === id; });
         if (!contract) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
         dd = contractPdfDefinition(contract, logoData, opts);
+        if (String(contract.transferNoticeData || '').startsWith('data:image/')) {
+          dd.content.push({text: 'إشعار التحويل', style: 'sectionTitle', pageBreak: 'before', margin: [0, 20, 0, 14]});
+          dd.content.push({image: contract.transferNoticeData, fit: [470, 680], alignment: 'center'});
+        }
 
       } else if (type === 'quote') {
         var quote;
@@ -1173,23 +2323,114 @@
         if (!claim) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
         dd = claimPdfDefinition(claim, logoData, opts);
 
+      } else if (type === 'receipt') {
+        var receipts;
+        try { receipts = A._read ? A._read('misadReceipts') : JSON.parse(localStorage.getItem('misadReceipts') || '[]'); } catch(e){ receipts = null; }
+        if (!receipts || !receipts.length) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
+        var receipt = receipts.filter(function(r){ return A.sameCompany ? A.sameCompany(r) : true; }).find(function(x){ return x.id === id; });
+        if (!receipt) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
+        dd = receiptPdfDefinition(receipt, logoData, opts);
+
+      } else if (type === 'contract-finance') {
+        var contract;
+        if (A.visibleContracts) contract = A.visibleContracts().find(function(x){ return x.id === id; });
+        if (!contract) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
+        dd = contractFinancePdfDefinition(contract, logoData, opts);
+
+      } else if (type === 'contract-payments') {
+        var cfContract;
+        if (A.visibleContracts) cfContract = A.visibleContracts().find(function(x){ return x.id === id; });
+        if (!cfContract) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
+        dd = contractPaymentsPdfDefinition(cfContract, logoData, opts);
+
+      } else if (type === 'purchase-invoice') {
+        var pInvoices;
+        try { pInvoices = A._read ? A._read('misadPurchaseInvoices') : JSON.parse(localStorage.getItem('misadPurchaseInvoices') || '[]'); } catch(e){ pInvoices = null; }
+        if (!pInvoices || !pInvoices.length) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
+        var pInvoice = pInvoices.filter(function(x){ return A.sameCompany ? A.sameCompany(x) : true; }).find(function(x){ return x.id === id; });
+        if (!pInvoice) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
+        dd = purchaseInvoicePdfDefinition(pInvoice, logoData, opts);
+
+      } else if (type === 'contract-expenses') {
+        var cfContract2;
+        if (A.visibleContracts) cfContract2 = A.visibleContracts().find(function(x){ return x.id === id; });
+        if (!cfContract2) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
+        dd = contractExpensesPdfDefinition(cfContract2, logoData, opts);
+
+      } else if (type === 'contract-profit') {
+        var cfContract3;
+        if (A.visibleContracts) cfContract3 = A.visibleContracts().find(function(x){ return x.id === id; });
+        if (!cfContract3) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
+        dd = contractProfitPdfDefinition(cfContract3, logoData, opts);
+
+      } else if (type === 'custody') {
+        var custodies;
+        try { custodies = A._read ? A._read('misadCustodies') : JSON.parse(localStorage.getItem('misadCustodies') || '[]'); } catch(e){ custodies = null; }
+        if (!custodies || !custodies.length) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
+        var custody = custodies.filter(function(x){ return A.sameCompany ? A.sameCompany(x) : true; }).find(function(x){ return x.id === id; });
+        if (!custody) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
+        dd = custodyPdfDefinition(custody, logoData, opts);
+
+      } else if (type === 'payroll') {
+        var payrolls;
+        try { payrolls = A._read ? A._read('misadPayrolls') : JSON.parse(localStorage.getItem('misadPayrolls') || '[]'); } catch(e){ payrolls = null; }
+        if (!payrolls || !payrolls.length) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
+        var payroll = payrolls.filter(function(x){ return A.sameCompany ? A.sameCompany(x) : true; }).find(function(x){ return x.id === id; });
+        if (!payroll) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
+        dd = payrollPdfDefinition(payroll, logoData, opts);
+
+      } else if (type === 'salary-receipt') {
+        var allPayrolls;
+        try { allPayrolls = A._read ? A._read('misadPayrolls') : JSON.parse(localStorage.getItem('misadPayrolls') || '[]'); } catch(e){ allPayrolls = null; }
+        if (!allPayrolls || !allPayrolls.length) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
+        var parts = String(id || '').split(':');
+        var pay = allPayrolls.filter(function(x){ return A.sameCompany ? A.sameCompany(x) : true; }).find(function(x){ return x.id === parts[0]; });
+        var row = null;
+        if (pay) row = (pay.rows || []).find(function(r){ return String(r.staffId || r.staffIdentity || '') === String(parts[1]); });
+        if (!row) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
+        var salaryRec = {
+          id: pay.id + '-' + (row.staffId || row.staffIdentity || ''),
+          staffName: row.staffName,
+          staffIdentity: row.staffIdentity || row.staffId,
+          period: pay.period,
+          amount: row.net,
+          details: [
+            { label: 'الراتب الأساسي', value: row.base },
+            { label: 'البدلات', value: row.allowances },
+            { label: 'الخصومات', value: row.deductions },
+            { label: 'خصم العهدة', value: row.custodyDeduction }
+          ]
+        };
+        dd = salaryReceiptPdfDefinition(salaryRec, logoData, opts);
+
+      } else if (type === 'finance-summary') {
+        dd = financeSummaryPdfDefinition(logoData, opts);
+
+      } else if (type === 'staff-finance') {
+        dd = staffFinancePdfDefinition(id, logoData, opts);
+
+      } else if (type === 'supplier-finance') {
+        dd = supplierFinancePdfDefinition(id, logoData, opts);
+
       } else {
         if (A.downloadPdf) A.downloadPdf(type, id);
         return;
       }
 
       if (!dd) {
+        if (type === 'quote') { pdfLog('تعذر توليد ملف عرض السعر'); return; }
         if (opts && opts.letterhead) { pdfLog('تعذر توليد PDF على مطبوعات الشركة'); return; }
         if (A.downloadPdf) A.downloadPdf(type, id);
         return;
       }
 
       var suffix = (opts && opts.letterhead) ? ' (على مطبوعات الشركة)' : ((opts && opts.clean) ? ' (بدون ترويسة)' : '');
-      pdfMake.createPdf(dd).download(p.title + suffix + '.pdf');
+      await downloadPdfDefinition(dd, p.title + suffix + '.pdf');
       pdfLog('تم تحميل PDF بنجاح');
 
     } catch(err) {
       console.error("PDFGEN", "pdfmake error:", err);
+      if (type === 'quote') { pdfLog('تعذر توليد ملف عرض السعر، أعد المحاولة'); return; }
       if (opts && opts.letterhead) {
         pdfLog('تعذر توليد PDF على مطبوعات الشركة');
         return;
@@ -1199,11 +2440,37 @@
     }
   };
 
+  window.generateContractPdfBlob = async function(id){
+    if (!pdfmakeReady) throw new Error('PDF غير متاح حالياً');
+    if (A.canUseCompanyLetterhead && !A.canUseCompanyLetterhead()) throw new Error('غير مصرح باستخدام مطبوعات الشركة');
+    if (!(A.companyLetterhead && A.companyLetterhead())) throw new Error('ارفع صورة مطبوعات الشركة أولاً');
+    var contract = A.visibleContracts && A.visibleContracts().find(function(x){ return x.id === id; });
+    if (!contract) throw new Error('لم يتم العثور على العقد');
+    var logoData = await loadLogo();
+    var dd = contractPdfDefinition(contract, logoData, {letterhead:true});
+    if (String(contract.transferNoticeData || '').startsWith('data:image/')) {
+      dd.content.push({text:'إشعار التحويل',style:'sectionTitle',pageBreak:'before',margin:[0,20,0,14]});
+      dd.content.push({image:contract.transferNoticeData,fit:[470,680],alignment:'center'});
+    }
+    return createPdfBlob(dd);
+  };
+
+  window.generateQuotePdfBlob = async function(id){
+    if (!pdfmakeReady) throw new Error('PDF غير متاح حالياً');
+    if (A.canUseCompanyLetterhead && !A.canUseCompanyLetterhead()) throw new Error('غير مصرح باستخدام مطبوعات الشركة');
+    if (!(A.companyLetterhead && A.companyLetterhead())) throw new Error('ارفع صورة مطبوعات الشركة أولاً');
+    var quote = A.quotes && A.quotes.filter(function(q){ return A.sameCompany ? A.sameCompany(q) : true; }).find(function(x){ return x.id === id; });
+    if (!quote) throw new Error('لم يتم العثور على عرض السعر');
+    var logoData = await loadLogo();
+    var dd = quotePdfDefinition(quote, logoData, {letterhead:true});
+    return createPdfBlob(dd);
+  };
+
   document.addEventListener('click', function(e){
     var btn = e.target.closest('[data-pdf-doc]');
     if (btn) {
       e.preventDefault();
-      e.stopPropagation();
+      e.stopImmediatePropagation();
       var opts = {};
       if (btn.dataset.pdfClean === 'true') opts.clean = true;
       if (btn.dataset.pdfLetterhead === 'true') opts.letterhead = true;
