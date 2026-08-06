@@ -2513,6 +2513,136 @@ if (isParts) {
     }
     return makeDd(content, cf, opts);
   }
+  function paymentVoucherPdfDefinition(x, logoData, opts){
+    var cf = safeFooter();
+    var content = [];
+    appendDocumentHeader(content, logoData, opts);
+    var contract = {};
+    if (A.visibleContracts) contract = A.visibleContracts().find(function(c){ return c.id === x.contractId; }) || {};
+    else { try { contract = (JSON.parse(localStorage.getItem('misadContracts') || '[]')).find(function(c){ return c.id === x.contractId; }) || {}; } catch(e){} }
+    var staffName = '';
+    var staffs = [];
+    try { staffs = (A._read ? A._read('misadCompanyStaff') : JSON.parse(localStorage.getItem('misadCompanyStaff') || '[]')); } catch(e){}
+    var st = staffs.find(function(s){ return (s.identity || s.id || '') === (x.staffId || ''); });
+    if (st && st.name) staffName = st.name;
+    var payee = staffName || (contract.id ? safeLabel(contract) : '');
+    content.push({ text: 'سند صرف', fontSize: 14, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 2] });
+    content.push(summaryTable([
+      { label: 'رقم السند', value: x.id || '—' },
+      { label: 'التاريخ', value: x.date || '—' },
+      { label: 'التصنيف', value: x.category || '—' }
+    ]));
+    content.push(summaryTable([
+      { label: 'الصرف إلى', value: payee || '—' },
+      { label: 'العقد', value: x.contractId ? String(x.contractId) : '—' },
+      { label: 'المبلغ', value: safeMoney(Number(x.amount||0)) }
+    ]));
+    if (x.description) content.push({ text: x.description, fontSize: 11, italics: true, color: '#3a4f5a', margin: [2, 6, 2, 4] });
+    content.push({ table: { widths: ['*', '*'], body: [
+      [
+        { text: 'التوقيع', alignment: 'center', fontSize: 10, color: '#3a4f5a', margin: [0, 34, 0, 0] },
+        { text: 'الاستلام', alignment: 'center', fontSize: 10, color: '#3a4f5a', margin: [0, 34, 0, 0] }
+      ]
+    ] }, margin: [20, 22, 20, 0] });
+    return makeDd(content, cf, opts);
+  }
+  function installmentDemandPdfDefinition(c, label, logoData, opts){
+    var cf = safeFooter();
+    var content = [];
+    appendDocumentHeader(content, logoData, opts);
+    var planDef = (c.paymentPlan && c.paymentPlan.length) ? c.paymentPlan : [{label:"الدفعة الأولى",percent:0.5},{label:"الدفعة الثانية",percent:0.35},{label:"الدفعة الثالثة",percent:0.15}];
+    var pctOf2 = function(p){ var v; if(Array.isArray(p)){ v = p[2]; } else { v = p.percent; } return v > 1 ? v / 100 : (v || 0); };
+    var labelOf2 = function(p){ return Array.isArray(p) ? p[0] : (p.label || ''); };
+    var planOf = planDef.find(function(p){ return labelOf2(p) === label; });
+    var expected = planOf ? (Number(c.value||0) * pctOf2(planOf)) : 0;
+    var allEntries = [];
+    try { allEntries = (A._read ? A._read('misadFinancialEntries') : JSON.parse(localStorage.getItem('misadFinancialEntries') || '[]')); } catch(e){}
+    var inEntries = allEntries.filter(function(x){ return x.contractId === c.id && x.paymentLabel === label && x.direction === 'in'; });
+    var collected = inEntries.reduce(function(s,x){ return s + Number(x.amount||0); }, 0);
+    var remaining = Math.max(0, expected - collected);
+    var saved = {};
+    try { saved = ((A._read ? A._read('misadContractPayments') : JSON.parse(localStorage.getItem('misadContractPayments') || '[]')) || []).find(function(x){ return x.contractId === c.id && x.label === label; }) || {}; } catch(e){}
+    content.push({ text: 'مطالبة مالية بدفعة', fontSize: 14, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 2] });
+    content.push(summaryTable([
+      { label: 'السادة /', value: safeLabel(c) },
+      { label: 'رقم العقد', value: String(c.id) },
+      { label: 'الدفعة', value: label }
+    ]));
+    content.push(summaryTable([
+      { label: 'قيمة الدفعة', value: safeMoney(expected) },
+      { label: 'المسدّد', value: safeMoney(collected) },
+      { label: 'المطلوب سداده', value: safeMoney(remaining) }
+    ]));
+    content.push({ text: 'نطالبكم بسداد المبلغ المتبقي ' + safeMoney(remaining) + ' من قيمة الدفعة «' + label + '» بتاريخ استحقاق (' + (saved.dueDate || 'غير محدد') + ')، شاكرين لكم تعاونكم.', fontSize: 11, lineHeight: 1.7, margin: [2, 8, 2, 8] });
+    content.push({ table: { widths: ['*', '*'], body: [
+      [
+        { text: 'الإعداد', alignment: 'center', fontSize: 10, color: '#3a4f5a', margin: [0, 34, 0, 0] },
+        { text: 'الاعتماد', alignment: 'center', fontSize: 10, color: '#3a4f5a', margin: [0, 34, 0, 0] }
+      ]
+    ] }, margin: [20, 22, 20, 0] });
+    return makeDd(content, cf, opts);
+  }
+  function customerStatementPdfDefinition(contract, logoData, opts){
+    var cf = safeFooter();
+    var content = [];
+    appendDocumentHeader(content, logoData, opts);
+    var k0 = contract.clientId || '';
+    var n0 = contract.clientCompanyUnifiedNumber || '';
+    var clName = safeLabel(contract);
+    var contracts = [];
+    if (A.visibleContracts) contracts = A.visibleContracts().filter(function(x){ return A.sameCompany ? A.sameCompany(x) : true; });
+    else { try { contracts = JSON.parse(localStorage.getItem('misadContracts') || '[]'); } catch(e){} }
+    var sameStr = function(a,b){ return a && b && String(a).trim() === String(b).trim(); };
+    var rel = contracts.filter(function(c){
+      return (k0 && c.clientId && sameStr(c.clientId, k0)) || (n0 && c.clientCompanyUnifiedNumber && sameStr(c.clientCompanyUnifiedNumber, n0));
+    });
+    if (!rel.length) rel = [contract];
+    var relIds = rel.map(function(x){ return x.id; });
+    content.push({ text: 'كشف حساب عميل', fontSize: 14, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 2] });
+    content.push({ text: clName, fontSize: 12, color: '#3a4f5a', margin: [0, 0, 0, 4] });
+    var allEntries = [];
+    try { allEntries = (A._read ? A._read('misadFinancialEntries') : JSON.parse(localStorage.getItem('misadFinancialEntries') || '[]')); } catch(e){}
+    var iEntries = allEntries.filter(function(x){ return (A.sameCompany ? A.sameCompany(x) : true) && x.direction === 'in' && x.contractId && relIds.indexOf(x.contractId) >= 0; });
+    var cinvs = [];
+    try { cinvs = (A._read ? A._read('misadCustomerInvoices') : JSON.parse(localStorage.getItem('misadCustomerInvoices') || '[]')).filter(function(x){ return x.contractId && relIds.indexOf(x.contractId) >= 0; }); } catch(e){}
+    var cValue = rel.reduce(function(s,c){ return s + Number(c.value||0); }, 0);
+    var paid = iEntries.reduce(function(s,x){ return s + Number(x.amount||0); }, 0);
+    var invTotal = cinvs.reduce(function(s,x){ return s + Number(x.total||0); }, 0);
+    var invPaid = cinvs.reduce(function(s,x){ return s + (Number(x.paid||0) + (x.payments||[]).reduce(function(s2,p){ return s2 + Number(p.amount||0); }, 0)); }, 0);
+    content.push(summaryTable([
+      { label: 'عدد العقود', value: String(rel.length) },
+      { label: 'إجمالي قيمة العقود', value: safeMoney(cValue) },
+      { label: 'إجمالي المحصل', value: safeMoney(paid) }
+    ]));
+    content.push(summaryTable([
+      { label: 'إجمالي فواتير العملاء', value: safeMoney(invTotal) },
+      { label: 'المحصل من الفواتير', value: safeMoney(invPaid) },
+      { label: 'المستحق', value: safeMoney(Math.max(0, cValue - paid)) }
+    ]));
+    content.push({ text: 'التحصيلات', fontSize: 10, bold: true, color: '#1e3a5f', margin: [0, 2, 0, 2] });
+    var t = iEntries.slice().sort(function(a,b){ return (a.createdAtMs||0) - (b.createdAtMs||0); });
+    if (t.length) {
+      var rows = t.map(function(e){
+        return [
+          { text: e.description || e.paymentLabel || '—', fontSize: 10, alignment: 'right' },
+          { text: e.contractId || '—', fontSize: 10, alignment: 'center' },
+          { text: safeMoney(e.amount), fontSize: 10, alignment: 'center', bold: true },
+          { text: e.date || '—', fontSize: 10, alignment: 'center' }
+        ];
+      });
+      content.push({ table: { widths: ['*', 'auto', 'auto', 'auto'], headerRows: 1, body: [
+        [
+          { text: 'البيان', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] },
+          { text: 'العقد', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] },
+          { text: 'المبلغ', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] },
+          { text: 'التاريخ', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] }
+        ]
+      ].concat(rows) }, margin: [0, 0, 0, 4] });
+    } else {
+      content.push({ text: 'لا توجد تحصيلات', fontSize: 10, color: '#94a3b8', margin: [0, 0, 0, 4] });
+    }
+    return makeDd(content, cf, opts);
+  }
   // ==================== MAIN ENTRY ====================
   function pdfLog(msg){ console.log("PDFGEN", msg); if (A.toast) A.toast(msg); }
 
@@ -2714,6 +2844,30 @@ if (isParts) {
 
       } else if (type === 'treasury') {
         dd = treasuryPdfDefinition(logoData, opts);
+
+      } else if (type === 'payment-voucher') {
+        var pvexps;
+        try { pvexps = (A._read ? A._read('misadContractExpenses') : JSON.parse(localStorage.getItem('misadContractExpenses') || '[]')); } catch(e){ pvexps = null; }
+        if (!pvexps || !pvexps.length) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
+        var px = pvexps.filter(function(x){ return A.sameCompany ? A.sameCompany(x) : true; }).find(function(x){ return x.id === id; });
+        if (!px) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
+        dd = paymentVoucherPdfDefinition(px, logoData, opts);
+
+      } else if (type === 'installment-demand') {
+        var demParts = String(id || '').split(':');
+        var demCid = demParts[0];
+        var demLabel = '';
+        try { demLabel = decodeURIComponent(demParts.slice(1).join(':')); } catch(e){ demLabel = demParts.slice(1).join(':'); }
+        var demContract;
+        if (A.visibleContracts) demContract = A.visibleContracts().find(function(x){ return x.id === demCid; });
+        if (!demContract) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
+        dd = installmentDemandPdfDefinition(demContract, demLabel, logoData, opts);
+
+      } else if (type === 'customer-statement') {
+        var stContract;
+        if (A.visibleContracts) stContract = A.visibleContracts().find(function(x){ return x.id === id; });
+        if (!stContract) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
+        dd = customerStatementPdfDefinition(stContract, logoData, opts);
 
       } else {
         if (A.downloadPdf) A.downloadPdf(type, id);
