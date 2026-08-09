@@ -2546,6 +2546,34 @@ if (isParts) {
     ] }, margin: [20, 22, 20, 0] });
     return makeDd(content, cf, opts);
   }
+  function staffPaymentVoucherPdfDefinition(v, logoData, opts){
+    var cf = safeFooter();
+    var content = [];
+    appendDocumentHeader(content, logoData, opts);
+    var staffs = [];
+    try { staffs = (A._read ? A._read('misadCompanyStaff') : JSON.parse(localStorage.getItem('misadCompanyStaff') || '[]')); } catch(e){}
+    var st = staffs.find(function(s){ return (s.identity || s.id || '') === (v.staffId || ''); });
+    var payee = v.staffName || (st && st.name) || v.staffId || '—';
+    content.push({ text: 'سند صرف — مشتريات موظف', fontSize: 14, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 2] });
+    content.push(summaryTable([
+      { label: 'رقم السند', value: v.id || '—' },
+      { label: 'التاريخ', value: v.date || '—' },
+      { label: 'المرجع', value: v.invoiceNo || v.invoiceId || '—' }
+    ]));
+    content.push(summaryTable([
+      { label: 'الصرف إلى', value: payee },
+      { label: 'رقم الموظف', value: String(v.staffId || '—') },
+      { label: 'المبلغ', value: safeMoney(Number(v.amount||0)) }
+    ]));
+    if (v.description) content.push({ text: v.description, fontSize: 11, italics: true, color: '#3a4f5a', margin: [2, 6, 2, 4] });
+    content.push({ table: { widths: ['*', '*'], body: [
+      [
+        { text: 'التوقيع', alignment: 'center', fontSize: 10, color: '#3a4f5a', margin: [0, 34, 0, 0] },
+        { text: 'الاستلام', alignment: 'center', fontSize: 10, color: '#3a4f5a', margin: [0, 34, 0, 0] }
+      ]
+    ] }, margin: [20, 22, 20, 0] });
+    return makeDd(content, cf, opts);
+  }
   function installmentDemandPdfDefinition(c, label, logoData, opts){
     var cf = safeFooter();
     var content = [];
@@ -2852,6 +2880,14 @@ if (isParts) {
         var px = pvexps.filter(function(x){ return A.sameCompany ? A.sameCompany(x) : true; }).find(function(x){ return x.id === id; });
         if (!px) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
         dd = paymentVoucherPdfDefinition(px, logoData, opts);
+
+      } else if (type === 'staff-payment-voucher') {
+        var svcs;
+        try { svcs = (A._read ? A._read('misadStaffVouchers') : JSON.parse(localStorage.getItem('misadStaffVouchers') || '[]')); } catch(e){ svcs = null; }
+        if (!svcs || !svcs.length) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
+        var sv = svcs.filter(function(x){ return A.sameCompany ? A.sameCompany(x) : true; }).find(function(x){ return x.id === id; });
+        if (!sv) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
+        dd = staffPaymentVoucherPdfDefinition(sv, logoData, opts);
 
       } else if (type === 'installment-demand') {
         var demParts = String(id || '').split(':');
