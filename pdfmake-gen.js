@@ -2421,6 +2421,50 @@ if (isParts) {
     }
     return makeDd(content, cf, opts);
   }
+  function activeContractsTablePdfDefinition(logoData, opts){
+    var cf = safeFooter();
+    var content = [];
+    appendDocumentHeader(content, logoData, opts);
+    var list = [];
+    if (A.visibleContracts) {
+      list = A.visibleContracts().filter(function(x){ return A.sameCompany ? A.sameCompany(x) : true; }).filter(function(x){ return x.status === 'ساري'; });
+    }
+    list = list.slice().sort(function(a,b){ return String(a.endDate || 'zz').localeCompare(String(b.endDate || 'zz')); });
+    var total = list.reduce(function(s,x){ return s + Number(x.value || 0); }, 0);
+    content.push({ text: 'جدول العقود السارية', fontSize: 14, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 2] });
+    content.push(summaryTable([
+      { label: 'عدد العقود', value: String(list.length) },
+      { label: 'إجمالي القيمة', value: safeMoney(total) }
+    ]));
+    if (list.length) {
+      var rows = list.map(function(c){
+        var blds = (c.buildings || []).map(function(b){ return (b.name || 'مبنى') + ' - ' + (b.district || ''); }).join('، ') || 'غير محدد';
+        return [
+          { text: c.id || '—', fontSize: 9, alignment: 'right' },
+          { text: c.type || '—', fontSize: 9, alignment: 'center' },
+          { text: safeLabel(c), fontSize: 9, alignment: 'right' },
+          { text: blds, fontSize: 9, alignment: 'right' },
+          { text: safeMoney(c.value), fontSize: 9, alignment: 'center', bold: true },
+          { text: c.startDate || '—', fontSize: 9, alignment: 'center' },
+          { text: c.endDate || '—', fontSize: 9, alignment: 'center' }
+        ];
+      });
+      content.push({ table: { widths: ['auto', 'auto', '*', '*', 'auto', 'auto', 'auto'], headerRows: 1, body: [
+        [
+          { text: 'الرقم', bold: true, fontSize: 9, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] },
+          { text: 'النوع', bold: true, fontSize: 9, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] },
+          { text: 'الطرف الثاني', bold: true, fontSize: 9, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] },
+          { text: 'المباني', bold: true, fontSize: 9, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] },
+          { text: 'القيمة', bold: true, fontSize: 9, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] },
+          { text: 'البداية', bold: true, fontSize: 9, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] },
+          { text: 'النهاية', bold: true, fontSize: 9, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] }
+        ]
+      ].concat(rows) }, margin: [0, 0, 0, 4] });
+    } else {
+      content.push({ text: 'لا توجد عقود سارية حالياً', fontSize: 10, color: '#94a3b8', margin: [0, 0, 0, 4] });
+    }
+    return makeDd(content, cf, opts);
+  }
   function staffFinancePdfDefinition(id, logoData, opts){
     var cf = safeFooter();
     var content = [];
@@ -2845,6 +2889,9 @@ if (isParts) {
 
       } else if (type === 'finance-summary') {
         dd = financeSummaryPdfDefinition(logoData, opts);
+
+      } else if (type === 'contracts-table') {
+        dd = activeContractsTablePdfDefinition(logoData, opts);
 
       } else if (type === 'staff-finance') {
         dd = staffFinancePdfDefinition(id, logoData, opts);
