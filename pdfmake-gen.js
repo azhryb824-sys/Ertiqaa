@@ -2465,6 +2465,61 @@ if (isParts) {
     }
     return makeDd(content, cf, opts);
   }
+  function monthLabel(ym){
+    var p = String(ym || '').split('-');
+    if (p.length !== 2) return ym || '—';
+    var n = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+    var m = parseInt(p[1], 10);
+    return m >= 1 && m <= 12 ? (n[m - 1] + ' ' + p[0]) : ym;
+  }
+  function monthlyVisitsPdfDefinition(month, logoData, opts){
+    var cf = safeFooter();
+    var content = [];
+    appendDocumentHeader(content, logoData, opts);
+    var visits = [];
+    try { visits = (A._read ? A._read('misadVisits') : JSON.parse(localStorage.getItem('misadVisits') || '[]')) || []; } catch(e){ visits = []; }
+    var list = visits.filter(function(v){ return String(v.scheduledAt || '').slice(0, 7) === String(month || ''); }).filter(function(v){ return A.sameCompany ? A.sameCompany(v) : true; });
+    list = list.slice().sort(function(a,b){ return String(a.scheduledAt || '').localeCompare(String(b.scheduledAt || '')); });
+    var monthName = monthLabel(month);
+    var totalVisits = list.length;
+    var done = list.filter(function(v){ return v.status === 'مكتملة'; }).length;
+    var canceled = list.filter(function(v){ return v.status === 'ملغية'; }).length;
+    content.push({ text: 'جدول زيارات ' + monthName, fontSize: 14, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 2] });
+    content.push(summaryTable([
+      { label: 'عدد الزيارات', value: String(totalVisits) },
+      { label: 'مكتملة', value: String(done) },
+      { label: 'ملغية', value: String(canceled) }
+    ]));
+    if (list.length) {
+      var rows = list.map(function(v){
+        var c = null;
+        if (A.visibleContracts) c = A.visibleContracts().find(function(x){ return x.id === v.contractId; });
+        return [
+          { text: v.id || '—', fontSize: 9, alignment: 'right' },
+          { text: v.contractId || '—', fontSize: 9, alignment: 'center' },
+          { text: (c && c.id) ? safeLabel(c) : (v.clientName || v.clientCompanyName || '—'), fontSize: 9, alignment: 'right' },
+          { text: (v.building && (v.building.name || v.building.district)) ? ((v.building.name || 'مبنى') + (v.building.district ? ' - ' + v.building.district : '')) : 'غير محدد', fontSize: 9, alignment: 'right' },
+          { text: v.assignedName || 'غير مسند', fontSize: 9, alignment: 'center' },
+          { text: String(v.scheduledAt || '').replace('T', ' ') || '—', fontSize: 9, alignment: 'center' },
+          statusBadge(v.status)
+        ];
+      });
+      content.push({ table: { widths: ['auto', 'auto', '*', '*', 'auto', 'auto', 'auto'], headerRows: 1, body: [
+        [
+          { text: 'الرقم', bold: true, fontSize: 9, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] },
+          { text: 'العقد', bold: true, fontSize: 9, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] },
+          { text: 'الطرف الثاني', bold: true, fontSize: 9, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] },
+          { text: 'الموقع', bold: true, fontSize: 9, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] },
+          { text: 'الفني', bold: true, fontSize: 9, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] },
+          { text: 'الموعد', bold: true, fontSize: 9, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] },
+          { text: 'الحالة', bold: true, fontSize: 9, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2, 2, 2, 2] }
+        ]
+      ].concat(rows) }, margin: [0, 0, 0, 4] });
+    } else {
+      content.push({ text: 'لا توجد زيارات في هذا الشهر', fontSize: 10, color: '#94a3b8', margin: [0, 0, 0, 4] });
+    }
+    return makeDd(content, cf, opts);
+  }
   function staffFinancePdfDefinition(id, logoData, opts){
     var cf = safeFooter();
     var content = [];
@@ -2892,6 +2947,9 @@ if (isParts) {
 
       } else if (type === 'contracts-table') {
         dd = activeContractsTablePdfDefinition(logoData, opts);
+
+      } else if (type === 'visits-monthly') {
+        dd = monthlyVisitsPdfDefinition(String(id || '').slice(0, 7), logoData, opts);
 
       } else if (type === 'staff-finance') {
         dd = staffFinancePdfDefinition(id, logoData, opts);
