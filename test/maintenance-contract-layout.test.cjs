@@ -9,12 +9,13 @@ const pdfSource = fs.readFileSync(path.join(root, 'pdfmake-gen.js'), 'utf8');
 
 assert.match(
   app,
-  /tabBar\.innerHTML=\["البيانات الأساسية","مواصفات المصعد","الصيانة"\]/,
-  'نموذج العقد يعرّف التبويبات الثلاثة المطلوبة فقط',
+  /const labels=isInstall\?\["البيانات الأساسية",\.\.\.specGroups\.map\(group=>group\.tab\),"الصيانة"\]:\["البيانات الأساسية","مواصفات المصعد","الصيانة"\]/,
+  'عقد الصيانة يختصر التبويبات بينما عقد التركيب يحتفظ بكل تبويبات المواصفات',
 );
 assert.match(app, /contractForm=threeTabContractForm/, 'النموذج المبسط هو النموذج الفعلي');
-assert.match(app, /specPanels=panels\.slice\(1,-1\)/, 'مجموعات المواصفات تُدمج داخل تبويب واحد');
-assert.match(app, /maintTab=2/, 'تبويب الصيانة يستخدم الفهرس الثالث بعد الدمج');
+assert.match(app, /syncContractTabLayout\(form,c\?\.type==="تركيب"\)/, 'نوع العقد يحدد تخطيط التبويبات عند فتح النموذج');
+assert.match(app, /syncContractTabLayout\(f,isInstall\)/, 'تغيير نوع العقد يحدّث تخطيط التبويبات فوراً');
+assert.match(app, /maintTab=isInstall\?specGroups\.length\+1:2/, 'تبويب الصيانة يستخدم فهرسه الأصلي في التركيب والثالث في الصيانة');
 for (const section of ['basic', 'specifications', 'maintenance']) {
   assert.match(
     app,
@@ -68,6 +69,18 @@ const contract = {
   items: [{ title: 'الاستجابة للأعطال', description: 'وفق مواعيد العمل.' }],
   customItems: [{ title: 'تنظيف إضافي', description: 'عند كل زيارة.' }],
 };
+const installationContract = {
+  ...contract,
+  id: 'INS-TEST-1',
+  type: 'تركيب',
+  details: 'توريد وتركيب وتشغيل المصعد وفق المواصفات.',
+  installationInfo: { installDuration: '45 يوماً', maintenancePeriod: 'سنة' },
+  paymentPlan: [
+    { label: 'الدفعة الأولى', description: 'عند التوقيع', percent: 50 },
+    { label: 'الدفعة الثانية', description: 'عند تركيب الكابينة', percent: 35 },
+    { label: 'الدفعة الثالثة', description: 'عند التشغيل', percent: 15 },
+  ],
+};
 
 let capturedDefinition = null;
 class FakeImage {
@@ -92,7 +105,7 @@ const bridge = {
   }),
   fixedPdfFooter: () => '',
   contractLabel: () => 'شركة العميل',
-  visibleContracts: () => [contract],
+  visibleContracts: () => [contract, installationContract],
   docPayload: () => ({ title: 'عقد صيانة اختباري' }),
   companyStamp: () => '',
   companySignature: () => '',
@@ -209,6 +222,19 @@ function findNode(node, predicate) {
   await windowObject.generatePdf('contract', contract.id, { letterhead: true });
   assert.deepEqual(Array.from(capturedDefinition.pageMargins), [24, 208, 24, 78], 'هوامش مطبوعات الشركة محفوظة');
   assert.equal(typeof capturedDefinition.background, 'function', 'خلفية مطبوعات الشركة محفوظة');
+
+  await windowObject.generatePdf('contract', installationContract.id, {});
+  const installationText = allText(capturedDefinition).join('\n');
+  for (const heading of [
+    'أولاً: نطاق التوريد والتركيب',
+    'البند ثانياً: المواصفات الفنية للمصعد',
+    'ثالثاً: شروط الدفع',
+    'رابعاً: البنود الافتراضية',
+    'خامساً: البنود الإضافية',
+    'سادساً: المباني والمواقع',
+  ]) {
+    assert.match(installationText, new RegExp(heading), `PDF عقد التركيب يحتفظ بالقسم: ${heading}`);
+  }
 
   console.log('maintenance contract layout tests passed');
 })().catch((error) => {

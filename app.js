@@ -493,7 +493,7 @@ function elevatorSection(i={}){const info=Object.assign({},specDefaults,i||{});r
   function supplierOptions(){const own=suppliers.filter(s=>sameCompany(s));return own.map(s=>`<option value="${esc(s.id)}">${esc(s.name)}</option>`).join("")}
   function collectPartSuppliers(f){return $$("[data-supplier-offer]",f).map(r=>{const sid=$('[name="supplierId"]',r)?.value||"",s=suppliers.find(x=>x.id===sid);return {supplierId:sid,supplierName:s?.name||$('[name="supplierName"]',r)?.value||f.supplier?.value||"مورد غير محدد",price:Number($('[name="supplierPrice"]',r)?.value||0),leadTime:$('[name="leadTime"]',r)?.value||"",warranty:$('[name="warranty"]',r)?.value||""}}).filter(o=>o.supplierName&&o.price>0)}
   function updateDefaultItemPrice(f){if(!f?.matches?.('[data-form="default-item"]'))return;const price=f.price?.closest("[data-price-field]");if(!price)return;const isContract=f.type?.value==="contract";price.style.display=isContract?"none":"";if(f.price){f.price.disabled=isContract;if(isContract)f.price.value=""}}
-  function updateContractTypeFields(f){if(!f?.matches?.('[data-form="contract"],[data-form="contract-edit"]'))return;const isInstall=f.type?.value==="تركيب",box=$(".installation-fields",f),maintTab=2;if(box)box.style.display=isInstall?"":"none";$$(".installation-hide",f).forEach(x=>x.style.display=isInstall?"none":"");$$(".installation-mode",f).forEach(x=>x.style.display=isInstall?"":"none");$$(".maintenance-mode-full",f).forEach(x=>x.style.display=isInstall?"none":"");$$(".maintenance-mode-install",f).forEach(x=>x.style.display=isInstall?"":"none");$$("[data-install-only]",f).forEach(x=>x.style.display=isInstall?"":"none");$$("[data-contract-tab]",f).forEach(x=>{const n=Number(x.dataset.contractTab);if(n===maintTab)x.style.display=isInstall?"none":""});$$("[data-contract-tab-panel]",f).forEach(x=>{const n=Number(x.dataset.contractTabPanel);if(n===maintTab){x.style.display=isInstall?"none":"";if(isInstall)x.classList.remove("active")}});const act=Number($(".contract-tab.active",f)?.dataset.contractTab||0);if(isInstall&&act===maintTab){$$("[data-contract-tab]",f).forEach(x=>x.classList.toggle("active",x.dataset.contractTab==="0"));$$("[data-contract-tab-panel]",f).forEach(x=>x.classList.toggle("active",x.dataset.contractTabPanel==="0"))}}
+  function updateContractTypeFields(f){if(!f?.matches?.('[data-form="contract"],[data-form="contract-edit"]'))return;const isInstall=f.type?.value==="تركيب";syncContractTabLayout(f,isInstall);const box=$(".installation-fields",f),maintTab=isInstall?specGroups.length+1:2;if(box)box.style.display=isInstall?"":"none";$$(".installation-hide",f).forEach(x=>x.style.display=isInstall?"none":"");$$(".installation-mode",f).forEach(x=>x.style.display=isInstall?"":"none");$$(".maintenance-mode-full",f).forEach(x=>x.style.display=isInstall?"none":"");$$(".maintenance-mode-install",f).forEach(x=>x.style.display=isInstall?"":"none");$$("[data-install-only]",f).forEach(x=>x.style.display=isInstall?"":"none");$$("[data-contract-tab]",f).forEach(x=>{const n=Number(x.dataset.contractTab);if(n===maintTab)x.style.display=isInstall?"none":""});$$("[data-contract-tab-panel]",f).forEach(x=>{const n=Number(x.dataset.contractTabPanel);if(n===maintTab){x.style.display=isInstall?"none":"";if(isInstall)x.classList.remove("active")}});const act=Number($(".contract-tab.active",f)?.dataset.contractTab||0);if(isInstall&&act===maintTab){$$("[data-contract-tab]",f).forEach(x=>x.classList.toggle("active",x.dataset.contractTab==="0"));$$("[data-contract-tab-panel]",f).forEach(x=>x.classList.toggle("active",x.dataset.contractTabPanel==="0"))}}
   const canManageContract=c=>["owner","company_admin","admin"].includes(session.role)&&sameCompany(c);
   const canUseCompanyLetterhead=["owner","company_admin","admin"].includes(session.role);
   const canEditContract=c=>canManageContract(c)&&!["ساري","ملغي","محذوف"].includes(c.status);
@@ -538,31 +538,34 @@ function updateContractTransferNotice(f){if(!f?.matches?.('[data-form="contract"
   function updateQuotePaymentPlan(f){if(!f?.matches?.('[data-form="quote"]'))return;const value=Number(f.value?.value||0);const pcts=$$('[name="paymentPct"]',f);const amounts=$$('[data-payment-amount]',f);pcts.forEach((input,i)=>{if(amounts[i])amounts[i].textContent=money(value*Number(input.value||0)/100)})}
   function quoteForm(r=null){const detail=r?`قطع الغيار المطلوبة: ${r.parts||"غير محدد"}\nالتوصيات: ${r.recommendations||"غير محدد"}\nمرجع التقرير: ${r.id}`:"";return `<form class="modal-form" data-form="quote">${r?`<input type="hidden" name="reportId" value="${esc(r.id)}">`:""}${aiAssistantHTML("quote")}<fieldset class="item-picker"><legend>بيانات العميل والمنشأة</legend><label>هوية العميل<input name="clientId" data-client-id value="${esc(r?.clientId)}"></label><label>اسم العميل<input name="clientName" value="${esc(r?.clientName)}"></label><label>الرقم الموحد للمنشأة<input name="clientCompanyUnifiedNumber" data-company-number value="${esc(r?.clientCompanyUnifiedNumber)}"></label><label>اسم المنشأة<input name="clientCompanyName" value="${esc(r?.clientCompanyName)}"></label><label>العميل الظاهر في العرض<input name="client" value="${esc(r?.clientCompanyName||r?.clientName)}" required></label><div data-client-preview class="client-preview">أدخل الهوية أو الرقم الموحد لجلب البيانات المسجلة.</div></fieldset><label>العنوان<input name="title" required value="${r?"عرض سعر بناء على تقرير كشف":""}"></label><label>نوع عرض السعر<select name="type"><option>تركيب</option><option>صيانة</option><option>توريد وتركيب قطع غيار</option></select></label><div class="quote-install-fields">${elevatorFields()}${quotePaymentPlanFields(r?.paymentPlan)}</div><div class="quote-maintenance-fields">${maintenanceChecklistFields()}</div>${itemPicker("quote")}${quotePartsPicker()}${customItems()}<label>القيمة الأساسية<input name="value" type="number" min="0" step="0.01" value="0" required></label>${quoteTotalsBox()}<label>التفاصيل<textarea name="details">${esc(detail)}</textarea></label><button class="btn-primary">حفظ وتوجيه العرض للعميل</button>${aiDraftBtn("quote")}</form>`}
   const fullContractForm=contractForm;
+  function syncContractTabLayout(form,isInstall){
+    if(!form)return;
+    const tabBar=Array.from(form.children).find(x=>x.classList?.contains("contract-tabs"));
+    const panels=Array.from(form.children).filter(x=>x.hasAttribute?.("data-contract-tab-panel"));
+    if(!tabBar||panels.length<3)return;
+    panels.forEach((panel,index)=>{if(panel.dataset.contractOriginalTabPanel===undefined)panel.dataset.contractOriginalTabPanel=String(index)});
+    const mode=isInstall?"installation":"maintenance";
+    if(form.dataset.contractTabsMode===mode)return;
+    const lastIndex=panels.length-1,activePanel=panels.find(panel=>panel.classList.contains("active"))||panels[0];
+    const activeOriginal=Number(activePanel.dataset.contractOriginalTabPanel||0);
+    const activeTab=isInstall?(activeOriginal===lastIndex?0:activeOriginal):(activeOriginal===0?0:(activeOriginal===lastIndex?2:1));
+    const labels=isInstall?["البيانات الأساسية",...specGroups.map(group=>group.tab),"الصيانة"]:["البيانات الأساسية","مواصفات المصعد","الصيانة"];
+    tabBar.innerHTML=labels.map((label,index)=>'<button type="button" class="contract-tab '+(index===activeTab?"active":"")+'" data-contract-tab="'+index+'">'+label+'</button>').join("");
+    panels.forEach(panel=>{
+      const original=Number(panel.dataset.contractOriginalTabPanel||0);
+      const tabIndex=isInstall?original:(original===0?0:(original===lastIndex?2:1));
+      panel.dataset.contractTabPanel=String(tabIndex);
+      panel.classList.toggle("active",tabIndex===activeTab);
+      panel.style.display="";
+    });
+    form.dataset.contractTabsMode=mode;
+  }
   function threeTabContractForm(c=null){
     const template=document.createElement("template");
     template.innerHTML=fullContractForm(c).trim();
     const form=template.content.querySelector("form");
     if(!form)return fullContractForm(c);
-    const tabBar=Array.from(form.children).find(x=>x.classList?.contains("contract-tabs"));
-    const panels=Array.from(form.children).filter(x=>x.hasAttribute?.("data-contract-tab-panel"));
-    if(!tabBar||panels.length<3)return form.outerHTML;
-    const basicPanel=panels[0],maintenancePanel=panels[panels.length-1],specPanels=panels.slice(1,-1);
-    tabBar.innerHTML=["البيانات الأساسية","مواصفات المصعد","الصيانة"].map((label,index)=>`<button type="button" class="contract-tab ${index?"":"active"}" data-contract-tab="${index}">${label}</button>`).join("");
-    basicPanel.dataset.contractTabPanel="0";
-    basicPanel.classList.add("active");
-    const specsPanel=document.createElement("fieldset");
-    specsPanel.className="item-picker contract-tab-panel";
-    specsPanel.dataset.contractTabPanel="1";
-    specsPanel.innerHTML="<legend>مواصفات المصعد</legend>";
-    specPanels.forEach(panel=>{
-      panel.classList.remove("contract-tab-panel","active");
-      panel.classList.add("contract-spec-group");
-      panel.removeAttribute("data-contract-tab-panel");
-      specsPanel.appendChild(panel);
-    });
-    maintenancePanel.dataset.contractTabPanel="2";
-    maintenancePanel.classList.remove("active");
-    maintenancePanel.parentNode.insertBefore(specsPanel,maintenancePanel);
+    syncContractTabLayout(form,c?.type==="تركيب");
     return form.outerHTML;
   }
   contractForm=threeTabContractForm;
