@@ -662,7 +662,7 @@ class PdfGenerator {
         ),
         pw.SizedBox(height: 12),
         pw.Center(
-          child: pw.Text('الإجمالي المسدد للموظفين: ${AppUtils.moneyEn(p['totalNet'])} ر.س',
+          child: pw.Text('${const ['مسدد', 'مدفوع', 'paid'].contains((p['status'] ?? '').toString().toLowerCase()) ? 'الإجمالي المسدد' : 'إجمالي المستحق'} للموظفين: ${AppUtils.moneyEn(p['totalNet'])} ر.س',
               style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold, color: _gold)),
         ),
       ],
@@ -701,9 +701,9 @@ class PdfGenerator {
         pw.Row(
           mainAxisAlignment: pw.MainAxisAlignment.spaceEvenly,
           children: [
-            _summaryBox('إجمالي الوارد', AppUtils.moneyEn(r['totalIn']), _green),
-            _summaryBox('إجمالي الصادر', AppUtils.moneyEn(r['totalOut']), const PdfColor.fromInt(0xFFc0392b)),
-            _summaryBox('الصافي', AppUtils.moneyEn(r['net']), _gold),
+            _summaryBox('المقبوضات الفعلية', AppUtils.moneyEn(r['totalIn']), _green),
+            _summaryBox('المدفوعات الفعلية', AppUtils.moneyEn(r['totalOut']), const PdfColor.fromInt(0xFFc0392b)),
+            _summaryBox('صافي التدفق النقدي', AppUtils.moneyEn(r['net']), _gold),
           ],
         ),
         pw.SizedBox(height: 16),
@@ -879,9 +879,13 @@ class PdfGenerator {
   static pw.Widget customerInvoiceContent(Map<String, dynamic> inv, Map<String, dynamic> ownerCompany) {
     final items = (inv['items'] as List?) ?? <dynamic>[];
     final payments = (inv['payments'] as List?) ?? <dynamic>[];
-    var paid = (inv['paid'] as num?)?.toDouble() ?? 0;
-    for (final p in payments) {
-      paid += (p['amount'] as num?)?.toDouble() ?? 0;
+    var paid = 0.0;
+    if (payments.isNotEmpty) {
+      for (final p in payments) {
+        paid += ((p['amount'] as num?)?.toDouble() ?? 0).clamp(0.0, double.infinity).toDouble();
+      }
+    } else {
+      paid = ((inv['paid'] as num?)?.toDouble() ?? 0).clamp(0.0, double.infinity).toDouble();
     }
     final total = (inv['total'] as num?)?.toDouble() ?? 0;
     final due = (total - paid).clamp(0.0, double.infinity).toDouble();
@@ -936,7 +940,8 @@ class PdfGenerator {
         pw.Text('ملخص المبالغ', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: _green)),
         pw.SizedBox(height: 4),
         _line('المجموع الفرعي', subtotal),
-        _line('الضريبة (${(inv['taxRate'] as num?)?.toString() ?? '0'}%)', tax),
+        if (tax > 0)
+          _line('ضريبة محفوظة من فاتورة سابقة (${(inv['taxRate'] as num?)?.toString() ?? '0'}%)', tax),
         _line('الخصم', discount),
         _line('الإجمالي', total, bold: true, color: _gold),
         _line('المحصل', paid),

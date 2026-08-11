@@ -13,8 +13,11 @@ class AppConstants {
     'misadPartsInventory', 'misadSuppliers', 'misadActivityLog',
     'misadVisitMessages', 'misadMeetings', 'misadSystemBanners',
     'misadKnowledgePages', 'misadAdminInvites',     'misadFinancialEntries',
-    'misadReceipts', 'misadInvoices', 'misadCustodies', 'misadPayrolls',
+    'misadReceipts', 'misadClaims', 'misadInvoices', 'misadCustodies', 'misadPayrolls',
     'misadCustomerInvoices', 'misadTreasury', 'misadBankAccounts',
+    'misadPurchaseInvoices', 'misadContractExpenses', 'misadContractPayments',
+    'misadStaffPurchaseInvoices', 'misadStaffVouchers',
+    'misadChartOfAccounts', 'misadJournalEntries', 'misadFinanceAuditLog',
   ];
 
   static const String kClaims = 'misadClaims';
@@ -35,14 +38,16 @@ class AppConstants {
   static const String roleCompanyAdmin = 'company_admin';
   static const String roleTechnician = 'technician';
   static const String roleEngineer = 'engineer';
+  static const String roleAdministrative = 'administrative';
   static const String roleClient = 'client';
   static const String roleAdmin = 'admin';
 
   static const Map<String, String> roleLabels = {
     roleOwner: 'مالك المنشأة',
-    roleCompanyAdmin: 'إداري الشركة',
-    roleTechnician: 'فني / مهندس',
-    roleEngineer: 'فني / مهندس',
+    roleCompanyAdmin: 'إداري بصلاحية نظام',
+    roleTechnician: 'فني',
+    roleEngineer: 'مهندس',
+    roleAdministrative: 'موظف إداري',
     roleClient: 'عميل',
     roleAdmin: 'مشرف النظام',
   };
@@ -54,10 +59,24 @@ class AppConstants {
   static const List<String> fieldRoles = [roleTechnician, roleEngineer];
 
   // ===== مستخدمو النظام الثابتون (fallback عند عدم توفر الخادم) =====
+  // تُمرر بيانات الدخول وقت البناء عبر --dart-define ولا تُحفظ في المستودع.
+  static const String _fallbackAdminId =
+      String.fromEnvironment('ERTIQAA_FALLBACK_ADMIN_ID');
+  static const String _fallbackAdminPassword =
+      String.fromEnvironment('ERTIQAA_FALLBACK_ADMIN_PASSWORD');
+  static const String _fallbackCompanyAdminId =
+      String.fromEnvironment('ERTIQAA_FALLBACK_COMPANY_ADMIN_ID');
+  static const String _fallbackCompanyAdminPassword =
+      String.fromEnvironment('ERTIQAA_FALLBACK_COMPANY_ADMIN_PASSWORD');
+  static const String _fallbackOwnerId =
+      String.fromEnvironment('ERTIQAA_FALLBACK_OWNER_ID');
+  static const String _fallbackOwnerPassword =
+      String.fromEnvironment('ERTIQAA_FALLBACK_OWNER_PASSWORD');
+
   static const List<Map<String, dynamic>> systemUsers = [
-    {'id': '2572280689', 'password': 'qazdrujmlp@2A', 'role': roleAdmin, 'name': 'عبد الرحمن أزهري', 'permissions': ['*']},
-    {'id': '2233556688', 'password': '2233556688', 'role': roleCompanyAdmin, 'name': 'باسم', 'permissions': ['*'], 'mustChangePassword': true},
-    {'id': '1010389102', 'password': '1010389102', 'role': roleOwner, 'name': 'سليمان الهلالي', 'permissions': ['*'], 'mustChangePassword': true, 'companyOwnerId': '1010389102'},
+    {'id': _fallbackAdminId, 'password': _fallbackAdminPassword, 'role': roleAdmin, 'name': 'مشرف النظام', 'permissions': ['*']},
+    {'id': _fallbackCompanyAdminId, 'password': _fallbackCompanyAdminPassword, 'role': roleCompanyAdmin, 'name': 'إداري الشركة', 'permissions': ['*'], 'mustChangePassword': true},
+    {'id': _fallbackOwnerId, 'password': _fallbackOwnerPassword, 'role': roleOwner, 'name': 'مالك المنشأة', 'permissions': ['*'], 'mustChangePassword': true, 'companyOwnerId': _fallbackOwnerId},
   ];
 
   // ===== حالات =====

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/constants.dart';
 import '../../core/utils.dart';
+import '../../finance/finance_journal.dart';
 import '../../models/contract.dart';
 import '../../pdf/pdf_generator.dart';
 import '../../state/app_state.dart';
@@ -24,7 +25,6 @@ class _CustomerInvoicesScreenState extends State<CustomerInvoicesScreen> {
   final _invoiceNoCtrl = TextEditingController();
   final _dateCtrl = TextEditingController();
   final _dueDateCtrl = TextEditingController();
-  final _taxRateCtrl = TextEditingController(text: '15');
   final _discountCtrl = TextEditingController(text: '0');
   final _notesCtrl = TextEditingController();
   final _items = <({TextEditingController desc, TextEditingController qty, TextEditingController price})>[];
@@ -41,7 +41,6 @@ class _CustomerInvoicesScreenState extends State<CustomerInvoicesScreen> {
     _invoiceNoCtrl.dispose();
     _dateCtrl.dispose();
     _dueDateCtrl.dispose();
-    _taxRateCtrl.dispose();
     _discountCtrl.dispose();
     _notesCtrl.dispose();
     for (final it in _items) {
@@ -58,13 +57,19 @@ class _CustomerInvoicesScreenState extends State<CustomerInvoicesScreen> {
   /// حساب حالة الفاتورة ومبالغها (مطابق customerInvoiceInfo في web).
   static ({double paid, double total, double due, String status}) invoiceInfo(Map<String, dynamic> inv) {
     final payments = (inv['payments'] as List?) ?? const [];
-    var paid = (inv['paid'] as num?)?.toDouble() ?? 0;
-    for (final p in payments) {
-      paid += (p['amount'] as num?)?.toDouble() ?? 0;
+    var paid = 0.0;
+    if (payments.isNotEmpty) {
+      for (final p in payments) {
+        paid += ((p['amount'] as num?)?.toDouble() ?? 0).clamp(0.0, double.infinity).toDouble();
+      }
+    } else {
+      paid = ((inv['paid'] as num?)?.toDouble() ?? 0).clamp(0.0, double.infinity).toDouble();
     }
     final total = (inv['total'] as num?)?.toDouble() ?? 0;
-    final due = (total - paid).clamp(0.0, double.infinity).toDouble();
-    final status = inv['status']?.toString() == 'ملغاة'
+    final rawStatus = (inv['status'] ?? '').toString().trim().toLowerCase();
+    final cancelled = const {'ملغي', 'ملغى', 'ملغاة', 'ملغية', 'محذوف', 'cancelled', 'canceled', 'deleted'}.contains(rawStatus);
+    final due = cancelled ? 0.0 : (total - paid).clamp(0.0, double.infinity).toDouble();
+    final status = cancelled
         ? 'ملغاة'
         : (due <= 0 && total > 0)
             ? 'مدفوعة'
@@ -111,14 +116,14 @@ class _CustomerInvoicesScreenState extends State<CustomerInvoicesScreen> {
       _snack('أضف بنداً واحداً على الأقل.');
       return;
     }
-    final taxRate = double.tryParse(_taxRateCtrl.text) ?? 0;
     final discount = double.tryParse(_discountCtrl.text) ?? 0;
     var subtotal = 0.0;
     for (final it in items) {
       subtotal += (it['qty'] as double) * (it['unitPrice'] as double);
     }
-    final tax = subtotal * taxRate / 100;
-    final total = (subtotal + tax - discount).clamp(0.0, double.infinity).toDouble();
+    const taxRate = 0.0;
+    const tax = 0.0;
+    final total = (subtotal - discount).clamp(0.0, double.infinity).toDouble();
 
     Contract? c;
     for (final x in app.allContracts) {
@@ -154,6 +159,11 @@ class _CustomerInvoicesScreenState extends State<CustomerInvoicesScreen> {
       'createdAtMs': now.millisecondsSinceEpoch,
       'createdBy': app.session!.id,
     };
+    final posted = await FinanceJournal.postCustomerInvoice(app, inv);
+    if (!posted) {
+      _snack('تعذر ترحيل الفاتورة محاسبياً.');
+      return;
+    }
     invoices.insert(0, inv);
     await app.storage.write(AppConstants.kCustomerInvoices, invoices);
     await app.logActivity('فاتورة عميل', entityType: 'customer-invoice', entityId: inv['id'] as String);
@@ -208,10 +218,12 @@ class _CustomerInvoicesScreenState extends State<CustomerInvoicesScreen> {
       return;
     }
     final pay = <String, dynamic>{
+      'id': 'IPAY-${now.millisecondsSinceEpoch}',
       'amount': amount,
       'date': _payDateCtrl.text.isNotEmpty ? _payDateCtrl.text : AppUtils.dateVal(),
       'paymentMethod': _payMethod,
       'note': _payNoteCtrl.text,
+      'createdAtMs': now.millisecondsSinceEpoch,
     };
     final invoices = List<Map<String, dynamic>>.from(app.allCustomerInvoices);
     final idx = invoices.indexWhere((x) => x['id']?.toString() == inv['id']?.toString());
@@ -220,9 +232,18 @@ class _CustomerInvoicesScreenState extends State<CustomerInvoicesScreen> {
     final payments = List<Map<String, dynamic>>.from((updated['payments'] as List?) ?? const []);
     payments.add(pay);
     updated['payments'] = payments;
-    updated['paid'] = info.paid + amount;
+    updated['paid'] = payments.fold<double>(
+      0,
+      (sum, payment) => sum + ((payment['amount'] as num?)?.toDouble() ?? 0).clamp(0.0, double.infinity).toDouble(),
+    );
     updated['status'] = invoiceInfo(updated).status;
     invoices[idx] = updated;
+    final posted = await FinanceJournal.postCustomerInvoicePayment(app, updated, pay);
+    if (!posted) {
+      _snack('تعذر ترحيل التحصيل محاسبياً.');
+      setDialogState();
+      return;
+    }
     await app.storage.write(AppConstants.kCustomerInvoices, invoices);
 
     final entry = <String, dynamic>{
@@ -239,6 +260,7 @@ class _CustomerInvoicesScreenState extends State<CustomerInvoicesScreen> {
       'paymentMethod': _payMethod,
       'status': 'معتمد',
       'invoiceId': updated['id'],
+      'invoicePaymentId': pay['id'],
       'createdBy': app.session!.id,
       'createdAt': now.toIso8601String(),
       'createdAtMs': now.millisecondsSinceEpoch,
@@ -485,7 +507,6 @@ class _CustomerInvoicesScreenState extends State<CustomerInvoicesScreen> {
               icon: const Icon(Icons.add_rounded, size: 18),
               label: const Text('إضافة بند', style: TextStyle(fontFamily: 'Cairo')),
             ),
-            AppField(label: 'الضريبة (%)', keyboard: TextInputType.number, controller: _taxRateCtrl),
             AppField(label: 'الخصم (ر.س)', keyboard: TextInputType.number, controller: _discountCtrl),
             AppField(label: 'ملاحظات', controller: _notesCtrl, maxLines: 2),
             const SizedBox(height: 10),

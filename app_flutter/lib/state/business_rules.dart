@@ -243,29 +243,10 @@ class BusinessRules {
     };
   }
 
-  /// إنشاء قيد المبيعات عند تفعيل عقد (تسجيل التحصيل).
+  /// مهجور: تفعيل العقد لا يثبت تحصيلاً. استخدم مسار الدفعة/سند القبض الفعلي.
+  @Deprecated('Contract activation must not create a financial collection')
   static Map<String, dynamic>? recordContractCollection(Map<String, dynamic> contract, UserSession s) {
-    if (contract['status']?.toString() != 'ساري') return null;
-    final value = (contract['value'] as num?)?.toDouble() ?? 0;
-    if (value <= 0) return null;
-    return {
-      'id': 'FIN-${DateTime.now().millisecondsSinceEpoch}',
-      'companyOwnerId': contract['companyOwnerId'],
-      'type': 'sale',
-      'direction': 'in',
-      'amount': value,
-      'date': AppUtils.dateVal(),
-      'description': 'عقد ${contract['id']} — قيمة العقد',
-      'contractId': contract['id'],
-      'status': 'معتمد',
-      'paymentMethod': '',
-      'paymentLabel': '',
-      'receiptId': '',
-      'collectionForStatus': 'ساري',
-      'createdBy': s.id,
-      'createdAt': DateTime.now().millisecondsSinceEpoch,
-      'createdAtMs': DateTime.now().millisecondsSinceEpoch,
-    };
+    return null;
   }
 
   /// توليد مستخلص تلقائي لقيد البيع إذا لم يوجد مستخلص بنفس القيد.

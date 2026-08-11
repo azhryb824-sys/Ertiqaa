@@ -1,10 +1,13 @@
 /// عضو فريق — مفتاح misadCompanyStaff.
 class Staff {
   String id;
+  String financialId;
+  String financialProfileId;
   String companyOwnerId;
   String identity;
   String name;
   String role;
+  String employeeType;
   String availability;
   String status;
   String createdAt;
@@ -20,10 +23,13 @@ class Staff {
 
   Staff({
     required this.id,
+    this.financialId = '',
+    this.financialProfileId = '',
     this.companyOwnerId = '',
     this.identity = '',
     this.name = '',
     this.role = 'technician',
+    this.employeeType = 'technician',
     this.availability = 'working',
     this.status = 'مرتبط',
     this.createdAt = '',
@@ -42,10 +48,13 @@ class Staff {
 
   factory Staff.fromJson(Map<String, dynamic> j) => Staff(
         id: j['id']?.toString() ?? '',
+        financialId: j['financialId']?.toString() ?? j['identity']?.toString() ?? '',
+        financialProfileId: j['financialProfileId']?.toString() ?? '',
         companyOwnerId: j['companyOwnerId']?.toString() ?? '',
         identity: j['identity']?.toString() ?? '',
         name: j['name']?.toString() ?? '',
         role: j['role']?.toString() ?? 'technician',
+        employeeType: j['employeeType']?.toString() ?? j['role']?.toString() ?? 'technician',
         availability: j['availability']?.toString() ?? 'working',
         status: j['status']?.toString() ?? 'مرتبط',
         createdAt: j['createdAt']?.toString() ?? '',
@@ -62,10 +71,13 @@ class Staff {
 
   Map<String, dynamic> toJson() => {
         'id': id,
+        'financialId': financialId,
+        'financialProfileId': financialProfileId,
         'companyOwnerId': companyOwnerId,
         'identity': identity,
         'name': name,
         'role': role,
+        'employeeType': employeeType,
         'availability': availability,
         'status': status,
         'createdAt': createdAt,

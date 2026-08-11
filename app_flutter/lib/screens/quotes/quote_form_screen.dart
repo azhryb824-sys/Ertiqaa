@@ -231,7 +231,7 @@ class _QuoteFormScreenState extends State<QuoteFormScreen> {
                   ),
                   child: Row(
                     children: [
-                      const Text('الإجمالي (بدون ضريبة):', style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w800)),
+                      const Text('الإجمالي:', style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w800)),
                       const Spacer(),
                       MoneyText(_subtotal, large: true),
                     ],

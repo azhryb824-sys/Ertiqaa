@@ -528,10 +528,6 @@ class ArabicPDFGenerator {
                 <span>المجموع:</span>
                 <span>${data.totals.subtotal} ريال</span>
             </div>
-            <div class="total-item">
-                <span>الضريبة:</span>
-                <span>${data.totals.tax} ريال</span>
-            </div>
             <div class="total-final">
                 <span>الإجمالي النهائي:</span>
                 <span>${data.totals.total} ريال</span>

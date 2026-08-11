@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/constants.dart';
 import '../../core/utils.dart';
+import '../../finance/finance_journal.dart';
 import '../../pdf/pdf_generator.dart';
 import '../../state/app_state.dart';
 import '../../theme.dart';
@@ -62,35 +63,68 @@ class _TreasuryScreenState extends State<TreasuryScreen> {
     super.dispose();
   }
 
-  /// حساب أرصدة الخزينة والبنوك (مطابق treasuryState في web).
+  /// حساب الأرصدة من الأستاذ العام، مع استيعاب حركات قديمة لم تُرحّل بعد.
   static ({double cash, List<Map<String, dynamic>> banks, double total, List<Map<String, dynamic>> tx}) treasuryState(AppState app) {
     final tx = app.allTreasuryMoves.where(app.sameCompany).toList();
+    final balances = <String, double>{};
+    final postedTreasuryRefs = <String>{};
+    final journals = app.storage.list('misadJournalEntries').whereType<Map>().map((x) => Map<String, dynamic>.from(x));
+    for (final journal in journals.where(app.sameCompany)) {
+      if (journal['refType']?.toString() == 'treasury-move') {
+        postedTreasuryRefs.add(journal['refId']?.toString() ?? '');
+      }
+      for (final rawLine in (journal['lines'] as List? ?? const [])) {
+        if (rawLine is! Map) continue;
+        final line = Map<String, dynamic>.from(rawLine);
+        final account = line['account']?.toString() ?? '';
+        final amount = (line['amount'] as num?)?.toDouble() ?? 0;
+        if (account.isEmpty || amount <= 0) continue;
+        balances[account] = (balances[account] ?? 0) + (line['side'] == 'debit' ? amount : -amount);
+      }
+    }
+    final assignedBankAccounts = <String>{};
     final banks = app.allBankAccounts.where(app.sameCompany).map<Map<String, dynamic>>((b) {
       final m = Map<String, dynamic>.from(b);
-      m['balance'] = 0.0;
+      final account = m['ledgerAccountId']?.toString() ?? '1200';
+      final duplicate = assignedBankAccounts.contains(account);
+      m['balance'] = duplicate ? 0.0 : balances[account] ?? 0.0;
+      if (duplicate) m['ledgerDuplicate'] = true;
+      assignedBankAccounts.add(account);
       return m;
     }).toList();
-    var cash = 0.0;
+    var cash = balances['1100'] ?? 0.0;
+    final legacyBankAdjustments = <String, double>{};
     tx.sort((a, b) => ((a['createdAtMs'] as num?)?.toInt() ?? 0).compareTo((b['createdAtMs'] as num?)?.toInt() ?? 0));
     for (final t in tx) {
-      final amt = (t['amount'] as num?)?.toDouble() ?? 0;
+      if (postedTreasuryRefs.contains(t['id']?.toString() ?? '')) continue;
+      final amt = ((t['amount'] as num?)?.toDouble() ?? 0).clamp(0.0, double.infinity).toDouble();
       final type = t['type']?.toString() ?? '';
-      Map<String, dynamic>? target;
-      if (type == 'opening' || type == 'deposit' || type == 'withdraw') {
-        target = t['account']?.toString() == 'cash' ? null : _findBank(banks, t['account']?.toString());
-        if (type == 'opening') {
-          if (target != null) { target['balance'] = amt; } else { cash = amt; }
-        } else if (type == 'deposit') {
-          if (target != null) { target['balance'] = (target['balance'] as num).toDouble() + amt; } else { cash += amt; }
-        } else {
-          if (target != null) { target['balance'] = mathMax(0, (target['balance'] as num).toDouble() - amt); } else { cash = mathMax(0, cash - amt); }
-        }
-      } else if (type == 'transfer') {
-        final from = t['from']?.toString() == 'cash' ? null : _findBank(banks, t['from']?.toString());
-        final to = t['to']?.toString() == 'cash' ? null : _findBank(banks, t['to']?.toString());
-        if (from != null) { from['balance'] = mathMax(0, (from['balance'] as num).toDouble() - amt); } else { cash = mathMax(0, cash - amt); }
-        if (to != null) { to['balance'] = (to['balance'] as num).toDouble() + amt; } else { cash += amt; }
+      void apply(String? ref, double delta) {
+        if (ref == null || ref == 'cash') { cash += delta; return; }
+        legacyBankAdjustments[ref] = (legacyBankAdjustments[ref] ?? 0) + delta;
       }
+      if (type == 'opening' || type == 'deposit' || type == 'withdraw') {
+        apply(t['account']?.toString(), type == 'withdraw' ? -amt : amt);
+      } else if (type == 'transfer') {
+        apply(t['from']?.toString(), -amt);
+        apply(t['to']?.toString(), amt);
+      }
+    }
+    for (final bank in banks) {
+      bank['balance'] = ((bank['balance'] as num?)?.toDouble() ?? 0) + (legacyBankAdjustments[bank['id']?.toString()] ?? 0);
+    }
+    final mapped = banks.map((b) => b['ledgerAccountId']?.toString() ?? '1200').toSet();
+    final unallocated = balances.entries
+        .where((entry) => entry.key.startsWith('12') && !mapped.contains(entry.key))
+        .fold<double>(0, (sum, entry) => sum + entry.value);
+    if (unallocated.abs() > 0.005) {
+      banks.add({
+        'id': 'BANK-UNALLOCATED',
+        'bankName': 'رصيد بنكي غير موزع (قيود سابقة)',
+        'accountName': 'تحتاج مراجعة ربط الحساب',
+        'balance': unallocated,
+        'system': true,
+      });
     }
     final total = cash + banks.fold<double>(0, (s, b) => s + ((b['balance'] as num?)?.toDouble() ?? 0));
     final sortedTx = List<Map<String, dynamic>>.of(tx)
@@ -106,10 +140,23 @@ class _TreasuryScreenState extends State<TreasuryScreen> {
     return null;
   }
 
-  static double mathMax(double a, double b) => a > b ? a : b;
+  static String _nextBankLedgerAccount(AppState app, String bankId) {
+    final used = app.allBankAccounts.where(app.sameCompany).map((b) => b['ledgerAccountId']?.toString() ?? '').toSet();
+    final digits = bankId.replaceAll(RegExp(r'\D'), '');
+    final suffix = digits.length >= 2 ? digits.substring(digits.length - 2) : '';
+    final derived = suffix.isNotEmpty && suffix != '00' ? '12$suffix' : '';
+    if (derived.isNotEmpty && !used.contains(derived)) return derived;
+    for (var number = 1201; number <= 1299; number++) {
+      if (!used.contains(number.toString())) return number.toString();
+    }
+    return '1200';
+  }
 
   static const Map<String, String> _typeLabels = {
-    'opening': 'رصيد افتتاحي', 'deposit': 'إيداع', 'withdraw': 'سحب', 'transfer': 'تحويل',
+    'opening': 'رصيد افتتاحي',
+    'deposit': 'إيداع تمويلي/تسوية',
+    'withdraw': 'سحب مالك/تسوية',
+    'transfer': 'تحويل',
   };
 
   String _accountLabel(AppState app, String? id, String? key) {
@@ -150,14 +197,14 @@ class _TreasuryScreenState extends State<TreasuryScreen> {
       'createdAtMs': now.millisecondsSinceEpoch,
       'createdBy': app.session!.id,
     };
+    bank['ledgerAccountId'] = _nextBankLedgerAccount(app, bank['id'] as String);
     final banks = List<Map<String, dynamic>>.from(app.allBankAccounts);
     banks.add(bank);
-    await app.storage.write(AppConstants.kBankAccounts, banks);
 
     final opening = double.tryParse(_openingCtrl.text) ?? 0;
+    Map<String, dynamic>? openingMove;
     if (opening > 0) {
-      final tx = List<Map<String, dynamic>>.from(app.allTreasuryMoves);
-      tx.add(<String, dynamic>{
+      openingMove = <String, dynamic>{
         'id': 'TRS-${DateTime.now().millisecondsSinceEpoch}',
         'companyOwnerId': app.ownerId,
         'type': 'opening',
@@ -168,7 +215,16 @@ class _TreasuryScreenState extends State<TreasuryScreen> {
         'createdAt': now.toIso8601String(),
         'createdAtMs': now.millisecondsSinceEpoch,
         'createdBy': app.session!.id,
-      });
+      };
+      final posted = await FinanceJournal.postTreasury(app, openingMove, banks);
+      if (!posted) {
+        _snack('تعذر ترحيل الرصيد الافتتاحي محاسبياً.');
+        return;
+      }
+    }
+    await app.storage.write(AppConstants.kBankAccounts, banks);
+    if (openingMove != null) {
+      final tx = List<Map<String, dynamic>>.from(app.allTreasuryMoves)..add(openingMove);
       await app.storage.write(AppConstants.kTreasury, tx);
     }
     await app.logActivity('حساب بنكي', entityType: 'bank', entityId: bank['id'] as String);
@@ -196,6 +252,39 @@ class _TreasuryScreenState extends State<TreasuryScreen> {
       _snack('يجب أن يختلف الحسابان في التحويل.');
       return;
     }
+    final state = treasuryState(app);
+    bool validAccount(String id) => id == 'cash' || state.banks.any((b) => b['id']?.toString() == id);
+    double balanceOf(String id) {
+      if (id == 'cash') return state.cash;
+      for (final bank in state.banks) {
+        if (bank['id']?.toString() == id) return (bank['balance'] as num?)?.toDouble() ?? 0;
+      }
+      return 0;
+    }
+    if (_moveType == 'transfer') {
+      if (!validAccount(_moveFrom) || !validAccount(_moveTo)) {
+        _snack('الحساب المحدد غير موجود.');
+        return;
+      }
+      if (balanceOf(_moveFrom) < amount) {
+        _snack('الرصيد غير كافٍ؛ المتاح ${AppUtils.money(balanceOf(_moveFrom))}.');
+        return;
+      }
+    } else {
+      if (!validAccount(_moveAccount)) {
+        _snack('الحساب المحدد غير موجود.');
+        return;
+      }
+      if (_moveType == 'withdraw' && balanceOf(_moveAccount) < amount) {
+        _snack('الرصيد غير كافٍ؛ المتاح ${AppUtils.money(balanceOf(_moveAccount))}.');
+        return;
+      }
+      if (_moveType == 'opening' &&
+          app.allTreasuryMoves.where(app.sameCompany).any((t) => t['account']?.toString() == _moveAccount)) {
+        _snack('لا يمكن إضافة رصيد افتتاحي بعد وجود حركات على الحساب.');
+        return;
+      }
+    }
     final rec = <String, dynamic>{
       'id': 'TRS-${now.millisecondsSinceEpoch}',
       'companyOwnerId': app.ownerId,
@@ -213,6 +302,11 @@ class _TreasuryScreenState extends State<TreasuryScreen> {
       rec['account'] = _moveFrom;
     } else {
       rec['account'] = _moveAccount;
+    }
+    final posted = await FinanceJournal.postTreasury(app, rec, app.allBankAccounts.where(app.sameCompany).toList());
+    if (!posted) {
+      _snack('تعذر ترحيل حركة الخزينة محاسبياً.');
+      return;
     }
     final tx = List<Map<String, dynamic>>.from(app.allTreasuryMoves);
     tx.insert(0, rec);
@@ -279,6 +373,22 @@ class _TreasuryScreenState extends State<TreasuryScreen> {
 
   Future<void> _deleteBank(Map<String, dynamic> bank) async {
     final app = AppState.instance;
+    if (bank['system'] == true) {
+      _snack('هذا رصيد تجميعي لقيود سابقة ولا يمكن حذفه.');
+      return;
+    }
+    Map<String, dynamic>? current;
+    for (final item in treasuryState(app).banks) {
+      if (item['id']?.toString() == bank['id']?.toString()) { current = item; break; }
+    }
+    final hasMoves = app.allTreasuryMoves.where(app.sameCompany).any((t) =>
+        t['account']?.toString() == bank['id']?.toString() ||
+        t['from']?.toString() == bank['id']?.toString() ||
+        t['to']?.toString() == bank['id']?.toString());
+    if ((((current?['balance'] as num?)?.toDouble() ?? 0).abs() > 0.005) || hasMoves) {
+      _snack('لا يمكن حذف حساب له رصيد أو حركات؛ صفّر الرصيد بتحويل موثق واحتفظ به للأثر المحاسبي.');
+      return;
+    }
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -414,6 +524,10 @@ class _TreasuryScreenState extends State<TreasuryScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const SectionHeader(1, 'حركة خزينة'),
+                    const Text(
+                      'المقبوضات والمدفوعات المسجلة في الفواتير والرواتب والسندات تدخل الأستاذ تلقائياً. لا تكررها هنا؛ استخدم هذه الشاشة للرصيد الافتتاحي والتحويل وتمويل/سحب المالك فقط.',
+                      style: TextStyle(fontFamily: 'Cairo', fontSize: 11, color: AppTheme.muted),
+                    ),
                     AppDropdown<String>(
                       label: 'النوع',
                       value: _moveType,
@@ -471,7 +585,9 @@ class _TreasuryScreenState extends State<TreasuryScreen> {
                 trailing: AppUtils.money(b['balance']),
                 trailingWidget: Row(
                   mainAxisSize: MainAxisSize.min,
-                  children: [
+                  children: b['system'] == true ? const [
+                    Icon(Icons.warning_amber_rounded, color: AppTheme.danger, size: 20),
+                  ] : [
                     IconButton(
                       padding: const EdgeInsets.all(2),
                       constraints: const BoxConstraints(),
