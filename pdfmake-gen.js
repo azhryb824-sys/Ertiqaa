@@ -2770,6 +2770,16 @@ if (isParts) {
     }
     return makeDd(content, cf, opts);
   }
+  function accRange(){
+    var r = { from: '', to: '' };
+    try { if (A.finReportRange) r = A.finReportRange() || r; } catch(e){}
+    return r;
+  }
+  function accRangeSuffix(){
+    var r = accRange();
+    if (!r.from && !r.to) return '';
+    return ' (من ' + (r.from || 'البداية') + ' إلى ' + (r.to || 'النهاية') + ')';
+  }
   function accTb(){
     var rows = [];
     try {
@@ -2783,11 +2793,29 @@ if (isParts) {
     } catch(e){}
     return rows;
   }
+  function accJournal(){
+    var journal = [];
+    try {
+      if (A.journalEntriesForCompany) journal = A.journalEntriesForCompany() || [];
+      else journal = (A._read ? A._read('misadJournalEntries') : JSON.parse(localStorage.getItem('misadJournalEntries') || '[]') || []);
+      var r = accRange();
+      if (r.from || r.to) {
+        journal = journal.filter(function(j){
+          var d = String(j.date || '').slice(0,10);
+          if (r.from && d && d < r.from) return false;
+          if (r.to && d && d > r.to) return false;
+          return true;
+        });
+      }
+      journal = journal.slice(0, 200);
+    } catch(e){}
+    return journal;
+  }
   function trialBalancePdfDefinition(logoData, opts){
     var cf = safeFooter();
     var content = [];
     appendDocumentHeader(content, logoData, opts);
-    content.push({ text: 'ميزان المراجعة', fontSize: 14, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 2] });
+    content.push({ text: 'ميزان المراجعة' + accRangeSuffix(), fontSize: 14, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 2] });
     var rows = accTb();
     var sumD = rows.reduce(function(s,x){ return s+Number(x.debit||0); },0);
     var sumC = rows.reduce(function(s,x){ return s+Number(x.credit||0); },0);
@@ -2833,7 +2861,7 @@ if (isParts) {
     appendDocumentHeader(content, logoData, opts);
     var accName = '';
     try { if (A.coaAccount) { var a = A.coaAccount(accountId); if (a) accName = a.name || ''; } } catch(e){}
-    content.push({ text: 'دفتر الأستاذ - ' + String(accountId), fontSize: 14, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 2] });
+    content.push({ text: 'دفتر الأستاذ - ' + String(accountId) + accRangeSuffix(), fontSize: 14, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 2] });
     if (accName) content.push({ text: accName, fontSize: 12, color: '#3a4f5a', margin: [0, 0, 0, 4] });
     var rows = [];
     if (A.accountingLedger) rows = A.accountingLedger(accountId) || [];
@@ -2867,7 +2895,7 @@ if (isParts) {
     var cf = safeFooter();
     var content = [];
     appendDocumentHeader(content, logoData, opts);
-    content.push({ text: 'قائمة الدخل', fontSize: 14, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 2] });
+    content.push({ text: 'قائمة الدخل' + accRangeSuffix(), fontSize: 14, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 2] });
     var rows = accTb();
     var rev = rows.filter(function(x){ return String(x.account).charAt(0) === '4'; });
     var exp = rows.filter(function(x){ return String(x.account).charAt(0) === '5'; });
@@ -2895,7 +2923,7 @@ if (isParts) {
     var cf = safeFooter();
     var content = [];
     appendDocumentHeader(content, logoData, opts);
-    content.push({ text: 'الميزانية العمومية', fontSize: 14, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 2] });
+    content.push({ text: 'الميزانية العمومية' + accRangeSuffix(), fontSize: 14, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 2] });
     var rows = accTb();
     var assets = rows.filter(function(x){ return String(x.account).charAt(0) === '1'; });
     var liab = rows.filter(function(x){ return String(x.account).charAt(0) === '2'; });
@@ -2923,13 +2951,8 @@ if (isParts) {
     var cf = safeFooter();
     var content = [];
     appendDocumentHeader(content, logoData, opts);
-    content.push({ text: 'دفتر قيود اليومية (المزدوج)', fontSize: 14, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 2] });
-    var journal = [];
-    try {
-      if (A.journalEntriesForCompany) journal = A.journalEntriesForCompany() || [];
-      else journal = (A._read ? A._read('misadJournalEntries') : JSON.parse(localStorage.getItem('misadJournalEntries') || '[]') || []);
-      journal = journal.slice(0, 200);
-    } catch(e){}
+    content.push({ text: 'دفتر قيود اليومية (المزدوج)' + accRangeSuffix(), fontSize: 14, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 2] });
+    var journal = accJournal();
     if (journal.length) {
       var jRows = journal.map(function(j){
         var lines = (j.lines||[]).slice(0, 2).map(function(l){
