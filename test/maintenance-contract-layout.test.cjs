@@ -16,6 +16,8 @@ assert.match(app, /contractForm=threeTabContractForm/, 'النموذج المب�
 assert.match(app, /syncContractTabLayout\(form,c\?\.type==="تركيب"\)/, 'نوع العقد يحدد تخطيط التبويبات عند فتح النموذج');
 assert.match(app, /syncContractTabLayout\(f,isInstall\)/, 'تغيير نوع العقد يحدّث تخطيط التبويبات فوراً');
 assert.match(app, /maintTab=isInstall\?specGroups\.length\+1:2/, 'تبويب الصيانة يستخدم فهرسه الأصلي في التركيب والثالث في الصيانة');
+assert.match(app, /original===1\?1:\(original===lastIndex\?2:-1\)/, 'محتوى تبويبات المواصفات المحذوفة لا يُدمج داخل مواصفات عقد الصيانة');
+assert.match(app, /\(specGroups\[0\]\?\.fields\|\|\[\]\)/, 'تفاصيل عقد الصيانة تستخدم حقول تبويب مواصفات المصعد الأصلي فقط');
 for (const section of ['basic', 'specifications', 'maintenance']) {
   assert.match(
     app,
@@ -207,6 +209,7 @@ function findNode(node, predicate) {
   assert.ok(specs, 'مواصفات المصعد مجمعة في جدول واحد');
   assert.equal(specs.table.headerRows, 1, 'رأس جدول المواصفات يتكرر عند امتداد الصفحات');
   assert.equal(specs.table.dontBreakRows, true, 'صفوف المواصفات لا تنقسم');
+  assert.doesNotMatch(text, /نوع المحرك|الكنترول/, 'PDF الصيانة لا يدمج حقول التبويبات المحذوفة');
 
   const maintenance = findNode(capturedDefinition.content, (node) => (
     node.table

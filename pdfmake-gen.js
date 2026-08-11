@@ -646,10 +646,8 @@
     var out = [];
     if (overallTitle) out.push(sectionTitle(overallTitle, [0, 0, 0, 4]));
     var fields = [['count', 'عدد المصاعد']];
-    specGroups.forEach(function(group){
-      group.fields.forEach(function(f){
-        fields.push([f[0], f[1]]);
-      });
+    (specGroups[0]?.fields || []).forEach(function(f){
+      fields.push([f[0], f[1]]);
     });
     if (!info.motorManufacturer && info.brand) fields.push(['brand', 'الماركة']);
     var seen = {};

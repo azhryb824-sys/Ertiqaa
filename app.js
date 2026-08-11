@@ -554,10 +554,10 @@ function updateContractTransferNotice(f){if(!f?.matches?.('[data-form="contract"
     tabBar.innerHTML=labels.map((label,index)=>'<button type="button" class="contract-tab '+(index===activeTab?"active":"")+'" data-contract-tab="'+index+'">'+label+'</button>').join("");
     panels.forEach(panel=>{
       const original=Number(panel.dataset.contractOriginalTabPanel||0);
-      const tabIndex=isInstall?original:(original===0?0:(original===lastIndex?2:1));
+      const tabIndex=isInstall?original:(original===0?0:(original===1?1:(original===lastIndex?2:-1)));
       panel.dataset.contractTabPanel=String(tabIndex);
       panel.classList.toggle("active",tabIndex===activeTab);
-      panel.style.display="";
+      panel.style.display=!isInstall&&tabIndex===-1?"none":"";
     });
     form.dataset.contractTabsMode=mode;
   }
@@ -588,7 +588,7 @@ function updateContractTransferNotice(f){if(!f?.matches?.('[data-form="contract"
   }
 
   function maintenanceContractSpecsSection(info={}){
-    const normalized=Object.assign({},specDefaults,info||{}),seen=new Set(),fields=[["count","عدد المصاعد"],...specGroups.flatMap(group=>group.fields.map(field=>[field[0],field[1]]))];
+    const normalized=Object.assign({},specDefaults,info||{}),seen=new Set(),fields=[["count","عدد المصاعد"],...(specGroups[0]?.fields||[]).map(field=>[field[0],field[1]])];
     const rows=fields.filter(([key])=>{if(seen.has(key))return false;seen.add(key);return true}).map(([key,label])=>`<tr><th>${esc(label)}</th><td>${esc(normalized[key]||"غير محدد")}</td></tr>`).join("");
     return `<section class="contract-section" data-maintenance-contract-section="specifications"><h3>ثانياً: مواصفات المصعد</h3><table class="contract-spec-table"><thead><tr><th>البيان</th><th>القيمة</th></tr></thead><tbody>${rows}</tbody></table></section>`;
   }
