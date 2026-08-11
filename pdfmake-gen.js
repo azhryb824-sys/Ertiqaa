@@ -674,39 +674,42 @@
       });
     }
 
-    var rows = [];
-    specGroups[0].fields.forEach(function(f){
-      var val = info[f[0]];
-      if (val && val !== '') {
-        rows.push([
-          { text: f[1], bold: true, fontSize: 10, fillColor: '#e8e6e1', alignment: 'right', color: '#1e3a5f' },
-          { text: val, fontSize: 10, alignment: 'right', color: '#334155' }
-        ]);
+    specGroups.forEach(function(group){
+      var rows = [];
+      group.fields.forEach(function(f){
+        var val = info[f[0]];
+        if (val && val !== '') {
+          rows.push([
+            { text: f[1], bold: true, fontSize: 10, fillColor: '#e8e6e1', alignment: 'right', color: '#1e3a5f' },
+            { text: val, fontSize: 10, alignment: 'right', color: '#334155' }
+          ]);
+        }
+      });
+      if (rows.length) {
+        out.push({ text: group.tab, fontSize: 10, bold: true, color: '#c9a84c', margin: [0, 0, 0, 2], alignment: 'right' });
+        out.push({
+          table: {
+            headerRows: 0,
+            widths: [100, '*'],
+            body: rows
+          },
+          layout: {
+            hLineWidth: function(){ return 0.5; },
+            vLineWidth: function(){ return 0.5; },
+            hLineColor: function(){ return '#94a3b8'; },
+            vLineColor: function(){ return '#94a3b8'; },
+            paddingLeft: function(){ return 8; },
+            paddingRight: function(){ return 8; },
+            paddingTop: function(){ return 5; },
+            paddingBottom: function(){ return 5; },
+            fillColor: function(i){ return i % 2 === 0 ? null : '#f1f0ec'; }
+          },
+          margin: [0, 0, 0, 8]
+        });
       }
     });
-    if (rows.length) {
-      out.push({
-        table: {
-          headerRows: 0,
-          widths: [100, '*'],
-          body: rows
-        },
-        layout: {
-          hLineWidth: function(){ return 0.5; },
-          vLineWidth: function(){ return 0.5; },
-          hLineColor: function(){ return '#94a3b8'; },
-          vLineColor: function(){ return '#94a3b8'; },
-          paddingLeft: function(){ return 8; },
-          paddingRight: function(){ return 8; },
-          paddingTop: function(){ return 5; },
-          paddingBottom: function(){ return 5; },
-          fillColor: function(i){ return i % 2 === 0 ? null : '#f1f0ec'; }
-        },
-        margin: [0, 0, 0, 8]
-      });
-    }
 
-    if (!basicRows.length && !rows.length) return null;
+    if (!basicRows.length && !out.slice(1).some(function(x){ return x.table; })) return null;
     return out;
   }
 
