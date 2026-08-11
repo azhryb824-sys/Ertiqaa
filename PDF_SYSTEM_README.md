@@ -123,8 +123,7 @@ const quoteData = {
   ],
   totals: {
     subtotal: '23,000',
-    tax: '1,150',
-    total: '24,150'
+    total: '23,000'
   },
   companyName: 'شركة شموس للمصاعد'
 };

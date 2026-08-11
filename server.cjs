@@ -5,6 +5,12 @@ const crypto = require("crypto");
 const zlib = require("zlib");
 const {spawn} = require("child_process");
 require("dotenv").config();
+const {
+  atomicWriteJson,
+  createVerifiedBackup,
+  migrateStorageFile,
+  readJsonObjectFile,
+} = require("./src/storage/non-destructive-migration.cjs");
 
 // Import AI modules for elevator knowledge and recommendations
 const { knowledgeBase } = require("./src/ai/elevatorKnowledgeBase.cjs");
@@ -162,7 +168,7 @@ function shumoosSystemUsageGuide() {
         "لا يفترض أنه مالك شركة تشغيلية إلا إذا كانت بيانات المنشأة محفوظة."
       ],
       owner: [
-        "يبدأ من صفحة بيانات المنشأة لإدخال اسم المنشأة والسجل والضريبة والجوال والعنوان وتذييل PDF.",
+        "يبدأ من صفحة بيانات المنشأة لإدخال اسم المنشأة والبيانات النظامية والجوال والعنوان وتذييل PDF.",
         "ينشئ روابط العملاء من روابط التسجيل.",
         "ينشئ العقود وعروض الأسعار والبلاغات والزيارات، ويضيف الفنيين والموردين وقطع الغيار.",
         "يراقب مركز التشغيل لمعرفة الزيارات المتأخرة والبلاغات المفتوحة ونواقص المخزون."
@@ -192,7 +198,7 @@ function shumoosSystemUsageGuide() {
       tickets: "البلاغات: تسجيل عطل أو طلب صيانة وربطه بعقد ومبنى وعميل وفني، ثم متابعة الحالة.",
       visits: "الزيارات: جدولة زيارة كشفية أو صيانة وربطها بعقد وموقع وفني، ثم تعبئة التقرير.",
       reports: "تقارير الزيارات: عرض التقارير الفنية واعتمادات العميل وإنشاء عرض سعر من التقرير عند الحاجة.",
-      quotes: "عروض الأسعار: إنشاء عرض تركيب أو صيانة أو قطع غيار، حساب الإجمالي والضريبة وربط الموردين والقطع، ثم اعتماد أو رفض.",
+      quotes: "عروض الأسعار: إنشاء عرض تركيب أو صيانة أو قطع غيار، حساب الإجمالي وربط الموردين والقطع، ثم اعتماد أو رفض.",
       inventory: "المخزون وقطع الغيار: إضافة القطع والكميات وحد الطلب وتكلفة الوحدة وربط الموردين لاختيار أقل سعر.",
       suppliers: "الموردون: تسجيل الموردين وأرقامهم ومدنهم وتخصصاتهم وربطهم بأسعار قطع الغيار.",
       team: "فريق العمل: إضافة الفنيين والمهندسين بهوية ودور وحالة عمل.",
@@ -441,11 +447,32 @@ function sign(value) {
 }
 
 function hasDeviceAccess(req) {
-  const token = parseCookies(req.headers.cookie)[deviceCookie] || "";
+  return Boolean(deviceAccessIdentity(req));
+}
+
+function deviceAccessIdentity(req) {
+  const authorization = String(req.headers.authorization || "");
+  const bearer = authorization.match(/^Bearer\s+(.+)$/i)?.[1] || "";
+  const token = bearer || parseCookies(req.headers.cookie)[deviceCookie] || "";
   const parts = token.split(".");
-  if (parts.length !== 3) return false;
+  if (parts.length !== 3) return "";
   const [userId, deviceId, sig] = parts;
-  return Boolean(userId && deviceId && sig === sign(`${userId}:${deviceId}`));
+  return userId && deviceId && sig === sign(`${userId}:${deviceId}`) ? userId : "";
+}
+
+function issueDeviceAccessToken(userId) {
+  const deviceId = `login-${crypto.randomBytes(12).toString("hex")}`;
+  return `${userId}.${deviceId}.${sign(`${userId}:${deviceId}`)}`;
+}
+
+function sendAuthenticatedJson(res, status, payload, userId) {
+  const accessToken = issueDeviceAccessToken(userId);
+  res.writeHead(status, {
+    "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store",
+    "Set-Cookie": `${deviceCookie}=${accessToken}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000`
+  });
+  res.end(JSON.stringify({...payload, accessToken}));
 }
 
 function readStore() {
@@ -453,18 +480,20 @@ function readStore() {
     const stat = fs.existsSync(storagePath) ? fs.statSync(storagePath) : null;
     const mtime = stat?.mtimeMs || 0;
     if (storeCache && mtime === storeMtime) return storeCache;
-    storeCache = JSON.parse((fs.readFileSync(storagePath, "utf8") || "{}").replace(/^\uFEFF/,""));
+    storeCache = readJsonObjectFile(storagePath);
     storeMtime = mtime;
     return storeCache;
-  } catch {
-    storeCache = {};
+  } catch (error) {
+    storeCache = null;
     storeMtime = 0;
-    return storeCache;
+    throw new Error(`Persistent storage is unavailable or invalid; write refused: ${error.message}`);
   }
 }
 
 function writeStore(store) {
-  const data = JSON.stringify(store, null, 2);
+  if (!store || typeof store !== "object" || Array.isArray(store)) {
+    throw new Error("Storage write refused: the root value must be an object");
+  }
   try { if (!fs.existsSync(path.dirname(storagePath))) fs.mkdirSync(path.dirname(storagePath), {recursive: true}); } catch {}
   const currentStat = fs.existsSync(storagePath) ? fs.statSync(storagePath) : null;
   if (currentStat && storeMtime && currentStat.mtimeMs !== storeMtime && process.env.ALLOW_STALE_STORAGE_WRITE !== "1") {
@@ -472,39 +501,55 @@ function writeStore(store) {
     storeMtime = 0;
     throw new Error("Storage changed on disk before this write. Reload storage first to avoid overwriting newer data.");
   }
-  try {
-    if (currentStat) {
-      if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, {recursive: true});
-      const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-      fs.copyFileSync(storagePath, path.join(backupDir, `prewrite-${ts}.json`));
-    }
-  } catch {}
-  fs.writeFileSync(storagePath, data, "utf8");
-  try { fs.writeFileSync(storageFailover, data, "utf8"); } catch {}
+  if (currentStat) {
+    pruneBackupFiles("prewrite-", prewriteBackupMaxCount - 1, prewriteBackupMaxAgeDays);
+    createVerifiedBackup(storagePath, backupDir, "prewrite");
+  }
+  atomicWriteJson(storagePath, store);
+  try { atomicWriteJson(storageFailover, store); } catch (error) {
+    console.warn("Failover mirror update skipped:", error.message);
+  }
   storeCache = store;
   storeMtime = fs.statSync(storagePath).mtimeMs;
 }
 
 const backupDir = path.join(dataDir, "backups");
 const backupMaxAgeDays = Math.max(1, Number(process.env.AI_BACKUP_RETENTION_DAYS || 30));
+const backupMaxCount = Math.max(3, Number(process.env.AI_BACKUP_MAX_COUNT || 96));
+const prewriteBackupMaxCount = Math.max(3, Number(process.env.PREWRITE_BACKUP_MAX_COUNT || 12));
+const prewriteBackupMaxAgeDays = Math.max(1, Number(process.env.PREWRITE_BACKUP_RETENTION_DAYS || 7));
 const backupIntervalMs = Math.max(60000, Number(process.env.AI_BACKUP_INTERVAL_MINUTES || 360) * 60000);
+
+function pruneBackupFiles(prefix, maxCount, maxAgeDays) {
+  if (!fs.existsSync(backupDir)) return 0;
+  const cutoff = Date.now() - Math.max(1, Number(maxAgeDays || 1)) * 86400000;
+  const files = fs.readdirSync(backupDir)
+    .filter(name => name.startsWith(prefix) && name.endsWith(".json"))
+    .map(name => ({name, path: path.join(backupDir, name), mtimeMs: fs.statSync(path.join(backupDir, name)).mtimeMs}))
+    .sort((left, right) => right.mtimeMs - left.mtimeMs);
+  let removed = 0;
+  files.forEach((file, index) => {
+    if (index < maxCount && file.mtimeMs >= cutoff) return;
+    try {
+      fs.unlinkSync(file.path);
+      removed++;
+    } catch {}
+  });
+  return removed;
+}
 
 function backupStorage(store) {
   try {
     if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, {recursive: true});
-    const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-    const backupPath = path.join(backupDir, `storage-${ts}.json`);
-    fs.writeFileSync(backupPath, JSON.stringify(store, null, 2), "utf8");
-    // Cleanup old backups
-    const files = fs.readdirSync(backupDir).filter(f => /^(storage|prewrite)-.+\.json$/.test(f)).sort();
-    const cutoff = Date.now() - backupMaxAgeDays * 86400000;
-    for (const f of files) {
-      const fp = path.join(backupDir, f);
-      if (fs.statSync(fp).mtimeMs < cutoff) {
-        try { fs.unlinkSync(fp) } catch {}
-      }
-    }
-    return {ok: true, path: backupPath, timestamp: ts, totalBackups: files.length};
+    pruneBackupFiles("storage-", backupMaxCount - 1, backupMaxAgeDays);
+    const ts = new Date().toISOString().replace(/[:.]/g, "-");
+    const suffix = crypto.randomBytes(3).toString("hex");
+    const backupPath = path.join(backupDir, `storage-${ts}-${suffix}.json`);
+    atomicWriteJson(backupPath, store);
+    pruneBackupFiles("storage-", backupMaxCount, backupMaxAgeDays);
+    pruneBackupFiles("prewrite-", prewriteBackupMaxCount, prewriteBackupMaxAgeDays);
+    const totalBackups = fs.readdirSync(backupDir).filter(f => f.startsWith("storage-") && f.endsWith(".json")).length;
+    return {ok: true, path: backupPath, timestamp: ts, totalBackups};
   } catch (err) {
     return {ok: false, error: err.message};
   }
@@ -519,6 +564,80 @@ function listBackups() {
       return {name: f, size: stat.size, mtime: stat.mtimeMs};
     });
   } catch { return [] }
+}
+
+function recoveryCandidates() {
+  const candidates = [legacyStoragePath, storageFailover];
+  try {
+    if (fs.existsSync(backupDir)) {
+      const backups = fs.readdirSync(backupDir)
+        .filter(name => /^(storage|prewrite|pre-migration)-.+\.json$/.test(name))
+        .map(name => path.join(backupDir, name));
+      candidates.push(...backups);
+    }
+  } catch {}
+  return [...new Set(candidates.map(candidate => path.resolve(candidate)))]
+    .filter(candidate => candidate !== path.resolve(storagePath) && fs.existsSync(candidate))
+    .sort((left, right) => fs.statSync(right).mtimeMs - fs.statSync(left).mtimeMs);
+}
+
+function initializePersistentStorage() {
+  fs.mkdirSync(path.dirname(storagePath), {recursive: true});
+  let restoredFrom = "";
+
+  if (!fs.existsSync(storagePath)) {
+    for (const candidate of recoveryCandidates()) {
+      try {
+        const recovered = readJsonObjectFile(candidate);
+        atomicWriteJson(storagePath, recovered);
+        restoredFrom = candidate;
+        console.log(`Restored persistent storage from ${candidate}`);
+        break;
+      } catch (error) {
+        console.warn(`Skipped invalid storage recovery candidate ${candidate}:`, error.message);
+      }
+    }
+
+    if (!fs.existsSync(storagePath)) {
+      const productionStorage = process.env.REQUIRE_PERSISTENT_STORAGE === "1" ||
+        process.env.RENDER === "true" ||
+        path.resolve(storagePath).startsWith(`${path.sep}var${path.sep}data${path.sep}`);
+      if (productionStorage && process.env.ALLOW_EMPTY_STORAGE_INIT !== "1") {
+        throw new Error(
+          `Persistent storage is missing at ${storagePath}. Refusing to start with an empty database. ` +
+          "Restore a verified backup, or set ALLOW_EMPTY_STORAGE_INIT=1 only for a confirmed first deployment."
+        );
+      }
+      const templatePath = path.join(root, "storage.template.json");
+      const initialStore = fs.existsSync(templatePath)
+        ? readJsonObjectFile(templatePath)
+        : {misadCreatedAt: new Date().toISOString()};
+      if (!initialStore.misadCreatedAt) initialStore.misadCreatedAt = new Date().toISOString();
+      atomicWriteJson(storagePath, initialStore);
+      console.log(`Created initial persistent storage at ${storagePath}`);
+    }
+  } else {
+    readJsonObjectFile(storagePath);
+  }
+
+  if (process.env.FORCE_SEED_STORAGE === "1") {
+    console.warn("FORCE_SEED_STORAGE=1 was ignored: deployment is not allowed to replace persistent data.");
+  }
+
+  const migration = migrateStorageFile({storagePath, backupDirectory: backupDir});
+  if (migration.changed) {
+    console.log(
+      `Applied non-destructive storage migration: ${migration.addedKeys.length} keys, ` +
+      `${migration.updatedStaff} staff profiles, ${migration.addedAccounts} chart accounts, 0 removed records.`
+    );
+  }
+  const current = readJsonObjectFile(storagePath);
+  try { atomicWriteJson(storageFailover, current); } catch (error) {
+    console.warn("Failover mirror initialization skipped:", error.message);
+  }
+  storeCache = null;
+  storeMtime = 0;
+  return {restoredFrom, migration};
 }
 
 function escHtml(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
@@ -2715,12 +2834,12 @@ function shumoosAdvancedAiTraining() {
     },
     operatingPlaybooks: {
       contracts: [
-        "For maintenance contracts, verify client identity/company, buildings, elevator count/specs, start/end dates, value, VAT if applicable, and approval status.",
+        "For maintenance contracts, verify client identity/company, buildings, elevator count/specs, start/end dates, value, and approval status.",
         "For installation contracts, capture installation specs, delivery scope, warranty, payment milestones, and required documents.",
         "Warn about expired maintenance contracts, pending customer approvals, missing client data, and contracts without active visits."
       ],
       quotes: [
-        "Build quotes from parts, labor, custom items, supplier cost, margin, VAT, and customer context.",
+        "Build quotes from parts, labor, custom items, supplier cost, margin, and customer context. Do not add transaction taxes.",
         "When asked to optimize pricing, compare low-stock parts, supplier availability, and margin risk.",
         "Keep status clear: draft, pending review, waiting customer approval, approved, rejected."
       ],
@@ -4388,22 +4507,6 @@ async function requestAiProvider(provider, messages, meta = {}) {
 }
 
 async function askUnifiedAi(question, context, user = {}, conversationId = null) {
-  try {
-    const current = JSON.parse(fs.readFileSync(storagePath, "utf8").replace(/^\uFEFF/, ""));
-    if (!("misadFinancialEntries" in current)) {
-      current.misadFinancialEntries = "[]";
-      fs.writeFileSync(storagePath, JSON.stringify(current, null, 2), "utf8");
-      console.log("Database migration: added misadFinancialEntries");
-    }
-    if (!("misadFinancialResetV1" in current)) {
-      current.misadFinancialEntries = "[]";
-      current.misadFinancialResetV1 = "1";
-      fs.writeFileSync(storagePath, JSON.stringify(current, null, 2), "utf8");
-      console.log("Database migration: reset financial entries for new accounting cycle");
-    }
-  } catch (e) {
-    console.log("Database migration skipped:", e.message);
-  }
   const store = readStore();
   const knowledge = Object.assign({}, elevatorKnowledgeBase(), {advancedTraining: shumoosAdvancedAiTraining()});
   const plan = inferAiPlan(question, context, user);
@@ -4716,6 +4819,8 @@ function generateLocalAiResponse(question, plan, context, user = {}, knowledge =
   ]);
 }
 
+initializePersistentStorage();
+
 http.createServer(async (req, res) => {
   const pathname = decodeURIComponent(req.url.split("?")[0]);
   if (sendMobileAssociation(res, pathname)) return;
@@ -4761,7 +4866,7 @@ http.createServer(async (req, res) => {
       if (!user) return sendJson(res, 401, {error: "رقم الهوية أو كلمة المرور غير صحيحة"});
       const storedUser = storedUsers.find(u => cleanId(u.id) === uid);
       const coId = storedUser?.companyOwnerId || user.companyOwnerId || "";
-      sendJson(res, 200, {
+      sendAuthenticatedJson(res, 200, {
         id: user.id,
         role: user.role,
         name: user.name,
@@ -4769,7 +4874,7 @@ http.createServer(async (req, res) => {
         mustChangePassword: !!(user.mustChangePassword && storedUser?.mustChangePassword !== false),
         companyOwnerId: user.role === "owner" ? user.id : (coId || ""),
         _linkedCoId: coId
-      });
+      }, uid);
     } catch (e) {
       sendJson(res, 400, {error: "طلب غير صالح: " + e.message});
     }
@@ -4832,7 +4937,7 @@ http.createServer(async (req, res) => {
         log.unshift({id: `ACT-${Date.now()}`, companyOwnerId: "platform", type: "استعادة كلمة مرور", title: `تم استعادة كلمة مرور المستخدم ${users[idx].name} (${userId})`, ref: userId, user: userId, userId, createdAt: new Date().toLocaleString("ar-SA"), createdAtMs: Date.now()});
         store.misadActivityLog = JSON.stringify(log.slice(0, 300));
         writeStore(store);
-        sendJson(res, 200, {ok: true, name: users[idx].name});
+        sendAuthenticatedJson(res, 200, {ok: true, name: users[idx].name}, userId);
       } catch (e) {
         sendJson(res, 400, {error: "Invalid request: " + e.message});
       }
@@ -7511,6 +7616,19 @@ ${JSON.stringify(rows, null, 2)}
     return sendJson(res, 405, {error: "Method not allowed"});
   }
 
+  const isBackupRequest =
+    (pathname === "/api/backup" && req.method === "POST") ||
+    (pathname === "/api/backups" && req.method === "GET") ||
+    (pathname === "/api/backup/download" && req.method === "GET");
+  if (isBackupRequest) {
+    const backupUserId = deviceAccessIdentity(req);
+    const backupUser = parseStoredJson(readStore(), "misadUsers").find(user => cleanId(user.id) === cleanId(backupUserId))
+      || serverSystemUsers.find(user => cleanId(user.id) === cleanId(backupUserId));
+    if (!backupUserId || !["owner", "company_admin", "admin"].includes(String(backupUser?.role || ""))) {
+      return sendJson(res, 403, {error: "Owner or administrator access required"});
+    }
+  }
+
   if (req.url === "/api/backup" && req.method === "POST") {
     const store = readStore();
     const result = backupStorage(store);
@@ -7532,7 +7650,14 @@ ${JSON.stringify(rows, null, 2)}
   if (pathname === "/api/auth/storage-token" && req.method === "GET") {
     const role = new URL(req.url, "http://localhost").searchParams.get("role");
     const userId = new URL(req.url, "http://localhost").searchParams.get("userId");
-    if (role !== "admin" || !userId) return sendJson(res, 403, {error: "Admin access required"});
+    const authId = deviceAccessIdentity(req);
+    const storedUser = parseStoredJson(readStore(), "misadUsers").find(u => cleanId(u.id) === cleanId(authId));
+    const systemUser = serverSystemUsers.find(u => cleanId(u.id) === cleanId(authId));
+    const authenticatedRole = (storedUser || systemUser || {}).role;
+    const adminBootstrap = hasEntryAccess(req) && cleanId(userId) === "2572280689";
+    if (role !== "admin" || !userId || (!adminBootstrap && (cleanId(authId) !== cleanId(userId) || authenticatedRole !== "admin"))) {
+      return sendJson(res, 403, {error: "Admin access required"});
+    }
     const payload = `admin:full-storage:${Math.floor(Date.now() / 60000)}`;
     const token = crypto.createHmac("sha256", entrySecret).update(payload).digest("hex");
     return sendJson(res, 200, {token});
@@ -7865,6 +7990,10 @@ ${JSON.stringify(rows, null, 2)}
   // ===== End Visit Approval System =====
 
   if (req.url.startsWith("/api/storage")) {
+    const authenticatedUserId = deviceAccessIdentity(req);
+    if (!authenticatedUserId && !hasEntryAccess(req)) {
+      return sendJson(res, 401, {error: "Authentication required"});
+    }
     if (req.method === "GET") {
       const storageUrl = new URL(req.url, "http://localhost");
       const key = storageUrl.searchParams.get("key");
@@ -7908,7 +8037,22 @@ ${JSON.stringify(rows, null, 2)}
           const input = JSON.parse(body || "{}");
           const updates = Array.isArray(input.updates) ? input.updates.slice(0, 100) : [input];
           if (!updates.length || updates.some(update => !update || !update.key)) return sendJson(res, 400, {error: "Missing key"});
+          if (updates.some(update => !/^misad[A-Za-z0-9:_-]{1,100}$/.test(String(update.key)))) {
+            return sendJson(res, 400, {error: "Invalid storage key"});
+          }
           const store = readStore();
+          const storedUser = parseStoredJson(store, "misadUsers").find(u => cleanId(u.id) === cleanId(authenticatedUserId));
+          const systemUser = serverSystemUsers.find(u => cleanId(u.id) === cleanId(authenticatedUserId));
+          const role = (storedUser || systemUser || {}).role;
+          const financeKeys = new Set([
+            "misadFinancialEntries", "misadReceipts", "misadClaims", "misadPayrolls", "misadCustodies",
+            "misadStaffPurchaseInvoices", "misadStaffVouchers", "misadChartOfAccounts", "misadJournalEntries",
+            "misadFinanceAuditLog", "misadPurchaseInvoices", "misadCustomerInvoices", "misadContractExpenses",
+            "misadTreasury", "misadBankAccounts", "misadContractPayments", "misadCompanyStaff", "misadUsers"
+          ]);
+          if (updates.some(update => financeKeys.has(String(update.key))) && !["owner", "company_admin", "admin"].includes(role)) {
+            return sendJson(res, 403, {error: "Finance write permission required"});
+          }
           updates.forEach(({key, value, remove}) => {
             if (remove) delete store[key];
             else store[key] = value;
@@ -7951,89 +8095,6 @@ ${JSON.stringify(rows, null, 2)}
   });
 }).listen(port, host, () => {
   console.log(`Server running at http://${host}:${port}/`);
-  try { if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, {recursive: true}); } catch {}
-  if (!fs.existsSync(storagePath)) {
-    // محاولة استعادة من نسخة احتياطية خارج المشروع أولاً
-    let restored = false;
-    if (fs.existsSync(legacyStoragePath) && path.resolve(legacyStoragePath) !== path.resolve(storagePath)) {
-      try {
-        fs.copyFileSync(legacyStoragePath, storagePath);
-        console.log("Migrated legacy storage.json into persistent storage: " + storagePath);
-        restored = true;
-      } catch (e) {
-        console.log("Legacy storage migration failed:", e.message);
-      }
-    }
-    if (!restored && fs.existsSync(storageFailover)) {
-      try {
-        fs.copyFileSync(storageFailover, storagePath);
-        console.log("Restored storage.json from external failover: " + storageFailover);
-        restored = true;
-      } catch (e) {
-        console.log("Failover restore failed:", e.message);
-      }
-    }
-    if (!restored) {
-      try {
-        if (fs.existsSync(backupDir)) {
-          const backups = fs.readdirSync(backupDir).filter(f => f.startsWith("storage-") && f.endsWith(".json")).sort().reverse();
-          if (backups.length) {
-            const latest = path.join(backupDir, backups[0]);
-            fs.copyFileSync(latest, storagePath);
-            console.log(`Restored storage.json from backup: ${backups[0]}`);
-            restored = true;
-          }
-        }
-      } catch (e) {
-        console.log("Backup restore failed:", e.message);
-      }
-    }
-    if (!restored) {
-      const templatePath = path.join(root, "storage.template.json");
-      if (fs.existsSync(templatePath)) {
-        let template = JSON.parse(fs.readFileSync(templatePath, "utf8").replace(/^\uFEFF/,""));
-        template.misadCreatedAt = new Date().toISOString();
-        fs.writeFileSync(storagePath, JSON.stringify(template, null, 2), "utf8");
-        console.log("Created initial storage.json from storage.template.json");
-      } else {
-        const defaultStore = {misadCreatedAt: new Date().toISOString()};
-        fs.writeFileSync(storagePath, JSON.stringify(defaultStore, null, 2), "utf8");
-        console.log("Created initial storage.json (no template found)");
-      }
-    }
-  } else {
-    // storage.json موجود
-    try {
-      if (!fs.existsSync(storageFailover)) fs.copyFileSync(storagePath, storageFailover);
-    } catch {}
-    const templatePath = path.join(root, "storage.template.json");
-    if (process.env.FORCE_SEED_STORAGE === "1" && fs.existsSync(templatePath)) {
-      // فرض استعادة البيانات من القالب (مع أخذ نسخة احتياطية أولاً)
-      try {
-        fs.copyFileSync(storagePath, storagePath + ".pre-seed." + Date.now() + ".bak");
-      } catch {}
-      fs.copyFileSync(templatePath, storagePath);
-      console.log("FORCE_SEED_STORAGE=1: تم استبدال storage.json بالكامل من القالب");
-    } else if (fs.existsSync(templatePath)) {
-      try {
-        const template = JSON.parse(fs.readFileSync(templatePath, "utf8").replace(/^\uFEFF/,""));
-        const current = JSON.parse(fs.readFileSync(storagePath, "utf8").replace(/^\uFEFF/,""));
-        let changed = false;
-        for (const [key, value] of Object.entries(template)) {
-          if (!(key in current) || (typeof value === "string" && value.startsWith("[]") && current[key] === "[]")) {
-            current[key] = value;
-            changed = true;
-          }
-        }
-        if (changed) {
-          fs.writeFileSync(storagePath, JSON.stringify(current, null, 2), "utf8");
-          console.log("Merged missing keys from storage.template.json into existing storage.json");
-        }
-      } catch (e) {
-        console.log("Template merge skipped:", e.message);
-      }
-    }
-  }
   const store = readStore();
   const invites = inviteList(store);
   const invite = createInvite({label: "رابط تسجيل جهاز المشرف", targetRole: "admin", createdBy: "system", createdByName: "system", minutes: 10, maxUses: 1});

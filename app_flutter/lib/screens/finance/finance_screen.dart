@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../core/constants.dart';
 import '../../core/utils.dart';
+import '../../finance/finance_journal.dart';
 import '../../pdf/pdf_generator.dart';
 import '../../state/app_state.dart';
 import '../../state/business_rules.dart';
@@ -31,8 +32,8 @@ class _FinanceScreenState extends State<FinanceScreen> with SingleTickerProvider
 
   final _descCtrl = TextEditingController();
   final _amountCtrl = TextEditingController();
-  String _type = 'expense';
-  String _direction = 'out';
+  String _type = 'general-expense';
+  String _paymentMethod = 'نقداً';
   bool _showForm = false;
   int _tab = 0;
 
@@ -44,6 +45,15 @@ class _FinanceScreenState extends State<FinanceScreen> with SingleTickerProvider
   static const List<String> _typeOrder = [
     'sale', 'purchase', 'expense', 'salary', 'advance', 'deduction', 'allowance', 'custody',
   ];
+
+  static bool _isCashEntry(Map<String, dynamic> entry) {
+    final amount = (entry['amount'] as num?)?.toDouble() ?? 0;
+    final status = entry['status']?.toString().trim().toLowerCase() ?? '';
+    if (amount <= 0 || !const {'in', 'out'}.contains(entry['direction']?.toString())) return false;
+    if (const {'مسودة', 'مستحق', 'مستحقة', 'مستلمة', 'ملغي', 'ملغى', 'ملغاة', 'ملغية', 'محذوف', 'cancelled', 'canceled', 'deleted'}.contains(status)) return false;
+    if (const {'allowance', 'deduction'}.contains(entry['type']?.toString())) return false;
+    return true;
+  }
 
   static const List<String> _monthNames = [
     'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
@@ -75,7 +85,7 @@ class _FinanceScreenState extends State<FinanceScreen> with SingleTickerProvider
     return Scaffold(
       backgroundColor: AppTheme.bg,
       floatingActionButton: _tab == 1
-          ? Fab(onPressed: () => setState(() => _showForm = !_showForm), label: 'قيد جديد')
+          ? Fab(onPressed: () => setState(() => _showForm = !_showForm), label: 'حركة عامة')
           : null,
       body: Column(
         children: [
@@ -102,7 +112,7 @@ class _FinanceScreenState extends State<FinanceScreen> with SingleTickerProvider
             child: TabBarView(
               controller: _tabC,
               children: [
-                _buildOverview(app, entries),
+                _buildOverview(app, entries.where(_isCashEntry).toList()),
                 _buildEntries(app, entries),
                 const StaffFinanceScreen(),
                 const ReceiptsScreen(),
@@ -156,10 +166,10 @@ class _FinanceScreenState extends State<FinanceScreen> with SingleTickerProvider
             mainAxisSpacing: 10,
             crossAxisSpacing: 10,
             children: [
-              StatCard(label: 'إجمالي الوارد', value: AppUtils.money(totalIn), icon: Icons.south_west_rounded, color: AppTheme.success),
-              StatCard(label: 'إجمالي الصادر', value: AppUtils.money(totalOut), icon: Icons.north_east_rounded, color: AppTheme.danger),
-              StatCard(label: 'الصافي', value: AppUtils.money(totalIn - totalOut), icon: Icons.balance_rounded, color: AppTheme.gold),
-              StatCard(label: 'عدد القيود', value: '${entries.length}', icon: Icons.receipt_long_rounded),
+              StatCard(label: 'المقبوضات الفعلية', value: AppUtils.money(totalIn), icon: Icons.south_west_rounded, color: AppTheme.success),
+              StatCard(label: 'المدفوعات الفعلية', value: AppUtils.money(totalOut), icon: Icons.north_east_rounded, color: AppTheme.danger),
+              StatCard(label: 'صافي التدفق النقدي', value: AppUtils.money(totalIn - totalOut), icon: Icons.balance_rounded, color: AppTheme.gold),
+              StatCard(label: 'عدد الحركات النقدية', value: '${entries.length}', icon: Icons.receipt_long_rounded),
             ],
           ),
         ),
@@ -492,7 +502,7 @@ class _FinanceScreenState extends State<FinanceScreen> with SingleTickerProvider
     }).toList();
 
     var fIn = 0.0, fOut = 0.0;
-    for (final e in filtered) {
+    for (final e in filtered.where(_isCashEntry)) {
       final amt = (e['amount'] as num?)?.toDouble() ?? 0;
       if (e['direction']?.toString() == 'in') fIn += amt;
       else fOut += amt;
@@ -541,7 +551,7 @@ class _FinanceScreenState extends State<FinanceScreen> with SingleTickerProvider
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
-          child: Text('${filtered.length} قيد • وارد ${AppUtils.money(fIn)} • صادر ${AppUtils.money(fOut)}',
+          child: Text('${filtered.length} سجل • مقبوض فعلي ${AppUtils.money(fIn)} • مدفوع فعلي ${AppUtils.money(fOut)}',
               style: const TextStyle(fontFamily: 'Cairo', fontSize: 12.5, color: AppTheme.textMuted)),
         ),
         if (filtered.isEmpty)
@@ -561,12 +571,13 @@ class _FinanceScreenState extends State<FinanceScreen> with SingleTickerProvider
                 children: [
                   Text(AppUtils.money(e['amount']),
                       style: const TextStyle(fontFamily: 'Cairo', fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.primary)),
-                  IconButton(
+                  if (e['status']?.toString() == 'مسودة') IconButton(
                     padding: const EdgeInsets.all(2),
                     constraints: const BoxConstraints(),
                     icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppTheme.textMuted),
                     onPressed: () => _deleteEntry(app, e['id']?.toString() ?? ''),
                   ),
+                  if (e['status']?.toString() != 'مسودة') const Icon(Icons.lock_outline_rounded, size: 18, color: AppTheme.textMuted),
                 ],
               ),
             ),
@@ -582,30 +593,28 @@ class _FinanceScreenState extends State<FinanceScreen> with SingleTickerProvider
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SectionHeader(1, 'قيد مالي جديد'),
+            const SectionHeader(1, 'حركة مالية عامة'),
+            const Text(
+              'للرواتب والسلف والعهد ودفعات العقود والفواتير استخدم شاشاتها المتخصصة. هذا النموذج للدخل أو المصروف النقدي العام فقط ويُرحّل قيداً مزدوجاً.',
+              style: TextStyle(fontFamily: 'Cairo', fontSize: 11, color: AppTheme.muted),
+            ),
             AppDropdown<String>(
               label: 'النوع',
               value: _type,
-              items: _typeOrder,
-              labelOf: (v) => BusinessRules.entryTypeLabel(v),
-              onChanged: (v) {
-                setState(() {
-                  _type = v!;
-                  _direction = v == 'sale' ? 'in' : 'out';
-                });
-              },
+              items: const ['other-income', 'general-expense'],
+              labelOf: (v) => v == 'other-income' ? 'دخل آخر محصل' : 'مصروف عام مدفوع',
+              onChanged: (v) => setState(() => _type = v!),
             ),
             AppDropdown<String>(
-              label: 'الاتجاه',
-              value: _direction,
-              items: const ['in', 'out'],
-              labelOf: (v) => v == 'in' ? 'وارد (داخل)' : 'صادر (خارج)',
-              onChanged: (v) => setState(() => _direction = v!),
+              label: 'طريقة القبض/الصرف',
+              value: _paymentMethod,
+              items: const ['نقداً', 'تحويل بنكي', 'شبكة', 'شيك'],
+              onChanged: (v) => setState(() => _paymentMethod = v!),
             ),
             AppField(label: 'المبلغ (ر.س)', keyboard: TextInputType.number, controller: _amountCtrl),
             AppField(label: 'الوصف', controller: _descCtrl),
             const SizedBox(height: 10),
-            ElevatedButton(onPressed: _addEntry, child: const Text('إضافة القيد')),
+            ElevatedButton(onPressed: _addEntry, child: const Text('حفظ وترحيل الحركة')),
           ],
         ),
       ),
@@ -624,6 +633,16 @@ class _FinanceScreenState extends State<FinanceScreen> with SingleTickerProvider
 
   Future<void> _deleteEntry(AppState app, String id) async {
     if (id.isEmpty) return;
+    Map<String, dynamic>? item;
+    for (final entry in app.allFinancialEntries) {
+      if (entry['id']?.toString() == id) { item = entry; break; }
+    }
+    if (item == null || item['status']?.toString() != 'مسودة') {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('لا يمكن حذف حركة مرحّلة؛ استخدم قيد إبطال أو تسوية للمحافظة على أثر التدقيق.', style: TextStyle(fontFamily: 'Cairo')),
+      ));
+      return;
+    }
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -649,34 +668,38 @@ class _FinanceScreenState extends State<FinanceScreen> with SingleTickerProvider
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('أدخل مبلغاً صحيحاً.', style: TextStyle(fontFamily: 'Cairo'))));
       return;
     }
-    final entry = {
-      'id': 'FIN-${now.millisecondsSinceEpoch}',
+    if (_descCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('أدخل بياناً واضحاً للحركة.', style: TextStyle(fontFamily: 'Cairo'))));
+      return;
+    }
+    final income = _type == 'other-income';
+    final entry = <String, dynamic>{
+      'id': 'FIN-${now.millisecondsSinceEpoch}-M',
       'companyOwnerId': app.ownerId,
-      'type': _type,
-      'direction': _direction,
+      'source': 'manual-journal',
+      'accountingKind': _type,
+      'type': income ? 'sale' : 'expense',
+      'direction': income ? 'in' : 'out',
       'amount': amount,
       'date': AppUtils.dateVal(now),
-      'description': _descCtrl.text,
-      'status': 'معتمد',
+      'description': _descCtrl.text.trim(),
+      'paymentMethod': _paymentMethod,
+      'status': income ? 'محصل' : 'مدفوع',
       'createdBy': app.session!.id,
       'createdAt': now.toIso8601String(),
       'createdAtMs': now.millisecondsSinceEpoch,
     };
-    await app.append('misadFinancialEntries', entry);
-
-    // إنشاء مستخلص تلقائي لقيد البيع (مطابق ensureReceiptClaims)
-    if (_type == 'sale') {
-      final claims = List<Map<String, dynamic>>.from(app.allClaims);
-      final claim = BusinessRules.ensureClaimForEntry(entry, claims);
-      if (claim != null) {
-        claims.add(claim);
-        await app.storage.write(AppConstants.kClaims, claims);
-      }
+    final posted = await FinanceJournal.postManual(app, entry);
+    if (!posted) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تعذر ترحيل الحركة محاسبياً.', style: TextStyle(fontFamily: 'Cairo'))));
+      return;
     }
-    await app.logActivity('قيد مالي جديد', entityType: 'financial', entityId: entry['id'] as String);
+    await app.append('misadFinancialEntries', entry);
+    await app.logActivity('حركة مالية عامة', entityType: 'financial', entityId: entry['id'] as String);
     if (!mounted) return;
     setState(() { _showForm = false; _amountCtrl.clear(); _descCtrl.clear(); });
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم إضافة القيد.', style: TextStyle(fontFamily: 'Cairo'))));
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم حفظ وترحيل الحركة.', style: TextStyle(fontFamily: 'Cairo'))));
   }
 
   // ===== التقرير المالي PDF =====

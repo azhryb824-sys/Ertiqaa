@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/api_client.dart';
 import '../../core/constants.dart';
 import '../../core/utils.dart';
+import '../../finance/staff_finance_utils.dart';
 import '../../state/app_state.dart';
 import '../../theme.dart';
 import '../../widgets/common.dart';
@@ -17,6 +18,12 @@ class TeamScreen extends StatefulWidget {
 class _TeamScreenState extends State<TeamScreen> {
   final _idCtrl = TextEditingController();
   final _nameCtrl = TextEditingController();
+  final _salaryCtrl = TextEditingController();
+  final _jobTitleCtrl = TextEditingController();
+  final _departmentCtrl = TextEditingController();
+  final _hireDateCtrl = TextEditingController(text: AppUtils.dateVal());
+  final _bankAccountCtrl = TextEditingController();
+  final _notesCtrl = TextEditingController();
   String _role = 'technician';
   bool _showForm = false;
 
@@ -29,6 +36,12 @@ class _TeamScreenState extends State<TeamScreen> {
   void dispose() {
     _idCtrl.dispose();
     _nameCtrl.dispose();
+    _salaryCtrl.dispose();
+    _jobTitleCtrl.dispose();
+    _departmentCtrl.dispose();
+    _hireDateCtrl.dispose();
+    _bankAccountCtrl.dispose();
+    _notesCtrl.dispose();
     _linkIdCtrl.dispose();
     super.dispose();
   }
@@ -43,7 +56,7 @@ class _TeamScreenState extends State<TeamScreen> {
 
     return Scaffold(
       backgroundColor: AppTheme.bg,
-      floatingActionButton: isManager ? Fab(onPressed: () => setState(() => _showForm = !_showForm), label: 'إضافة عضو') : null,
+      floatingActionButton: isManager ? Fab(onPressed: () => setState(() => _showForm = !_showForm), label: 'إضافة موظف') : null,
       body: ListView(
         padding: const EdgeInsets.only(bottom: 90),
         children: [
@@ -98,21 +111,27 @@ class _TeamScreenState extends State<TeamScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const SectionHeader(2, 'إضافة عضو للفريق'),
-                    AppField(label: 'رقم هوية العضو', keyboard: TextInputType.number, controller: _idCtrl),
-                    AppField(label: 'اسم العضو', controller: _nameCtrl),
+                    const SectionHeader(2, 'إضافة موظف وإنشاء ملفه المالي'),
+                    AppField(label: 'رقم الهوية / الإقامة', keyboard: TextInputType.number, controller: _idCtrl),
+                    AppField(label: 'اسم الموظف', controller: _nameCtrl),
                     AppDropdown<String>(
-                      label: 'الدور',
+                      label: 'نوع الموظف',
                       value: _role,
-                      items: const ['technician', 'engineer'],
-                      labelOf: (v) => v == 'engineer' ? 'مهندس' : 'فني',
+                      items: const [AppConstants.roleTechnician, AppConstants.roleAdministrative],
+                      labelOf: (v) => AppConstants.roleLabels[v] ?? v,
                       onChanged: (v) => setState(() => _role = v!),
                     ),
+                    AppField(label: 'الراتب الأساسي (ر.س)', keyboard: TextInputType.number, controller: _salaryCtrl),
+                    AppField(label: 'المسمى الوظيفي (اختياري)', controller: _jobTitleCtrl),
+                    AppField(label: 'القسم (اختياري)', controller: _departmentCtrl),
+                    AppField(label: 'تاريخ المباشرة', controller: _hireDateCtrl, hint: 'YYYY-MM-DD'),
+                    AppField(label: 'الحساب البنكي / الآيبان (اختياري)', controller: _bankAccountCtrl),
+                    AppField(label: 'ملاحظات (اختياري)', controller: _notesCtrl, maxLines: 2),
                     const SizedBox(height: 4),
-                    const Text('ملاحظة: إضافة إداري للشركة تتم عبر رابط الدعوة/ربط المستخدمين.',
+                    const Text('الموظف الإداري هنا سجل وظيفي ومالي فقط؛ صلاحية إدارة النظام تُمنح منفصلة من قسم ربط المستخدمين.',
                         style: TextStyle(fontFamily: 'Cairo', fontSize: 11, color: AppTheme.textMuted)),
                     const SizedBox(height: 10),
-                    ElevatedButton(onPressed: _add, child: const Text('إضافة العضو')),
+                    ElevatedButton(onPressed: _add, child: const Text('حفظ الموظف وملفه المالي')),
                   ],
                 ),
               ),
@@ -144,7 +163,7 @@ class _TeamScreenState extends State<TeamScreen> {
               ),
           ],
 
-          PageTitle(session.isCompanyAdmin ? 'الفنيون' : 'فريق العمل'),
+          const PageTitle('فريق العمل'),
           if (staff.isEmpty)
             const EmptyState('لا يوجد أعضاء بعد')
           else
@@ -152,15 +171,17 @@ class _TeamScreenState extends State<TeamScreen> {
               ListCard(
                 leadingIcon: const Icon(Icons.person_rounded, color: AppTheme.primary),
                 title: s['name']?.toString() ?? '',
-                subtitle: '${s['identity'] ?? ''} • ${AppConstants.roleLabels[s['role']] ?? s['role']}',
+                subtitle: '${s['identity'] ?? ''} • ${AppConstants.roleLabels[s['role']] ?? s['role']} • الراتب ${AppUtils.money(s['baseSalary'])}',
+                onTap: () => app.goWithData('staff-finance', {'staffFinancialId': StaffFinanceUtils.financialId(s)}),
                 trailingWidget: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    StatusBadge(s['availability']?.toString() == 'working' ? 'مجدول' : 'غير متاح'),
-                    if (isManager) ...[
+                    StatusBadge(StaffFinanceUtils.isActive(s) ? 'على رأس العمل' : 'منتهي الخدمة'),
+                    if (isManager && StaffFinanceUtils.isActive(s)) ...[
                       const SizedBox(width: 4),
                       IconButton(
-                        icon: const Icon(Icons.delete_outline, color: AppTheme.danger, size: 20),
+                        icon: const Icon(Icons.person_off_outlined, color: AppTheme.danger, size: 20),
+                        tooltip: 'إنهاء الخدمة',
                         onPressed: () => _deleteStaff(s),
                       ),
                     ],
@@ -254,37 +275,97 @@ class _TeamScreenState extends State<TeamScreen> {
 
   Future<void> _deleteStaff(Map<String, dynamic> s) async {
     final app = AppState.instance;
-    await app.remove('misadCompanyStaff', s['id']?.toString() ?? s['identity']?.toString() ?? '');
-    await app.logActivity('حذف عضو فريق', entityType: 'staff', entityId: s['id']?.toString() ?? '');
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('إنهاء خدمة الموظف', style: TextStyle(fontFamily: 'Cairo')),
+        content: Text('سيبقى الملف المالي لـ ${s['name'] ?? 'الموظف'} محفوظاً ولن يدخل في المسيرات الجديدة.',
+            style: const TextStyle(fontFamily: 'Cairo')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('تراجع')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('إنهاء الخدمة', style: TextStyle(color: AppTheme.danger))),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    final now = DateTime.now();
+    final updated = Map<String, dynamic>.from(s)
+      ..['employmentStatus'] = 'منتهي الخدمة'
+      ..['status'] = 'غير نشط'
+      ..['availability'] = 'unavailable'
+      ..['terminatedAt'] = now.toIso8601String()
+      ..['terminatedAtMs'] = now.millisecondsSinceEpoch
+      ..['terminatedBy'] = app.session!.id;
+    await app.update('misadCompanyStaff', updated);
+    await app.logActivity('إنهاء خدمة موظف', entityType: 'staff', entityId: s['id']?.toString() ?? '');
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم حذف العضو.', style: TextStyle(fontFamily: 'Cairo'))));
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم إنهاء الخدمة مع حفظ الملف المالي.', style: TextStyle(fontFamily: 'Cairo'))));
     }
   }
 
   Future<void> _add() async {
     final app = AppState.instance;
     final id = AppUtils.cleanId(_idCtrl.text);
-    if (id.isEmpty || _nameCtrl.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('أدخل هوية واسم العضو.', style: TextStyle(fontFamily: 'Cairo'))));
+    final name = _nameCtrl.text.trim();
+    final salary = double.tryParse(_salaryCtrl.text) ?? 0;
+    if (id.length < 6 || !RegExp(r'^[12]').hasMatch(id) || name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('أدخل هوية/إقامة صحيحة واسم الموظف.', style: TextStyle(fontFamily: 'Cairo'))));
+      return;
+    }
+    if (!const [AppConstants.roleTechnician, AppConstants.roleAdministrative].contains(_role)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('اختر نوع الموظف.', style: TextStyle(fontFamily: 'Cairo'))));
+      return;
+    }
+    if (!salary.isFinite || salary <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('أدخل راتباً أساسياً صحيحاً أكبر من صفر.', style: TextStyle(fontFamily: 'Cairo'))));
+      return;
+    }
+    if (app.allStaff.where(app.sameCompany).any((s) => StaffFinanceUtils.staffRefs(s).contains(StaffFinanceUtils.normalizeRef(id)))) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('هذا الموظف مضاف مسبقاً وله ملف مالي.', style: TextStyle(fontFamily: 'Cairo'))));
       return;
     }
     final now = DateTime.now();
     final m = {
       'id': 'STF-${now.millisecondsSinceEpoch}',
+      'financialId': id,
+      'financialProfileId': 'SFIN-$id',
       'companyOwnerId': app.ownerId,
       'identity': id,
-      'name': _nameCtrl.text,
+      'name': name,
       'role': _role,
+      'employeeType': _role,
+      'jobTitle': _jobTitleCtrl.text.trim(),
+      'department': _departmentCtrl.text.trim(),
+      'employmentType': 'دوام كامل',
+      'employmentStatus': 'على رأس العمل',
+      'hireDate': _hireDateCtrl.text.trim().isEmpty ? AppUtils.dateVal(now) : _hireDateCtrl.text.trim(),
+      'bankAccount': _bankAccountCtrl.text.trim(),
+      'hrNotes': _notesCtrl.text.trim(),
       'availability': 'working',
-      'status': 'مرتبط',
+      'status': 'نشط',
       'createdAt': now.toIso8601String(),
-      'baseSalary': 0,
+      'createdAtMs': now.millisecondsSinceEpoch,
+      'createdBy': app.session!.id,
+      'baseSalary': salary,
       'leaveBalance': 0,
     };
     await app.append('misadCompanyStaff', m);
-    await app.logActivity('إضافة عضو فريق', entityType: 'staff', entityId: m['id'] as String);
+    await app.logActivity('إضافة موظف وإنشاء ملف مالي', entityType: 'staff', entityId: m['id'] as String);
     if (!mounted) return;
-    setState(() { _showForm = false; _idCtrl.clear(); _nameCtrl.clear(); });
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تمت إضافة العضو.', style: TextStyle(fontFamily: 'Cairo'))));
+    setState(() {
+      _showForm = false;
+      _idCtrl.clear();
+      _nameCtrl.clear();
+      _salaryCtrl.clear();
+      _jobTitleCtrl.clear();
+      _departmentCtrl.clear();
+      _hireDateCtrl.text = AppUtils.dateVal();
+      _bankAccountCtrl.clear();
+      _notesCtrl.clear();
+      _role = AppConstants.roleTechnician;
+    });
+    app.goWithData('staff-finance', {'staffFinancialId': id});
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم حفظ الموظف وإنشاء ملفه المالي.', style: TextStyle(fontFamily: 'Cairo'))));
   }
 }

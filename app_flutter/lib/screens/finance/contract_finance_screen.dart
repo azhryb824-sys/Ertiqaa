@@ -6,7 +6,7 @@ import '../../state/business_rules.dart';
 import '../../theme.dart';
 import '../../widgets/common.dart';
 
-/// الملف المالي للعقد: ملخص + دفعات + سندات قبض + مصروفات + مشتريات + ربحية.
+/// الملف المالي للعقد: ملخص + دفعات + سندات قبض + مصروفات + مشتريات + مؤشر تشغيلي.
 class ContractFinanceScreen extends StatefulWidget {
   const ContractFinanceScreen({super.key});
 
@@ -73,7 +73,7 @@ class _ContractFinanceScreenState extends State<ContractFinanceScreen> with Sing
                 Tab(text: 'سندات القبض'),
                 Tab(text: 'المصروفات'),
                 Tab(text: 'المشتريات'),
-                Tab(text: 'الربحية'),
+                Tab(text: 'المؤشر التشغيلي'),
               ],
             ),
           ),
@@ -115,7 +115,7 @@ class _ContractFinanceScreenState extends State<ContractFinanceScreen> with Sing
               StatCard(label: 'المشتريات', value: AppUtils.money(pur), icon: Icons.shopping_cart_rounded, color: AppTheme.gold),
               StatCard(label: 'المصروفات', value: AppUtils.money(exp), icon: Icons.receipt_long_rounded, color: AppTheme.gold),
               StatCard(
-                label: 'صافي الربح (محصل - تكاليف)',
+                label: 'مؤشر التدفق (محصل - تكاليف)',
                 value: AppUtils.money(net),
                 icon: Icons.trending_up_rounded,
                 color: net >= 0 ? AppTheme.success : AppTheme.danger,
@@ -127,7 +127,7 @@ class _ContractFinanceScreenState extends State<ContractFinanceScreen> with Sing
         _quickTile('إدارة الدفعات', 'تسجيل الدفعات ومراحل التركيب', Icons.payments_rounded, () => _tabC.animateTo(1)),
         _quickTile('سندات القبض', 'السندات المرتبطة بالعقد', Icons.receipt_rounded, () => _tabC.animateTo(2)),
         _quickTile('مصروفات العقد', 'تسجيل مصروفات مباشرة للعقد', Icons.savings_rounded, () => _tabC.animateTo(3)),
-        _quickTile('تقرير الربحية', 'الربح وصافي الهامش', Icons.trending_up_rounded, () => _tabC.animateTo(5)),
+        _quickTile('المؤشر التشغيلي', 'مؤشر إداري وليس صافي ربح محاسبياً', Icons.trending_up_rounded, () => _tabC.animateTo(5)),
       ],
     );
   }
@@ -304,8 +304,8 @@ class _ContractFinanceScreenState extends State<ContractFinanceScreen> with Sing
       ('تكلفة المشتريات (فواتير)', AppUtils.money(pur)),
       ('مصروفات العقد', AppUtils.money(exp)),
       ('إجمالي التكاليف', AppUtils.money(pur + exp)),
-      ('صافي الربح (المحصل - التكاليف)', AppUtils.money(net)),
-      ('هامش الربح', '${margin.toStringAsFixed(1)}%'),
+      ('صافي المؤشر (المحصل - التكاليف)', AppUtils.money(net)),
+      ('نسبة المؤشر إلى قيمة العقد', '${margin.toStringAsFixed(1)}%'),
     ];
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
@@ -319,12 +319,12 @@ class _ContractFinanceScreenState extends State<ContractFinanceScreen> with Sing
             mainAxisSpacing: 10,
             crossAxisSpacing: 10,
             children: [
-              StatCard(label: 'صافي الربح', value: AppUtils.money(net), icon: Icons.trending_up_rounded, color: net >= 0 ? AppTheme.success : AppTheme.danger),
-              StatCard(label: 'هامش الربح', value: '${margin.toStringAsFixed(1)}%', icon: Icons.percent_rounded, color: AppTheme.gold),
+              StatCard(label: 'صافي المؤشر', value: AppUtils.money(net), icon: Icons.trending_up_rounded, color: net >= 0 ? AppTheme.success : AppTheme.danger),
+              StatCard(label: 'نسبة المؤشر', value: '${margin.toStringAsFixed(1)}%', icon: Icons.percent_rounded, color: AppTheme.gold),
             ],
           ),
         ),
-        const PageTitle('تقرير ربحية العقد'),
+        const PageTitle('مؤشر التدفق التشغيلي — ليس صافي ربح محاسبياً'),
         for (final (k, v) in rows)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),

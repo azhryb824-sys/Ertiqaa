@@ -1,7 +1,7 @@
-const CACHE = "shumoos-v20260811-fin14";
+const CACHE = "shumoos-v20260811-finance-contracts-1";
 const ASSETS = [
   "/", "/index.html", "/login.html", "/register.html", "/dashboard.html",
-  "/styles.css", "/app.js", "/manifest.json", "/pdfmake-gen.js",
+  "/styles.css", "/app.js", "/manifest.json", "/pdfmake-gen.js", "/src/finance/accounting-core.js", "/src/finance/staff-finance.js",
   "/assets/shumoos-logo.png",
   "/assets/fonts/cairo-vfs.js"
 ];

@@ -296,33 +296,12 @@ class AppState extends ChangeNotifier {
   String nextContractId() =>
       AppConstants.nextContractId(allContracts.map((c) => c.id).toList());
 
-  /// تفعيل عقد: تسجيل التحصيل + توليد الزيارات الدورية + إنشاء المستخلص.
+  /// تفعيل عقد تشغيلياً دون افتراض استلام أي دفعة.
   Future<void> activateContract(Contract c) async {
     final json = c.toJson();
     json['status'] = AppConstants.statusActive;
     json['activatedAt'] = DateTime.now().millisecondsSinceEpoch;
     json['activatedBy'] = _session!.id;
-
-    // قيد المبيعات (تسجيل التحصيل)
-    final entry = BusinessRules.recordContractCollection(json, _session!);
-    final entries = List<Map<String, dynamic>>.from(allFinancialEntries);
-    if (entry != null) {
-      final dup = entries.any((e) =>
-          e['contractId']?.toString() == c.id &&
-          e['type']?.toString() == 'sale' &&
-          e['collectionForStatus']?.toString() == 'ساري');
-      if (!dup) {
-        entries.add(entry);
-        await storage.write('misadFinancialEntries', entries);
-        // مستخلص تلقائي
-        final claims = List<Map<String, dynamic>>.from(allClaims);
-        final claim = BusinessRules.ensureClaimForEntry(entry, claims);
-        if (claim != null) {
-          claims.add(claim);
-          await storage.write(AppConstants.kClaims, claims);
-        }
-      }
-    }
 
     // زيارات دورية للصيانة
     if (c.type == 'صيانة') {

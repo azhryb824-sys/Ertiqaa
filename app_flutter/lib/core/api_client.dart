@@ -11,6 +11,11 @@ class ApiClient {
   Duration timeout = const Duration(seconds: 30);
   String? _token;
 
+  void setToken(String? token) {
+    final value = token?.trim() ?? '';
+    _token = value.isEmpty ? null : value;
+  }
+
   /// ضبط قاعدة عنوان الخادم (يمكن تغييرها من شاشة الإعدادات).
   void setBaseUrl(String url) {
     baseUrl = url.replaceAll(RegExp(r'/$'), '');

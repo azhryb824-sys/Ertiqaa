@@ -18,6 +18,10 @@ services:
         value: /var/data
       - key: STORAGE_PATH
         value: /var/data/storage.json
+      # Fail closed if the persistent disk is missing. Never start from the
+      # repository template during a normal deployment.
+      - key: REQUIRE_PERSISTENT_STORAGE
+        value: "1"
       - key: AI_BACKUP_RETENTION_DAYS
         value: "365"
       - key: AI_BACKUP_INTERVAL_MINUTES

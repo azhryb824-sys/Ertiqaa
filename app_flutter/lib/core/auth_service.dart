@@ -12,6 +12,7 @@ class SessionManager {
 
   static const String _sessionKey = AppConstants.kSession;
   static const String _deviceKey = AppConstants.kDeviceId;
+  static const String _accessTokenKey = 'misadAccessToken';
 
   UserSession? _session;
 
@@ -19,6 +20,7 @@ class SessionManager {
 
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
+    ApiClient.instance.setToken(prefs.getString(_accessTokenKey));
     final raw = prefs.getString(_sessionKey);
     if (raw != null) {
       try {
@@ -44,10 +46,18 @@ class SessionManager {
     await prefs.setString(_sessionKey, jsonEncode(session.toJson()));
   }
 
+  Future<void> saveAccessToken(String token) async {
+    ApiClient.instance.setToken(token);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_accessTokenKey, token);
+  }
+
   Future<void> clear() async {
     _session = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_sessionKey);
+    await prefs.remove(_accessTokenKey);
+    ApiClient.instance.setToken(null);
   }
 
   /// تحويل جلسة من استجابة /api/auth/login.
@@ -81,6 +91,8 @@ class AuthService {
     try {
       final j = await api.post('/api/auth/login', body: {'userId': userId, 'password': password});
       if (j != null && j['id'] != null) {
+        final token = j['accessToken']?.toString() ?? '';
+        if (token.isNotEmpty) await session.saveAccessToken(token);
         user = session.fromLoginResponse(j);
       }
     } catch (_) {
@@ -114,14 +126,18 @@ class AuthService {
     }
     // من مستخدمي النظام الثابتين
     for (final u in AppConstants.systemUsers) {
-      if (u['id'] == userId && u['password'] == password) {
+      final fallbackId = AppUtils.cleanId(u['id']);
+      final fallbackPassword = u['password']?.toString() ?? '';
+      // لا تسمح أبداً بتسجيل دخول احتياطي ما لم تُضبط القيم السرية وقت البناء.
+      if (fallbackId.isEmpty || fallbackPassword.isEmpty) continue;
+      if (fallbackId == userId && fallbackPassword == password) {
         return UserSession(
-          id: userId,
+          id: fallbackId,
           role: u['role'] as String,
           name: u['name'] as String,
           permissions: (u['permissions'] as List).cast<String>(),
           mustChangePassword: u['mustChangePassword'] == true,
-          companyOwnerId: u['role'] == AppConstants.roleOwner ? userId : (u['companyOwnerId']?.toString() ?? ''),
+          companyOwnerId: u['role'] == AppConstants.roleOwner ? fallbackId : (u['companyOwnerId']?.toString() ?? ''),
         );
       }
     }

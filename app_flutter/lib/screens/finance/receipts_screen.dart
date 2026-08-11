@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/constants.dart';
 import '../../core/utils.dart';
+import '../../finance/finance_journal.dart';
 import '../../models/contract.dart';
 import '../../pdf/pdf_generator.dart';
 import '../../state/app_state.dart';
@@ -146,7 +147,16 @@ class _ReceiptsScreenState extends State<ReceiptsScreen> {
     if (_contractId != null) {
       for (final x in app.allContracts) { if (x.id == _contractId) { c = x; break; } }
     }
-    final receipt = {
+    if (c != null) {
+      final remaining = (BusinessRules.contractFinance(c, app.allFinancialEntries)['remaining'] as num?)?.toDouble() ?? 0;
+      if (amount > remaining + 0.005) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('المبلغ يتجاوز المتبقي على العقد (${AppUtils.money(remaining)}).', style: const TextStyle(fontFamily: 'Cairo')),
+        ));
+        return;
+      }
+    }
+    final receipt = <String, dynamic>{
       'id': 'RCT-${now.millisecondsSinceEpoch}',
       'companyOwnerId': app.ownerId,
       'contractId': c?.id ?? '',
@@ -155,6 +165,7 @@ class _ReceiptsScreenState extends State<ReceiptsScreen> {
       'clientCompanyName': c?.clientCompanyName ?? '',
       'clientCompanyUnifiedNumber': c?.clientCompanyUnifiedNumber ?? '',
       'amount': amount,
+      'date': AppUtils.dateVal(now),
       'purpose': _purpose,
       'purposeKey': _purpose,
       'paymentMethod': _paymentMethod,
@@ -164,6 +175,13 @@ class _ReceiptsScreenState extends State<ReceiptsScreen> {
       'createdAtMs': now.millisecondsSinceEpoch,
       'createdBy': app.session!.id,
     };
+    final posted = await FinanceJournal.postReceipt(app, receipt);
+    if (!posted) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تعذر ترحيل سند القبض محاسبياً.', style: TextStyle(fontFamily: 'Cairo'))));
+      }
+      return;
+    }
     await app.append('misadReceipts', receipt);
 
     // قيد مالي مقترن بالسند (مطابق web)
