@@ -2770,6 +2770,195 @@ if (isParts) {
     }
     return makeDd(content, cf, opts);
   }
+  function accTb(){
+    var rows = [];
+    try {
+      if (A.accountingTrialBalance) rows = A.accountingTrialBalance() || [];
+      else {
+        var journal = (A._read ? A._read('misadJournalEntries') : JSON.parse(localStorage.getItem('misadJournalEntries') || '[]')) || [];
+        var map = {};
+        journal.forEach(function(j){ (j.lines||[]).forEach(function(l){ var k=String(l.account); map[k]=map[k]||{account:k,accountName:l.accountName||k,debit:0,credit:0}; if(l.side==='debit')map[k].debit+=Number(l.amount||0); else map[k].credit+=Number(l.amount||0); }); });
+        rows = Object.keys(map).sort().map(function(k){ var b=map[k].debit-map[k].credit; return {account:k,accountName:map[k].accountName,debit:map[k].debit,credit:map[k].credit,balance:b,side:b>=0?'debit':'credit'}; });
+      }
+    } catch(e){}
+    return rows;
+  }
+  function trialBalancePdfDefinition(logoData, opts){
+    var cf = safeFooter();
+    var content = [];
+    appendDocumentHeader(content, logoData, opts);
+    content.push({ text: 'ميزان المراجعة', fontSize: 14, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 2] });
+    var rows = accTb();
+    var sumD = rows.reduce(function(s,x){ return s+Number(x.debit||0); },0);
+    var sumC = rows.reduce(function(s,x){ return s+Number(x.credit||0); },0);
+    content.push(summaryTable([
+      { label: 'إجمالي المدين', value: safeMoney(sumD) },
+      { label: 'إجمالي الدائن', value: safeMoney(sumC) },
+      { label: 'الاتزان', value: Math.abs(sumD-sumC)<0.01 ? 'متوازن' : 'غير متوازن' }
+    ]));
+    if (rows.length) {
+      var tbRows = rows.filter(function(x){ return x.account !== '1000' && x.account !== '2000' && x.account !== '3000' && x.account !== '4000' && x.account !== '5000'; }).map(function(x){
+        return [
+          { text: String(x.account), fontSize: 10, alignment: 'center', bold: x.account.length===4 ? true : false },
+          { text: x.accountName || '—', fontSize: 10, alignment: 'right' },
+          { text: x.debit>0? safeMoney(x.debit) : '—', fontSize: 10, alignment: 'center' },
+          { text: x.credit>0? safeMoney(x.credit) : '—', fontSize: 10, alignment: 'center' },
+          { text: x.side==='debit' ? 'مدين' : 'دائن', fontSize: 10, alignment: 'center' }
+        ];
+      });
+      tbRows.push([
+        { text: 'الإجمالي', fontSize: 10, bold: true, alignment: 'center', fillColor: '#fdf6e8' },
+        { text: '', fontSize: 10, fillColor: '#fdf6e8' },
+        { text: safeMoney(sumD), fontSize: 10, bold: true, alignment: 'center', fillColor: '#fdf6e8' },
+        { text: safeMoney(sumC), fontSize: 10, bold: true, alignment: 'center', fillColor: '#fdf6e8' },
+        { text: '', fontSize: 10, fillColor: '#fdf6e8' }
+      ]);
+      content.push({ table: { widths: ['auto', '*', 'auto', 'auto', 'auto'], headerRows: 1, body: [
+        [
+          { text: 'الحساب', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2,2,2,2] },
+          { text: 'الاسم', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2,2,2,2] },
+          { text: 'مدين', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2,2,2,2] },
+          { text: 'دائن', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2,2,2,2] },
+          { text: 'الطبيعة', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2,2,2,2] }
+        ]
+      ].concat(tbRows) }, margin: [0, 0, 0, 4] });
+    } else {
+      content.push({ text: 'لا توجد قيود مزدوجة بعد', fontSize: 10, color: '#94a3b8', margin: [0, 0, 0, 4] });
+    }
+    return makeDd(content, cf, opts);
+  }
+  function ledgerPdfDefinition(accountId, logoData, opts){
+    var cf = safeFooter();
+    var content = [];
+    appendDocumentHeader(content, logoData, opts);
+    var accName = '';
+    try { if (A.coaAccount) { var a = A.coaAccount(accountId); if (a) accName = a.name || ''; } } catch(e){}
+    content.push({ text: 'دفتر الأستاذ - ' + String(accountId), fontSize: 14, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 2] });
+    if (accName) content.push({ text: accName, fontSize: 12, color: '#3a4f5a', margin: [0, 0, 0, 4] });
+    var rows = [];
+    if (A.accountingLedger) rows = A.accountingLedger(accountId) || [];
+    var running = 0;
+    var lRows = rows.map(function(x){
+      running += (x.side === 'debit' ? Number(x.amount||0) : -Number(x.amount||0));
+      return [
+        { text: x.date || '—', fontSize: 10, alignment: 'center' },
+        { text: x.description || x.refType || '—', fontSize: 10, alignment: 'right' },
+        { text: x.side === 'debit' ? safeMoney(x.amount) : '—', fontSize: 10, alignment: 'center' },
+        { text: x.side === 'credit' ? safeMoney(x.amount) : '—', fontSize: 10, alignment: 'center' },
+        { text: safeMoney(running), fontSize: 10, alignment: 'center', bold: true }
+      ];
+    });
+    if (lRows.length) {
+      content.push({ table: { widths: ['auto', '*', 'auto', 'auto', 'auto'], headerRows: 1, body: [
+        [
+          { text: 'التاريخ', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2,2,2,2] },
+          { text: 'البيان', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2,2,2,2] },
+          { text: 'مدين', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2,2,2,2] },
+          { text: 'دائن', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2,2,2,2] },
+          { text: 'الرصيد', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2,2,2,2] }
+        ]
+      ].concat(lRows) }, margin: [0, 0, 0, 4] });
+    } else {
+      content.push({ text: 'لا توجد حركات على هذا الحساب', fontSize: 10, color: '#94a3b8', margin: [0, 0, 0, 4] });
+    }
+    return makeDd(content, cf, opts);
+  }
+  function incomePdfDefinition(logoData, opts){
+    var cf = safeFooter();
+    var content = [];
+    appendDocumentHeader(content, logoData, opts);
+    content.push({ text: 'قائمة الدخل', fontSize: 14, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 2] });
+    var rows = accTb();
+    var rev = rows.filter(function(x){ return String(x.account).charAt(0) === '4'; });
+    var exp = rows.filter(function(x){ return String(x.account).charAt(0) === '5'; });
+    var revSum = rev.reduce(function(s,x){ return s + Math.abs(Number(x.balance||0)); }, 0);
+    var expSum = exp.reduce(function(s,x){ return s + Math.abs(Number(x.balance||0)); }, 0);
+    content.push({ text: 'الإيرادات', fontSize: 10, bold: true, color: '#1e3a5f', margin: [0, 2, 0, 2] });
+    var revRows = rev.map(function(x){
+      return [ { text: x.accountName || x.account, fontSize: 10, alignment: 'right' }, { text: safeMoney(Math.abs(Number(x.balance||0))), fontSize: 10, alignment: 'center' } ];
+    });
+    if (revRows.length) content.push({ table: { widths: ['*', 'auto'], body: revRows }, margin: [0, 0, 0, 2] });
+    content.push({ text: 'المصروفات', fontSize: 10, bold: true, color: '#1e3a5f', margin: [0, 4, 0, 2] });
+    var expRows = exp.map(function(x){
+      return [ { text: x.accountName || x.account, fontSize: 10, alignment: 'right' }, { text: safeMoney(Math.abs(Number(x.balance||0))), fontSize: 10, alignment: 'center' } ];
+    });
+    if (expRows.length) content.push({ table: { widths: ['*', 'auto'], body: expRows }, margin: [0, 0, 0, 2] });
+    var net = revSum - expSum;
+    content.push(summaryTable([
+      { label: 'إجمالي الإيرادات', value: safeMoney(revSum) },
+      { label: 'إجمالي المصروفات', value: safeMoney(expSum) },
+      { label: 'صافي الدخل', value: safeMoney(net) }
+    ]));
+    return makeDd(content, cf, opts);
+  }
+  function balanceSheetPdfDefinition(logoData, opts){
+    var cf = safeFooter();
+    var content = [];
+    appendDocumentHeader(content, logoData, opts);
+    content.push({ text: 'الميزانية العمومية', fontSize: 14, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 2] });
+    var rows = accTb();
+    var assets = rows.filter(function(x){ return String(x.account).charAt(0) === '1'; });
+    var liab = rows.filter(function(x){ return String(x.account).charAt(0) === '2'; });
+    var eq = rows.filter(function(x){ return String(x.account).charAt(0) === '3'; });
+    var assetSum = assets.reduce(function(s,x){ return s + Math.abs(Number(x.balance||0)); }, 0);
+    var liabSum = liab.reduce(function(s,x){ return s + Math.abs(Number(x.balance||0)); }, 0);
+    var eqSum = eq.reduce(function(s,x){ return s + Math.abs(Number(x.balance||0)); }, 0);
+    var net = assetSum - liabSum - eqSum;
+    content.push({ text: 'الأصول', fontSize: 10, bold: true, color: '#1e3a5f', margin: [0, 2, 0, 2] });
+    if (assets.length) content.push({ table: { widths: ['*', 'auto'], body: assets.map(function(x){ return [ { text: x.accountName || x.account, fontSize: 10, alignment: 'right' }, { text: safeMoney(Math.abs(Number(x.balance||0))), fontSize: 10, alignment: 'center' } ]; }) }, margin: [0, 0, 0, 2] });
+    content.push({ text: 'الخصوم', fontSize: 10, bold: true, color: '#1e3a5f', margin: [0, 4, 0, 2] });
+    if (liab.length) content.push({ table: { widths: ['*', 'auto'], body: liab.map(function(x){ return [ { text: x.accountName || x.account, fontSize: 10, alignment: 'right' }, { text: safeMoney(Math.abs(Number(x.balance||0))), fontSize: 10, alignment: 'center' } ]; }) }, margin: [0, 0, 0, 2] });
+    content.push({ text: 'حقوق الملكية', fontSize: 10, bold: true, color: '#1e3a5f', margin: [0, 4, 0, 2] });
+    if (eq.length) content.push({ table: { widths: ['*', 'auto'], body: eq.map(function(x){ return [ { text: x.accountName || x.account, fontSize: 10, alignment: 'right' }, { text: safeMoney(Math.abs(Number(x.balance||0))), fontSize: 10, alignment: 'center' } ]; }) }, margin: [0, 0, 0, 2] });
+    content.push({ text: 'الفرق المتبقي (أرباح/خسائر متبقية)', fontSize: 10, bold: true, color: net>0? '#0d6b4f' : '#b33a3a', margin: [0, 2, 0, 2] });
+    content.push(summaryTable([
+      { label: 'إجمالي الأصول', value: safeMoney(assetSum) },
+      { label: 'إجمالي الخصوم', value: safeMoney(liabSum) },
+      { label: 'حقوق الملكية', value: safeMoney(eqSum) },
+      { label: 'الفرق المتبقي', value: safeMoney(net) }
+    ]));
+    return makeDd(content, cf, opts);
+  }
+  function journalPdfDefinition(logoData, opts){
+    var cf = safeFooter();
+    var content = [];
+    appendDocumentHeader(content, logoData, opts);
+    content.push({ text: 'دفتر قيود اليومية (المزدوج)', fontSize: 14, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 2] });
+    var journal = [];
+    try {
+      if (A.journalEntriesForCompany) journal = A.journalEntriesForCompany() || [];
+      else journal = (A._read ? A._read('misadJournalEntries') : JSON.parse(localStorage.getItem('misadJournalEntries') || '[]') || []);
+      journal = journal.slice(0, 200);
+    } catch(e){}
+    if (journal.length) {
+      var jRows = journal.map(function(j){
+        var lines = (j.lines||[]).slice(0, 2).map(function(l){
+          return { text: '         ' + (l.accountName || l.account) + ' - ' + (l.side==='debit' ? 'مدين: ' : 'دائن: ') + safeMoney(l.amount), fontSize: 9, alignment: 'right' };
+        });
+        return [
+          { text: j.id || '—', fontSize: 10, alignment: 'center' },
+          { text: j.date || '—', fontSize: 10, alignment: 'center' },
+          { text: j.description || '—', fontSize: 10, alignment: 'right' },
+          { stack: lines, margin: [0, 0, 0, 0] },
+          { text: safeMoney(j.debitTotal), fontSize: 10, alignment: 'center', bold: true },
+          { text: safeMoney(j.creditTotal), fontSize: 10, alignment: 'center', bold: true }
+        ];
+      });
+      content.push({ table: { widths: ['auto', 'auto', '*', 'auto', 'auto', 'auto'], headerRows: 1, body: [
+        [
+          { text: 'القيد', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2,2,2,2] },
+          { text: 'التاريخ', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2,2,2,2] },
+          { text: 'البيان', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2,2,2,2] },
+          { text: 'الأسطر', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2,2,2,2] },
+          { text: 'مدين', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2,2,2,2] },
+          { text: 'دائن', bold: true, fontSize: 10, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', margin: [2,2,2,2] }
+        ]
+      ].concat(jRows) }, margin: [0, 0, 0, 4] });
+    } else {
+      content.push({ text: 'لا توجد قيود مزدوجة بعد', fontSize: 10, color: '#94a3b8', margin: [0, 0, 0, 4] });
+    }
+    return makeDd(content, cf, opts);
+  }
   // ==================== MAIN ENTRY ====================
   function pdfLog(msg){ console.log("PDFGEN", msg); if (A.toast) A.toast(msg); }
 
@@ -3005,10 +3194,25 @@ if (isParts) {
         dd = installmentDemandPdfDefinition(demContract, demLabel, logoData, opts);
 
       } else if (type === 'customer-statement') {
-        var stContract;
-        if (A.visibleContracts) stContract = A.visibleContracts().find(function(x){ return x.id === id; });
-        if (!stContract) { if (A.downloadPdf) A.downloadPdf(type, id); return; }
-        dd = customerStatementPdfDefinition(stContract, logoData, opts);
+        dd = customerStatementPdfDefinition(A.visibleContracts ? A.visibleContracts().find(function(x){ return x.id === id; }) : null, logoData, opts);
+
+      } else if (type === 'accounting-ledger') {
+        dd = ledgerPdfDefinition(id, logoData, opts);
+
+      } else if (type === 'accounting-account-statement') {
+        dd = ledgerPdfDefinition(id, logoData, opts);
+
+      } else if (type === 'accounting-trial-balance') {
+        dd = trialBalancePdfDefinition(logoData, opts);
+
+      } else if (type === 'accounting-income') {
+        dd = incomePdfDefinition(logoData, opts);
+
+      } else if (type === 'accounting-balance-sheet') {
+        dd = balanceSheetPdfDefinition(logoData, opts);
+
+      } else if (type === 'accounting-journal') {
+        dd = journalPdfDefinition(logoData, opts);
 
       } else {
         if (A.downloadPdf) A.downloadPdf(type, id);
