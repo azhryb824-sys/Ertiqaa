@@ -572,7 +572,12 @@ function listBackups() {
 }
 
 function recoveryCandidates() {
-  const candidates = [legacyStoragePath, storageFailover];
+  const candidates = [
+    legacyStoragePath,
+    path.join(root, "storage.template.json"),
+    path.join(root, "storage_render_backup.json"),
+    storageFailover
+  ];
   try {
     if (fs.existsSync(backupDir)) {
       const backups = fs.readdirSync(backupDir)
@@ -591,8 +596,65 @@ function contractRecoveryMaxSources() {
   return Number.isFinite(configured) ? Math.min(200, Math.max(12, Math.floor(configured))) : 96;
 }
 
-function contractRecoverySourcePaths() {
-  return recoveryCandidates().slice(0, contractRecoveryMaxSources());
+const contractHistorySnapshots = [
+  {
+    commit: "17ab3d71a413f4418208e03fbd92909681cff89d",
+    file: "storage.template.json",
+    timestamp: "2026-07-07T00:00:00.000Z"
+  },
+  {
+    commit: "7a9017eb8486f40adebeba6c57618f29f7ed2a92",
+    file: "storage.json",
+    timestamp: "2026-07-04T00:00:00.000Z"
+  }
+];
+let contractHistorySourcesPromise = null;
+
+function contractHistoryTempDirectory() {
+  const directory = path.join(require("os").tmpdir(), `ertiqaa-contract-history-${process.pid}`);
+  fs.mkdirSync(directory, {recursive: true, mode: 0o700});
+  try { fs.chmodSync(directory, 0o700); } catch {}
+  return directory;
+}
+
+async function contractHistorySourcePaths() {
+  if (contractHistorySourcesPromise) return contractHistorySourcesPromise;
+  contractHistorySourcesPromise = Promise.all(contractHistorySnapshots.map(async snapshot => {
+    const directory = contractHistoryTempDirectory();
+    const target = path.join(directory, `git-${snapshot.commit.slice(0, 12)}-${path.basename(snapshot.file)}`);
+    if (fs.existsSync(target)) return target;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    try {
+      const url = `https://raw.githubusercontent.com/azhryb824-sys/Ertiqaa/${snapshot.commit}/${snapshot.file}`;
+      const response = await fetch(url, {
+        headers: {"User-Agent": "Ertiqaa-contract-recovery"},
+        signal: controller.signal
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const buffer = Buffer.from(await response.arrayBuffer());
+      if (!buffer.length || buffer.length > 8 * 1024 * 1024) throw new Error("Unexpected snapshot size");
+      const parsed = JSON.parse(buffer.toString("utf8").replace(/^\uFEFF/, ""));
+      if (!parsed || typeof parsed !== "object" || !parseStoredJson(parsed, "misadContracts").length) {
+        throw new Error("Snapshot has no contracts");
+      }
+      fs.writeFileSync(target, buffer, {mode: 0o600});
+      const sourceDate = new Date(snapshot.timestamp);
+      fs.utimesSync(target, sourceDate, sourceDate);
+      return target;
+    } catch (error) {
+      console.warn(`Historical contract snapshot unavailable (${snapshot.commit.slice(0, 12)}):`, error.message);
+      return "";
+    } finally {
+      clearTimeout(timeout);
+    }
+  })).then(paths => paths.filter(Boolean));
+  return contractHistorySourcesPromise;
+}
+
+async function contractRecoverySourcePaths() {
+  const historical = await contractHistorySourcePaths();
+  return [...recoveryCandidates(), ...historical].slice(0, contractRecoveryMaxSources());
 }
 
 function initializePersistentStorage() {
@@ -7676,7 +7738,7 @@ ${JSON.stringify(rows, null, 2)}
         id: recoveryUserId,
         companyOwnerId: storedUser?.companyOwnerId || recoveryUser?.companyOwnerId || ""
       };
-      const sourcePaths = contractRecoverySourcePaths();
+      const sourcePaths = await contractRecoverySourcePaths();
       const result = discoverRecoverableContracts({
         store,
         sourcePaths,
@@ -7685,6 +7747,7 @@ ${JSON.stringify(rows, null, 2)}
       });
       return sendJson(res, 200, {
         candidates: result.candidates.map(recoverySummary),
+        diagnostics: result.diagnostics,
         checkedSources: sourcePaths.length,
         unreadableSources: result.errors.length
       });
@@ -7712,7 +7775,9 @@ ${JSON.stringify(rows, null, 2)}
       }
       const input = JSON.parse(Buffer.concat(buffers).toString("utf8") || "{}");
       const contractId = String(input.contractId || "").trim();
+      const selectedCandidateKey = String(input.candidateKey || "").trim();
       if (!contractId || contractId.length > 100) return sendJson(res, 400, {error: "Valid contract id required"});
+      if (selectedCandidateKey.length > 200) return sendJson(res, 400, {error: "Invalid recovery candidate"});
       const user = {
         ...recoveryUser,
         id: recoveryUserId,
@@ -7720,9 +7785,10 @@ ${JSON.stringify(rows, null, 2)}
       };
       const result = recoverContract({
         store,
-        sourcePaths: contractRecoverySourcePaths(),
+        sourcePaths: await contractRecoverySourcePaths(),
         user,
         contractId,
+        selectedCandidateKey,
         recoveredBy: recoveryUserId,
         maxSources: contractRecoveryMaxSources()
       });
@@ -7732,7 +7798,9 @@ ${JSON.stringify(rows, null, 2)}
         id: `ACT-RECOVERY-${Date.now()}`,
         companyOwnerId: result.contract.companyOwnerId || user.companyOwnerId || user.id,
         type: "استعادة بيانات",
-        title: `تمت استعادة العقد ${result.contract.id} من نسخة احتياطية دون استبدال قاعدة البيانات`,
+        title: result.originalId !== result.contract.id
+          ? `تمت استعادة نسخة العقد ${result.originalId} بالرقم الجديد ${result.contract.id} دون استبدال أي سجل حالي`
+          : `تمت استعادة العقد ${result.contract.id} من نسخة احتياطية دون استبدال قاعدة البيانات`,
         ref: result.contract.id,
         user: recoveryUser.name || recoveryUserId,
         userId: recoveryUserId,
@@ -7751,6 +7819,8 @@ ${JSON.stringify(rows, null, 2)}
           sourceName: result.sourceName,
           sourceMtime: 0
         }),
+        originalContractId: result.originalId,
+        recoveredContractId: result.contract.id,
         totalContracts: result.totalContracts,
         preservedExistingData: true
       });
