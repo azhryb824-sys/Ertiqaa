@@ -112,6 +112,11 @@ assert.match(appSource, /data-recover-contract/, "يمكن اختيار عقد �
 assert.match(serverSource, /\/api\/contracts\/recovery-candidates/, "يتوفر فحص مرخّص لنسخ العقود");
 assert.match(serverSource, /\/api\/contracts\/recover/, "يتوفر مسار الاستعادة الانتقائية");
 assert.match(serverSource, /writeStore\(store\)/, "تمر الاستعادة عبر الكتابة الآمنة ذات النسخة المسبقة");
+const recoveryRoute = serverSource.slice(
+  serverSource.indexOf('if (pathname === "/api/contracts/recover"'),
+  serverSource.indexOf('if (pathname === "/api/auth/storage-token"')
+);
+assert.doesNotMatch(recoveryRoute, /activity\.slice\(/, "لا تُحذف سجلات نشاط قديمة أثناء الاستعادة");
 
 fs.rmSync(temp, {recursive: true, force: true});
 console.log("contract recovery tests passed");
