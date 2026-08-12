@@ -7739,7 +7739,7 @@ ${JSON.stringify(rows, null, 2)}
         createdAt: new Date().toLocaleString("ar-SA"),
         createdAtMs: Date.now()
       });
-      store.misadActivityLog = JSON.stringify(activity.slice(0, 300));
+      store.misadActivityLog = JSON.stringify(activity);
       writeStore(store);
       return sendJson(res, 200, {
         ok: true,
