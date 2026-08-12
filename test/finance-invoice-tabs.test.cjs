@@ -12,6 +12,14 @@ assert.match(app, /data-finance-tab="purchase-invoices">فواتير المشت�
   'يجب ظهور تبويب فواتير المشتريات');
 assert.match(app, /data-finance-section="purchase-invoices"/,
   'يجب عرض فواتير الموردين في تبويب المشتريات');
+assert.match(app, /data-page-link="purchase-invoice-create">إنشاء فاتورة مشتريات/,
+  'يجب توفير زر مستقل لإنشاء فاتورة مشتريات');
+assert.match(app, /function purchaseInvoiceCreatePage\(\)/,
+  'يجب توفير صفحة مستقلة لإنشاء فاتورة المشتريات');
+assert.match(app, /page==="purchase-invoice-create"/,
+  'يجب ربط صفحة إنشاء فاتورة المشتريات بموجّه الصفحات');
+assert.match(app, /contractId\?contracts\.find.*:null/,
+  'يجب دعم فاتورة مشتريات عامة أو مرتبطة بعقد');
 assert.match(app, /data-finance-tab="staff-purchases">مصروفات الموظفين/,
   'يجب تسمية التبويب بمصروفات الموظفين');
 assert.match(app, /if\(!file\|\|!String\(file\.type\|\|""\)\.startsWith\("image\/"\)\)return toast\("صورة الفاتورة إلزامية/,
