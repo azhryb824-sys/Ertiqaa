@@ -11,6 +11,11 @@ const {
   migrateStorageFile,
   readJsonObjectFile,
 } = require("./src/storage/non-destructive-migration.cjs");
+const {
+  discoverRecoverableContracts,
+  recoverContract,
+  recoverySummary,
+} = require("./contract-recovery.cjs");
 
 // Import AI modules for elevator knowledge and recommendations
 const { knowledgeBase } = require("./src/ai/elevatorKnowledgeBase.cjs");
@@ -41,7 +46,7 @@ try {
   fs.mkdirSync(dataDir, {recursive: true});
 }
 const storagePath = process.env.STORAGE_PATH || path.join(dataDir, "storage.json");
-const storageFailover = path.join(require("os").homedir(), ".elevator-storage.json");
+const storageFailover = process.env.STORAGE_FAILOVER_PATH || path.join(require("os").homedir(), ".elevator-storage.json");
 const legacyStoragePath = path.join(root, "storage.json");
 const aiResponseBankPath = path.join(root, "ai-response-bank.json");
 const voiceCacheDir = path.join(dataDir, ".voice-cache");
@@ -579,6 +584,15 @@ function recoveryCandidates() {
   return [...new Set(candidates.map(candidate => path.resolve(candidate)))]
     .filter(candidate => candidate !== path.resolve(storagePath) && fs.existsSync(candidate))
     .sort((left, right) => fs.statSync(right).mtimeMs - fs.statSync(left).mtimeMs);
+}
+
+function contractRecoveryMaxSources() {
+  const configured = Number(process.env.CONTRACT_RECOVERY_MAX_SOURCES || 96);
+  return Number.isFinite(configured) ? Math.min(200, Math.max(12, Math.floor(configured))) : 96;
+}
+
+function contractRecoverySourcePaths() {
+  return recoveryCandidates().slice(0, contractRecoveryMaxSources());
 }
 
 function initializePersistentStorage() {
@@ -7645,6 +7659,104 @@ ${JSON.stringify(rows, null, 2)}
     const data = fs.readFileSync(filePath, "utf8");
     res.writeHead(200, {"Content-Type": "application/json", "Content-Disposition": `attachment; filename="${name}"`});
     return res.end(data);
+  }
+
+  if (pathname === "/api/contracts/recovery-candidates" && req.method === "GET") {
+    try {
+      const recoveryUserId = deviceAccessIdentity(req);
+      const store = readStore();
+      const storedUser = parseStoredJson(store, "misadUsers").find(user => cleanId(user.id) === cleanId(recoveryUserId));
+      const systemUser = serverSystemUsers.find(user => cleanId(user.id) === cleanId(recoveryUserId));
+      const recoveryUser = storedUser || systemUser;
+      if (!recoveryUserId || !["owner", "company_admin", "admin"].includes(String(recoveryUser?.role || ""))) {
+        return sendJson(res, 403, {error: "Owner or administrator access required"});
+      }
+      const user = {
+        ...recoveryUser,
+        id: recoveryUserId,
+        companyOwnerId: storedUser?.companyOwnerId || recoveryUser?.companyOwnerId || ""
+      };
+      const sourcePaths = contractRecoverySourcePaths();
+      const result = discoverRecoverableContracts({
+        store,
+        sourcePaths,
+        user,
+        maxSources: contractRecoveryMaxSources()
+      });
+      return sendJson(res, 200, {
+        candidates: result.candidates.map(recoverySummary),
+        checkedSources: sourcePaths.length,
+        unreadableSources: result.errors.length
+      });
+    } catch (error) {
+      return sendJson(res, 500, {error: `Contract recovery scan failed: ${error.message}`});
+    }
+  }
+
+  if (pathname === "/api/contracts/recover" && req.method === "POST") {
+    try {
+      const recoveryUserId = deviceAccessIdentity(req);
+      const store = readStore();
+      const storedUser = parseStoredJson(store, "misadUsers").find(user => cleanId(user.id) === cleanId(recoveryUserId));
+      const systemUser = serverSystemUsers.find(user => cleanId(user.id) === cleanId(recoveryUserId));
+      const recoveryUser = storedUser || systemUser;
+      if (!recoveryUserId || !["owner", "company_admin", "admin"].includes(String(recoveryUser?.role || ""))) {
+        return sendJson(res, 403, {error: "Owner or administrator access required"});
+      }
+      const buffers = [];
+      let bodySize = 0;
+      for await (const chunk of req) {
+        bodySize += chunk.length;
+        if (bodySize > 16384) return sendJson(res, 413, {error: "Request body too large"});
+        buffers.push(chunk);
+      }
+      const input = JSON.parse(Buffer.concat(buffers).toString("utf8") || "{}");
+      const contractId = String(input.contractId || "").trim();
+      if (!contractId || contractId.length > 100) return sendJson(res, 400, {error: "Valid contract id required"});
+      const user = {
+        ...recoveryUser,
+        id: recoveryUserId,
+        companyOwnerId: storedUser?.companyOwnerId || recoveryUser?.companyOwnerId || ""
+      };
+      const result = recoverContract({
+        store,
+        sourcePaths: contractRecoverySourcePaths(),
+        user,
+        contractId,
+        recoveredBy: recoveryUserId,
+        maxSources: contractRecoveryMaxSources()
+      });
+      if (!result.ok) return sendJson(res, 404, {error: result.error});
+      const activity = parseStoredJson(store, "misadActivityLog");
+      activity.unshift({
+        id: `ACT-RECOVERY-${Date.now()}`,
+        companyOwnerId: result.contract.companyOwnerId || user.companyOwnerId || user.id,
+        type: "استعادة بيانات",
+        title: `تمت استعادة العقد ${result.contract.id} من نسخة احتياطية دون استبدال قاعدة البيانات`,
+        ref: result.contract.id,
+        user: recoveryUser.name || recoveryUserId,
+        userId: recoveryUserId,
+        createdAt: new Date().toLocaleString("ar-SA"),
+        createdAtMs: Date.now()
+      });
+      store.misadActivityLog = JSON.stringify(activity.slice(0, 300));
+      writeStore(store);
+      return sendJson(res, 200, {
+        ok: true,
+        kind: result.kind,
+        contract: recoverySummary({
+          id: result.contract.id,
+          kind: result.kind,
+          record: result.contract,
+          sourceName: result.sourceName,
+          sourceMtime: 0
+        }),
+        totalContracts: result.totalContracts,
+        preservedExistingData: true
+      });
+    } catch (error) {
+      return sendJson(res, 400, {error: `Contract recovery failed: ${error.message}`});
+    }
   }
 
   if (pathname === "/api/auth/storage-token" && req.method === "GET") {
