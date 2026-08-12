@@ -26,6 +26,8 @@ for (const section of ['basic', 'specifications', 'maintenance']) {
   );
 }
 assert.match(app, /maintenance-contract-parties/, 'بيانات طرفي العقد في جدول الطباعة الاحتياطي');
+assert.match(app, /function maintenanceHorizontalTables\(rows,columns=4/, 'جداول بيانات عقد الصيانة أفقية');
+assert.match(pdfSource, /function horizontalKeyValueTables\(rows, columns\)/, 'مولد PDF يستخدم جداول حقول أفقية');
 
 const contract = {
   id: 'MNT-TEST-1',
@@ -201,14 +203,24 @@ function findNode(node, predicate) {
   assert.equal(parties.table.dontBreakRows, true, 'صفوف جدول الأطراف لا تنقسم بين الصفحات');
   assert.equal(parties.table.body.length, 3, 'جدول الأطراف يحتوي الطرفين فقط بعد الرأس');
 
+  const basicData = findNode(capturedDefinition.content, (node) => (
+    node.table
+    && node.table.body?.length === 2
+    && node.table.body?.[0]?.some?.((cell) => cell?.text === 'رقم العقد')
+    && node.table.body?.[0]?.some?.((cell) => cell?.text === 'حالة العقد')
+  ));
+  assert.ok(basicData, 'بيانات العقد معروضة أفقياً');
+  assert.ok(basicData.table.widths.length > 2, 'جدول بيانات العقد يحتوي عدة أعمدة أفقية');
+
   const specs = findNode(capturedDefinition.content, (node) => (
     node.table
-    && node.table.body?.[0]?.[0]?.text === 'البيان'
-    && node.table.body?.some?.((row) => row?.[0]?.text === 'نوع المصعد')
+    && node.table.body?.length === 2
+    && node.table.body?.[0]?.some?.((cell) => cell?.text === 'نوع المصعد')
   ));
-  assert.ok(specs, 'مواصفات المصعد مجمعة في جدول واحد');
+  assert.ok(specs, 'مواصفات المصعد معروضة في جدول أفقي');
   assert.equal(specs.table.headerRows, 1, 'رأس جدول المواصفات يتكرر عند امتداد الصفحات');
   assert.equal(specs.table.dontBreakRows, true, 'صفوف المواصفات لا تنقسم');
+  assert.ok(specs.table.widths.length > 2, 'جدول المواصفات يحتوي عدة أعمدة أفقية');
   assert.doesNotMatch(text, /نوع المحرك|الكنترول/, 'PDF الصيانة لا يدمج حقول التبويبات المحذوفة');
 
   const maintenance = findNode(capturedDefinition.content, (node) => (

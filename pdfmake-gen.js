@@ -641,6 +641,42 @@
     }
   ];
 
+  function horizontalKeyValueTables(rows, columns){
+    var out = [];
+    var size = columns || 4;
+    for (var index = 0; index < rows.length; index += size) {
+      var chunk = rows.slice(index, index + size);
+      out.push({
+        table: {
+          headerRows: 1,
+          keepWithHeaderRows: 1,
+          dontBreakRows: true,
+          widths: chunk.map(function(){ return '*'; }),
+          body: [
+            chunk.map(function(row){
+              return { text: String(row[0]), bold: true, fontSize: 9, color: '#fff', fillColor: '#1e3a5f', alignment: 'center' };
+            }),
+            chunk.map(function(row){
+              return { text: String(row[1]), bold: true, fontSize: 9, color: '#334155', fillColor: '#f8fafc', alignment: 'center' };
+            })
+          ]
+        },
+        layout: {
+          hLineWidth: function(){ return 0.5; },
+          vLineWidth: function(){ return 0.5; },
+          hLineColor: function(){ return '#94a3b8'; },
+          vLineColor: function(){ return '#94a3b8'; },
+          paddingLeft: function(){ return 5; },
+          paddingRight: function(){ return 5; },
+          paddingTop: function(){ return 5; },
+          paddingBottom: function(){ return 5; }
+        },
+        margin: [0, 0, 0, 7]
+      });
+    }
+    return out;
+  }
+
   function maintenanceSpecTable(info, overallTitle){
     if (!info || typeof info !== 'object') return null;
     var out = [];
@@ -655,37 +691,9 @@
       if (seen[field[0]]) return false;
       seen[field[0]] = true;
       return info[field[0]] != null && String(info[field[0]]).trim() !== '';
-    }).map(function(field){
-      return [
-        { text: field[1], bold: true, fontSize: 10, fillColor: '#e8e6e1', alignment: 'right', color: '#1e3a5f' },
-        { text: String(info[field[0]]), fontSize: 10, alignment: 'right', color: '#334155' }
-      ];
-    });
+    }).map(function(field){ return [field[1], String(info[field[0]])]; });
     if (!rows.length) return null;
-    out.push({
-      table: {
-        headerRows: 1,
-        keepWithHeaderRows: 2,
-        dontBreakRows: true,
-        widths: [140, '*'],
-        body: [[
-          { text: 'البيان', bold: true, color: '#fff', fillColor: '#1e3a5f', alignment: 'right' },
-          { text: 'القيمة', bold: true, color: '#fff', fillColor: '#1e3a5f', alignment: 'right' }
-        ]].concat(rows)
-      },
-      layout: {
-        hLineWidth: function(){ return 0.5; },
-        vLineWidth: function(){ return 0.5; },
-        hLineColor: function(){ return '#94a3b8'; },
-        vLineColor: function(){ return '#94a3b8'; },
-        paddingLeft: function(){ return 8; },
-        paddingRight: function(){ return 8; },
-        paddingTop: function(){ return 5; },
-        paddingBottom: function(){ return 5; },
-        fillColor: function(i){ return i === 0 ? null : (i % 2 === 0 ? null : '#f1f0ec'); }
-      },
-      margin: [0, 0, 0, 8]
-    });
+    Array.prototype.push.apply(out, horizontalKeyValueTables(rows, 4));
     return out;
   }
 
@@ -834,24 +842,7 @@
       ['طريقة الدفع', c.paymentMethod || 'غير محدد'],
       ['منشأة الإصدار', companyName || 'غير محدد']
     ];
-    return {
-      table: {
-        headerRows: 1,
-        keepWithHeaderRows: 2,
-        dontBreakRows: true,
-        widths: [140, '*'],
-        body: [[
-          { text: 'البيان', bold: true, color: '#fff', fillColor: '#1e3a5f', alignment: 'right' },
-          { text: 'القيمة', bold: true, color: '#fff', fillColor: '#1e3a5f', alignment: 'right' }
-        ]].concat(rows.map(function(row){
-          return [
-            { text: row[0], bold: true, color: '#1e3a5f', alignment: 'right' },
-            { text: String(row[1]), color: '#334155', alignment: 'right' }
-          ];
-        }))
-      },
-      margin: [0, 0, 0, 8]
-    };
+    return { stack: horizontalKeyValueTables(rows, 4), margin: [0, 0, 0, 2] };
   }
 
   function maintenanceContractBuildingsTable(buildings){
