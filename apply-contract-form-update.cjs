@@ -2,9 +2,24 @@ const fs = require('node:fs');
 
 function update(path, edits) {
   let source = fs.readFileSync(path, 'utf8');
-  for (const [index, [before, after]] of edits.entries()) {
+  if (path === 'app.js' && !source.includes('const expireEndedContracts=()=>{};')) {
+    source = source.replace(
+      /^  const expireEndedContracts=.*$/m,
+      '  // Never rewrite all contracts merely because a page was opened. Expiry is reconciled only after dates are verified.\n  const expireEndedContracts=()=>{};',
+    );
+  }
+  if (path === 'app.js' && !source.includes('const expireStaleContracts=()=>{};')) {
+    source = source.replace(
+      /^  const expireStaleContracts=.*$/m,
+      '  const expireStaleContracts=()=>{};',
+    );
+  }
+  for (const [index, [before, after, optional]] of edits.entries()) {
     if (source.includes(after)) continue;
-    if (!source.includes(before)) throw new Error(`تعذر تطبيق تحديث العقد في ${path} (التعديل ${index + 1})`);
+    if (!source.includes(before)) {
+      if (optional) continue;
+      throw new Error(`تعذر تطبيق تحديث العقد في ${path} (التعديل ${index + 1})`);
+    }
     source = source.replace(before, after);
   }
   fs.writeFileSync(path, source);
@@ -14,6 +29,7 @@ update('app.js', [
   [
     '  const expireEndedContracts=()=>{const today=dateVal(new Date());let changed=false;contracts.forEach(c=>{if(!c.endDate||["منتهيا","ملغي","محذوف"].includes(c.status)||String(c.endDate).slice(0,10)>=today)return;c.status="منتهيا";c.expiredAt=Date.now();c.expiredAtLabel=new Date().toLocaleString("ar-SA");c.expirationReason="contract-end-date";changed=true});if(changed)write("misadContracts",contracts)};',
     '  // Never rewrite all contracts merely because a page was opened. Expiry is reconciled only after dates are verified.\n  const expireEndedContracts=()=>{};',
+    true,
   ],
   [
     '  const installOnlySpecKeys=["travelHeight","shaftLength","shaftWidth","pitDepth","overhead","entrances","doorDirection","speedSystem"];',
