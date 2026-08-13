@@ -2,6 +2,12 @@ const fs = require('node:fs');
 
 function update(path, edits) {
   let source = fs.readFileSync(path, 'utf8');
+  if (path === 'app.js') {
+    source = source.replace(
+      '  const maintenanceSpecKeys=new Set(["elevatorType","usage","capacity","persons","stops","age","doorType","motorManufacturer"]);',
+      '  const maintenanceSpecKeys=new Set(specGroups.flatMap(group=>group.fields.map(field=>field[0])).filter(key=>!installOnlySpecKeys.includes(key)));',
+    );
+  }
   if (path === 'app.js' && !source.includes('const expireEndedContracts=()=>{};')) {
     source = source.replace(
       /^  const expireEndedContracts=.*$/m,
@@ -33,7 +39,7 @@ update('app.js', [
   ],
   [
     '  const installOnlySpecKeys=["travelHeight","shaftLength","shaftWidth","pitDepth","overhead","entrances","doorDirection","speedSystem"];',
-    '  const installOnlySpecKeys=["travelHeight","shaftLength","shaftWidth","pitDepth","overhead","entrances","doorDirection","speedSystem"];\n  const maintenanceSpecKeys=new Set(["elevatorType","usage","capacity","persons","stops","age","doorType","motorManufacturer"]);',
+    '  const installOnlySpecKeys=["travelHeight","shaftLength","shaftWidth","pitDepth","overhead","entrances","doorDirection","speedSystem"];\n  const maintenanceSpecKeys=new Set(specGroups.flatMap(group=>group.fields.map(field=>field[0])).filter(key=>!installOnlySpecKeys.includes(key)));',
   ],
   [
     '    if(!form)return fullContractForm(c);\n    syncContractTabLayout(form,c?.type==="تركيب");',
@@ -69,6 +75,11 @@ update('pdfmake-gen.js', [
   [
     "    var fields = [['count', 'عدد المصاعد']];\n    (specGroups[0]?.fields || []).forEach(function(f){\n      fields.push([f[0], f[1]]);",
     "    var allowed = {elevatorType:true,usage:true,capacity:true,persons:true,stops:true,age:true,doorType:true,motorManufacturer:true};\n    var fields = [['count', 'عدد المصاعد']];\n    (specGroups[0]?.fields || []).forEach(function(f){\n      if (allowed[f[0]]) fields.push([f[0], f[1]]);",
+    true,
+  ],
+  [
+    "    var allowed = {elevatorType:true,usage:true,capacity:true,persons:true,stops:true,age:true,doorType:true,motorManufacturer:true};\n    var fields = [['count', 'عدد المصاعد']];\n    (specGroups[0]?.fields || []).forEach(function(f){\n      if (allowed[f[0]]) fields.push([f[0], f[1]]);\n    });",
+    "    var excluded = {travelHeight:true,shaftLength:true,shaftWidth:true,pitDepth:true,overhead:true,entrances:true,doorDirection:true,speedSystem:true};\n    var fields = [['count', 'عدد المصاعد']];\n    specGroups.forEach(function(group){\n      (group.fields || []).forEach(function(f){\n        if (!excluded[f[0]]) fields.push([f[0], f[1]]);\n      });\n    });",
   ],
   [
     '  function maintenanceContractDataTable(c, companyName){\n    var rows = [',
