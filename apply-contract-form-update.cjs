@@ -26,7 +26,7 @@ function update(path, edits) {
       if (optional) continue;
       throw new Error(`تعذر تطبيق تحديث العقد في ${path} (التعديل ${index + 1})`);
     }
-    source = source.replace(before, after);
+    source = source.replace(before, () => after);
   }
   fs.writeFileSync(path, source);
 }
@@ -42,6 +42,22 @@ update('app.js', [
     '  const installOnlySpecKeys=["travelHeight","shaftLength","shaftWidth","pitDepth","overhead","entrances","doorDirection","speedSystem"];\n  const maintenanceSpecKeys=new Set(specGroups.flatMap(group=>group.fields.map(field=>field[0])).filter(key=>!installOnlySpecKeys.includes(key)));',
   ],
   [
+    '  const specValue=(info,key)=>info?.[key]??specDefaults[key]??"";',
+    '  const specValue=(info,key)=>Object.prototype.hasOwnProperty.call(info||{},key)?(info[key]??""):(Object.keys(info||{}).length?"":(specDefaults[key]??""));',
+  ],
+  [
+    '  const collectTechnicalSpecs=f=>{const els=typeof f?.querySelectorAll==="function"?$$("[name^=\'spec_\']",f):Array.from(f||[]).filter(el=>el.name&&el.name.startsWith("spec_"));return Object.assign({},specDefaults,...els.map(el=>({[el.name.replace(/^spec_/,"")]:el.value})))};',
+    '  const collectTechnicalSpecs=f=>{const els=typeof f?.querySelectorAll==="function"?$$("[name^=\'spec_\']",f):Array.from(f||[]).filter(el=>el.name&&el.name.startsWith("spec_"));return Object.assign({},...els.map(el=>({[el.name.replace(/^spec_/,"")]:el.value})))};',
+  ],
+  [
+    '      const tabIndex=isInstall?original:(original===0?0:(original===1?1:(original===lastIndex?2:-1)));',
+    '      const tabIndex=isInstall?original:(original===0?0:(original===lastIndex?2:1));',
+  ],
+  [
+    '      panel.style.display=!isInstall&&tabIndex===-1?"none":"";',
+    '      panel.style.display="";',
+  ],
+  [
     '    if(!form)return fullContractForm(c);\n    syncContractTabLayout(form,c?.type==="تركيب");',
     '    if(!form)return fullContractForm(c);\n    form.querySelector(\'[name="paymentMethod"]\')?.closest("label")?.remove();\n    form.querySelector(\'[name="transferNotice"]\')?.closest("label")?.remove();\n    form.querySelector(\'[name="contractTransferNotice"]\')?.closest("fieldset")?.remove();\n    syncContractTabLayout(form,c?.type==="تركيب");',
   ],
@@ -52,6 +68,11 @@ update('app.js', [
   [
     'fields=[["count","عدد المصاعد"],...(specGroups[0]?.fields||[]).map(field=>[field[0],field[1]])]',
     'fields=[["count","عدد المصاعد"],...(specGroups[0]?.fields||[]).filter(field=>maintenanceSpecKeys.has(field[0])).map(field=>[field[0],field[1]])]',
+    true,
+  ],
+  [
+    '    const normalized=Object.assign({},specDefaults,info||{}),seen=new Set(),fields=[["count","عدد المصاعد"],...(specGroups[0]?.fields||[]).filter(field=>maintenanceSpecKeys.has(field[0])).map(field=>[field[0],field[1]])];\n    const rows=fields.filter(([key])=>{if(seen.has(key))return false;seen.add(key);return true}).map(([key,label])=>[label,normalized[key]||"غير محدد"]);\n    return `<section class="contract-section" data-maintenance-contract-section="specifications"><h3>ثانياً: مواصفات المصعد</h3>${maintenanceHorizontalTables(rows,4,"maintenance-contract-specs")}</section>`;',
+    '    const source=info&&typeof info==="object"?info:{},seen=new Set(),fields=[["count","عدد المصاعد"],...specGroups.flatMap(group=>(group.fields||[]).filter(field=>maintenanceSpecKeys.has(field[0])).map(field=>[field[0],field[1]]))];\n    const rows=fields.filter(([key])=>{if(seen.has(key))return false;seen.add(key);return String(source[key]??"").trim()!==""}).map(([key,label])=>[label,source[key]]);\n    const content=rows.length?maintenanceHorizontalTables(rows,4,"maintenance-contract-specs"):`<p class="form-note decision-note">مواصفات المصعد غير موجودة في بيانات هذا العقد، ويلزم استعادتها من نسخة موثوقة قبل اعتماد المستند.</p>`;\n    return `<section class="contract-section" data-maintenance-contract-section="specifications"><h3>ثانياً: مواصفات المصعد</h3>${content}</section>`;',
   ],
   [
     '  function maintenanceContractDetails(c){',
@@ -92,6 +113,10 @@ update('pdfmake-gen.js', [
   [
     ").concat(c.paymentMethod?[{label:'طريقة الدفع',value:c.paymentMethod}]:[])));",
     ").concat([{label:'طريقة الدفع',value:A.contractPaymentMethods?A.contractPaymentMethods(c):'لم تسجل دفعات بعد'}])));",
+  ],
+  [
+    '    if (!rows.length) return null;',
+    "    if (!rows.length) {\n      out.push({ text: 'مواصفات المصعد غير موجودة في بيانات هذا العقد، ويلزم استعادتها من نسخة موثوقة قبل اعتماد المستند.', bold: true, fontSize: 9, color: '#9f3a38', fillColor: '#fff4f2', alignment: 'right', margin: [8, 7, 8, 7] });\n      return out;\n    }",
   ],
 ]);
 
