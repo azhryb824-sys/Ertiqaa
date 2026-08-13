@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "postinstall": "node apply-contract-form-update.cjs",
-    "start": "node server.cjs",
+    "start": "node safe-start.cjs",
     "cap:add:android": "npx cap add android",
     "cap:add:ios": "npx cap add ios",
     "cap:sync": "npx cap sync",
