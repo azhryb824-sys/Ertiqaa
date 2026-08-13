@@ -25,6 +25,7 @@
     "test:finance": "npm run test:staff-finance && npm run test:accounting-core && npm run test:financial-integrity && npm run test:storage-migration",
     "test:maintenance-contract": "node test/maintenance-contract-layout.test.cjs",
     "test:contract-first-payment": "node test/contract-first-payment.test.cjs",
+    "test:visit-scheduling": "node test/visit-scheduling.test.cjs",
     "test:finance-receipt-claim-separation": "node test/finance-receipt-claim-separation.test.cjs",
     "test:finance-invoice-tabs": "node test/finance-invoice-tabs.test.cjs",
     "test:contract-recovery": "node test/contract-recovery.test.cjs",
