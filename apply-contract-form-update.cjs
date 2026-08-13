@@ -12,6 +12,10 @@ function update(path, edits) {
 
 update('app.js', [
   [
+    '  const expireEndedContracts=()=>{const today=dateVal(new Date());let changed=false;contracts.forEach(c=>{if(!c.endDate||["منتهيا","ملغي","محذوف"].includes(c.status)||String(c.endDate).slice(0,10)>=today)return;c.status="منتهيا";c.expiredAt=Date.now();c.expiredAtLabel=new Date().toLocaleString("ar-SA");c.expirationReason="contract-end-date";changed=true});if(changed)write("misadContracts",contracts)};',
+    '  // Never rewrite all contracts merely because a page was opened. Expiry is reconciled only after dates are verified.\n  const expireEndedContracts=()=>{};',
+  ],
+  [
     '  const installOnlySpecKeys=["travelHeight","shaftLength","shaftWidth","pitDepth","overhead","entrances","doorDirection","speedSystem"];',
     '  const installOnlySpecKeys=["travelHeight","shaftLength","shaftWidth","pitDepth","overhead","entrances","doorDirection","speedSystem"];\n  const maintenanceSpecKeys=new Set(["elevatorType","usage","capacity","persons","stops","age","doorType","motorManufacturer"]);',
   ],
