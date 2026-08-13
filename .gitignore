@@ -10,6 +10,9 @@ app.bundle.js
 .DS_Store
 .env
 storage.json
+storage_render_backup.json
+storage-*.json
+*.storage-backup.json
 .storage.git.json
 .elevator-storage.json
 .elevator-data/
@@ -20,4 +23,3 @@ _temp_served.js
 insert_funcs3.py
 
 *.apk
-

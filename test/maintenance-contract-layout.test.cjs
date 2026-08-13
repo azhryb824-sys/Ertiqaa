@@ -16,8 +16,14 @@ assert.match(app, /contractForm=threeTabContractForm/, 'النموذج المب�
 assert.match(app, /syncContractTabLayout\(form,c\?\.type==="تركيب"\)/, 'نوع العقد يحدد تخطيط التبويبات عند فتح النموذج');
 assert.match(app, /syncContractTabLayout\(f,isInstall\)/, 'تغيير نوع العقد يحدّث تخطيط التبويبات فوراً');
 assert.match(app, /maintTab=isInstall\?specGroups\.length\+1:2/, 'تبويب الصيانة يستخدم فهرسه الأصلي في التركيب والثالث في الصيانة');
-assert.match(app, /original===1\?1:\(original===lastIndex\?2:-1\)/, 'محتوى تبويبات المواصفات المحذوفة لا يُدمج داخل مواصفات عقد الصيانة');
-assert.match(app, /\(specGroups\[0\]\?\.fields\|\|\[\]\)/, 'تفاصيل عقد الصيانة تستخدم حقول تبويب مواصفات المصعد الأصلي فقط');
+assert.match(app, /original===lastIndex\?2:1/, 'كل مجموعات المواصفات المرتبطة بالصيانة تظهر داخل تبويب مواصفات المصعد');
+assert.match(app, /maintenanceSpecKeys\.has\(field\[0\]\)/, 'تفاصيل عقد الصيانة تستخدم المواصفات المرتبطة بالصيانة فقط');
+assert.match(app, /specGroups\.flatMap\(group=>\(group\.fields\|\|\[\]\)/, 'قالب عقد الصيانة يقرأ جميع مجموعات المواصفات');
+assert.match(app, /Object\.prototype\.hasOwnProperty\.call\(info\|\|\{\},key\)/, 'تعديل عقد قديم لا يخترع قيماً افتراضية للمواصفات المفقودة');
+assert.match(pdfSource, /مواصفات المصعد غير موجودة في بيانات هذا العقد/, 'ملف PDF لا يحذف قسم المواصفات عند نقص البيانات');
+assert.match(app, /form\.querySelector\('\[name="paymentMethod"\]'\)\?\.closest\("label"\)\?\.remove\(\)/, 'حقل طريقة الدفع محذوف من نموذج العقد');
+assert.match(app, /form\.querySelector\('\[name="transferNotice"\]'\)\?\.closest\("label"\)\?\.remove\(\)/, 'حقل إشعار التحويل محذوف من نموذج العقد');
+assert.match(app, /function contractPaymentMethods\(c\)/, 'طريقة الدفع مشتقة من مالية العقد');
 for (const section of ['basic', 'specifications', 'maintenance']) {
   assert.match(
     app,
@@ -110,6 +116,7 @@ const bridge = {
   fixedPdfFooter: () => '',
   contractLabel: () => 'شركة العميل',
   visibleContracts: () => [contract, installationContract],
+  contractPaymentMethods: () => 'شبكة، تحويل بنكي',
   docPayload: () => ({ title: 'عقد صيانة اختباري' }),
   companyStamp: () => '',
   companySignature: () => '',
@@ -192,6 +199,9 @@ function findNode(node, predicate) {
   }
   assert.doesNotMatch(text, /رابعاً:|خامساً:|سادساً:|سابعاً:|ثامناً:|تاسعاً:|عاشراً:/, 'لا توجد أقسام عقد صيانة إضافية');
   assert.doesNotMatch(text, /ضريبة|القيمة المضافة/, 'عقد الصيانة لا يضيف ضريبة');
+  assert.match(text, /شبكة، تحويل بنكي/, 'طريقة الدفع في PDF مأخوذة من دفعات مالية العقد');
+  assert.match(text, /Gearless|VEGA/, 'PDF الصيانة يحتفظ بمواصفات المحرك والكنترول اللازمة للصيانة');
+  assert.doesNotMatch(text, /ارتفاع المشوار|طول البئر|عرض البئر|عمق الحفرة|الارتفاع العلوي/, 'PDF الصيانة يستبعد قياسات التجهيز الإنشائي الخاصة بالتركيب');
 
   const parties = findNode(capturedDefinition.content, (node) => (
     node.table
@@ -221,7 +231,7 @@ function findNode(node, predicate) {
   assert.equal(specs.table.headerRows, 1, 'رأس جدول المواصفات يتكرر عند امتداد الصفحات');
   assert.equal(specs.table.dontBreakRows, true, 'صفوف المواصفات لا تنقسم');
   assert.ok(specs.table.widths.length > 2, 'جدول المواصفات يحتوي عدة أعمدة أفقية');
-  assert.doesNotMatch(text, /نوع المحرك|الكنترول/, 'PDF الصيانة لا يدمج حقول التبويبات المحذوفة');
+  assert.match(text, /نوع المحرك|الكنترول/, 'PDF الصيانة يعرض مواصفات التشغيل اللازمة لأعمال الصيانة');
 
   const maintenance = findNode(capturedDefinition.content, (node) => (
     node.table

@@ -681,9 +681,12 @@
     if (!info || typeof info !== 'object') return null;
     var out = [];
     if (overallTitle) out.push(sectionTitle(overallTitle, [0, 0, 0, 4]));
+    var allowed = {count:true,elevatorType:true,usage:true,capacity:true,persons:true,stops:true,age:true,doorType:true,motorManufacturer:true,motorType:true,controller:true,doorManufacturer:true,rescueSystem:true,intercom:true,camera:true,fan:true,fireMode:true,warranty:true,notes:true};
     var fields = [['count', 'عدد المصاعد']];
-    (specGroups[0]?.fields || []).forEach(function(f){
-      fields.push([f[0], f[1]]);
+    specGroups.forEach(function(group){
+      (group.fields || []).forEach(function(f){
+        if (allowed[f[0]]) fields.push([f[0], f[1]]);
+      });
     });
     if (!info.motorManufacturer && info.brand) fields.push(['brand', 'الماركة']);
     var seen = {};
@@ -692,7 +695,18 @@
       seen[field[0]] = true;
       return info[field[0]] != null && String(info[field[0]]).trim() !== '';
     }).map(function(field){ return [field[1], String(info[field[0]])]; });
-    if (!rows.length) return null;
+    if (!rows.length) {
+      out.push({
+        text: 'مواصفات المصعد غير موجودة في بيانات هذا العقد، ويلزم استعادتها من نسخة موثوقة قبل اعتماد المستند.',
+        bold: true,
+        fontSize: 9,
+        color: '#9f3a38',
+        fillColor: '#fff4f2',
+        alignment: 'right',
+        margin: [8, 7, 8, 7]
+      });
+      return out;
+    }
     Array.prototype.push.apply(out, horizontalKeyValueTables(rows, 4));
     return out;
   }
@@ -832,6 +846,7 @@
   }
 
   function maintenanceContractDataTable(c, companyName){
+    var paymentMethod = A.contractPaymentMethods ? A.contractPaymentMethods(c) : 'لم تسجل دفعات بعد';
     var rows = [
       ['رقم العقد', c.id || '—'],
       ['حالة العقد', c.status || '—'],
@@ -839,7 +854,7 @@
       ['نهاية العقد', c.endDate || 'غير محدد'],
       ['مدة العقد', String(Number(c.contractYears || 1)) + ' سنة'],
       ['قيمة العقد', safeMoney(c.value)],
-      ['طريقة الدفع', c.paymentMethod || 'غير محدد'],
+      ['طريقة الدفع', paymentMethod],
       ['منشأة الإصدار', companyName || 'غير محدد']
     ];
     return { stack: horizontalKeyValueTables(rows, 4), margin: [0, 0, 0, 2] };
@@ -891,6 +906,7 @@
     var cf = safeFooter();
     var content = [];
     var isInstall = c.type === 'تركيب';
+    var isParts = c.type === 'توريد وتركيب قطع غيار';
 
     console.log("PDFGEN", "contract type:", c.type, "is install:", isInstall);
 
@@ -933,17 +949,7 @@
         { label: 'بداية العقد', value: c.startDate },
         { label: 'نهاية العقد', value: c.endDate },
         { label: 'منشأة الإصدار', value: companyName }
-      ].concat([{label:'مدة التركيب',value:(c.installationInfo?.installDuration||'45 يوماً')}]).concat(c.deliveryDate?[{label:'تاريخ التسليم',value:c.deliveryDate}]:[]).concat(c.paymentMethod?[{label:'طريقة الدفع',value:c.paymentMethod}]:[])));
-
-      if (c.transferNotices?.length || c.transferNoticeData) {
-        var allNotices = c.transferNotices || [];
-        if (c.transferNoticeData) allNotices = [{data:c.transferNoticeData,name:c.transferNoticeName||'إشعار تحويل'}].concat(allNotices);
-        allNotices.forEach(function(n){
-          if (n.data && n.data.indexOf('data:image/') === 0) {
-            content.push({ image: n.data, width: 200, alignment: 'center', margin: [0, 4, 0, 4] });
-          }
-        });
-      }
+      ].concat([{label:'مدة التركيب',value:(c.installationInfo?.installDuration||'45 يوماً')}]).concat(c.deliveryDate?[{label:'تاريخ التسليم',value:c.deliveryDate}]:[]).concat([{label:'طريقة الدفع',value:A.contractPaymentMethods?A.contractPaymentMethods(c):'لم تسجل دفعات بعد'}])));
 
       if (c.financialNotes) {
         content.push({ text: 'ملاحظات مالية', fontSize: 12, bold: true, color: '#1e3a5f', margin: [0, 6, 0, 4], alignment: 'right' });
@@ -993,6 +999,33 @@
         var p = { text: 'تبدأ فترة الصيانة من تاريخ تسليم المصعد (' + c.deliveryDate + ') إلى تاريخ (' + c.maintenanceEndDate + ')، على أن تشمل أعمال الصيانة الدورية والطارئة وفق بنود الصيانة المتفق عليها أعلاه.', fontSize: 10, color: '#475569', alignment: 'right', lineHeight: 1.15 };
         content.push(sectionBlock(sec[si++], 'فترة الصيانة', p));
       }
+    } else if (isParts) {
+      var partsParty = safeLabel(c);
+      content.push({
+        stack: [
+          { text: 'عقد توريد وتركيب قطع غيار', fontSize: 13, bold: true, color: '#1e3a5f', alignment: 'center', margin: [0, 0, 0, 5] },
+          { text: 'تم الاتفاق بين ' + companyName + ' والطرف الثاني ' + partsParty + ' على توريد وتركيب واختبار قطع الغيار المبينة في هذا العقد وفق الأصول الفنية وتعليمات السلامة.', fontSize: 10, color: '#475569', alignment: 'right', lineHeight: 1.2, margin: [0, 0, 0, 8] }
+        ]
+      });
+      content.push(summaryTable([
+        {label:'الطرف الثاني',value:partsParty},
+        {label:'بداية العقد',value:c.startDate},
+        {label:'نهاية العقد',value:c.endDate},
+        {label:'قيمة العقد',value:safeMoney(c.value)},
+        {label:'طريقة الدفع',value:A.contractPaymentMethods?A.contractPaymentMethods(c):'لم تسجل دفعات بعد'}
+      ]));
+      var partsRows = (c.partsItems && c.partsItems.length) ? c.partsItems : (c.customItems || []).filter(function(x){ return x && x.section === 'قطع الغيار'; });
+      var partsNode = partsTable(partsRows, 'أولاً: قطع الغيار والكميات');
+      if (partsNode) Array.prototype.push.apply(content, partsNode);
+      else content.push(sectionBlock('أولاً', 'قطع الغيار والكميات', scopeText('', 'لم تُسجل قطع غيار في هذا العقد.')));
+      content.push(sectionBlock('ثانياً', 'نطاق التنفيذ', scopeText(c.details, 'يشمل نطاق العمل توريد القطع المعتمدة ونقلها إلى الموقع وتركيبها وضبطها واختبارها والتأكد من سلامة تشغيل المصعد بعد الإنجاز.')));
+      content.push(sectionBlock('ثالثاً', 'التزامات الطرف الأول', [
+        scopeText('يلتزم الطرف الأول بتوريد قطع مطابقة للمواصفات المتفق عليها وتنفيذ التركيب بواسطة فنيين مؤهلين، مع الالتزام بمتطلبات السلامة وتسليم الموقع بحالة تشغيلية سليمة.', ''),
+        scopeText('لا يُنفذ أي عمل إضافي أو استبدال خارج نطاق العقد إلا بعد موافقة الطرف الثاني وتوثيق أثره المالي والزمني.', '')
+      ]));
+      content.push(sectionBlock('رابعاً', 'الضمان والاستلام', scopeText('', 'يبدأ ضمان القطع وأعمال التركيب من تاريخ الاستلام والتشغيل، وفق مدة الضمان المثبتة لكل قطعة أو العرض المعتمد، ولا يشمل سوء الاستخدام أو العبث أو الأعطال الناتجة عن أسباب خارجة عن نطاق العمل.')));
+      var partsBuildings = maintenanceContractBuildingsTable(c.buildings || []);
+      if (partsBuildings) content.push(sectionBlock('خامساً', 'موقع التنفيذ', partsBuildings));
     } else {
       var basicNodes = [
         maintenanceContractPartiesTable(c, companyName),
@@ -1003,15 +1036,6 @@
       if (maintenanceBuildings) {
         basicNodes.push({ text: 'المباني والمواقع', fontSize: 10, bold: true, color: '#c9a84c', margin: [0, 2, 0, 4], alignment: 'right' });
         basicNodes.push(maintenanceBuildings);
-      }
-      if (c.transferNotices?.length || c.transferNoticeData) {
-        var maintenanceNotices = (c.transferNotices || []).slice();
-        if (c.transferNoticeData) maintenanceNotices.unshift({ data: c.transferNoticeData, name: c.transferNoticeName || 'إشعار تحويل' });
-        maintenanceNotices.forEach(function(notice){
-          if (notice.data && notice.data.indexOf('data:image/') === 0) {
-            basicNodes.push({ image: notice.data, fit: [240, 180], alignment: 'center', margin: [0, 4, 0, 4] });
-          }
-        });
       }
       if (c.financialNotes) {
         basicNodes.push({ text: 'ملاحظات مالية', fontSize: 10, bold: true, color: '#c9a84c', margin: [0, 2, 0, 3], alignment: 'right' });

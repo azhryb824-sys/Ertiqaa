@@ -2,6 +2,7 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const {validateContractWrite} = require("./contract-write-guard.cjs");
 const zlib = require("zlib");
 const {spawn} = require("child_process");
 require("dotenv").config();
@@ -37,7 +38,16 @@ const host = process.env.HOST || "0.0.0.0";
 // On Render, DATA_DIR and STORAGE_PATH must stay on the persistent disk (/var/data).
 // Do not move storage.json back into the project directory. It contains users,
 // passwords, contracts, quotes, documents, and all customer operational data.
-const preferredDataDir = process.env.DATA_DIR || path.join(require("os").homedir(), ".elevator-data");
+const preferredDataDir = process.env.DATA_DIR || (process.env.RENDER === "true" ? "/var/data" : path.join(require("os").homedir(), ".elevator-data"));
+const isRenderDeployment = process.env.RENDER === "true";
+function hasPersistentDataMount() {
+  if (!isRenderDeployment) return true;
+  try {
+    return fs.readFileSync("/proc/self/mountinfo", "utf8").split("\n").some(line => line.split(" ")[4] === "/var/data");
+  } catch {
+    return false;
+  }
+}
 let dataDir = preferredDataDir;
 try {
   fs.mkdirSync(dataDir, {recursive: true});
@@ -46,7 +56,7 @@ try {
   fs.mkdirSync(dataDir, {recursive: true});
 }
 const storagePath = process.env.STORAGE_PATH || path.join(dataDir, "storage.json");
-const storageFailover = process.env.STORAGE_FAILOVER_PATH || path.join(require("os").homedir(), ".elevator-storage.json");
+const storageFailover = process.env.STORAGE_FAILOVER_PATH || path.join(dataDir, "storage.failover.json");
 const legacyStoragePath = path.join(root, "storage.json");
 const aiResponseBankPath = path.join(root, "ai-response-bank.json");
 const voiceCacheDir = path.join(dataDir, ".voice-cache");
@@ -658,11 +668,15 @@ async function contractRecoverySourcePaths() {
 }
 
 function initializePersistentStorage() {
+  if (!hasPersistentDataMount()) {
+    throw new Error("Render persistent disk is not mounted at /var/data. Refusing to start to prevent database rollback.");
+  }
   fs.mkdirSync(path.dirname(storagePath), {recursive: true});
   let restoredFrom = "";
 
   if (!fs.existsSync(storagePath)) {
-    for (const candidate of recoveryCandidates()) {
+    const candidates = isRenderDeployment ? [] : recoveryCandidates();
+    for (const candidate of candidates) {
       try {
         const recovered = readJsonObjectFile(candidate);
         atomicWriteJson(storagePath, recovered);
@@ -674,6 +688,10 @@ function initializePersistentStorage() {
       }
     }
 
+    if (!fs.existsSync(storagePath) && isRenderDeployment && hasPersistentDataMount()) {
+      atomicWriteJson(storagePath, {misadCreatedAt: new Date().toISOString(), misadBootstrapPending: "1"});
+      console.warn("Initialized an empty mounted Render disk for one-time authenticated migration.");
+    }
     if (!fs.existsSync(storagePath)) {
       const productionStorage = process.env.REQUIRE_PERSISTENT_STORAGE === "1" ||
         process.env.RENDER === "true" ||
@@ -8212,6 +8230,10 @@ ${JSON.stringify(rows, null, 2)}
       return sendJson(res, 200, store);
     }
     if (req.method === "POST") {
+      // Decode the request as one UTF-8 stream. Converting each raw Buffer chunk
+      // separately can replace an Arabic character with U+FFFD when its bytes
+      // happen to be split across two network chunks.
+      req.setEncoding("utf8");
       let body = "";
       req.on("data", chunk => body += chunk);
       req.on("end", () => {
@@ -8234,6 +8256,15 @@ ${JSON.stringify(rows, null, 2)}
           ]);
           if (updates.some(update => financeKeys.has(String(update.key))) && !["owner", "company_admin", "admin"].includes(role)) {
             return sendJson(res, 403, {error: "Finance write permission required"});
+          }
+          const contractUpdate = updates.find(update => String(update.key) === "misadContracts");
+          if (contractUpdate) {
+            if (!authenticatedUserId || !["owner", "company_admin", "admin"].includes(role)) {
+              return sendJson(res, 403, {error: "Contract write permission required"});
+            }
+            if (contractUpdate.remove) return sendJson(res, 409, {error: "Contract storage cannot be removed"});
+            const validation = validateContractWrite(store.misadContracts, contractUpdate.value, authenticatedUserId);
+            if (!validation.ok) return sendJson(res, 409, {error: validation.error});
           }
           updates.forEach(({key, value, remove}) => {
             if (remove) delete store[key];
