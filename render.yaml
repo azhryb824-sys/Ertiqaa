@@ -4,7 +4,7 @@ services:
     runtime: node
     repo: https://github.com/azhryb824-sys/Ertiqaa
     buildCommand: npm install
-    startCommand: node server.cjs
+    startCommand: node safe-start.cjs
     # CRITICAL: This persistent disk stores all users, passwords, contracts,
     # quotes, documents, and customer data. Do not remove or change it in future edits.
     disk:
