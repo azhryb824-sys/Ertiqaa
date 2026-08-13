@@ -3,7 +3,7 @@ services:
     name: ertiqaa
     runtime: node
     repo: https://github.com/azhryb824-sys/Ertiqaa
-    buildCommand: npm install
+    buildCommand: npm install && node apply-contract-form-update.cjs
     startCommand: node safe-start.cjs
     # CRITICAL: This persistent disk stores all users, passwords, contracts,
     # quotes, documents, and customer data. Do not remove or change it in future edits.
