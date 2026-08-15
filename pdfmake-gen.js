@@ -681,7 +681,9 @@
     if (!info || typeof info !== 'object') return null;
     var out = [];
     if (overallTitle) out.push(sectionTitle(overallTitle, [0, 0, 0, 4]));
-    var allowed = {count:true,elevatorType:true,usage:true,capacity:true,persons:true,stops:true,age:true,doorType:true,motorManufacturer:true,motorType:true,controller:true,doorManufacturer:true,rescueSystem:true,intercom:true,camera:true,fan:true,fireMode:true,warranty:true,notes:true};
+    // عقد الصيانة يعرض بيانات تعريف المصعد فقط. مواصفات التجهيز والتركيب
+    // (المحرك والكنترول والأبواب والكابينة والأمان والكهرباء والضمان) لا تدخل في PDF الصيانة.
+    var allowed = {count:true,elevatorType:true,usage:true,capacity:true,persons:true,stops:true,age:true};
     var fields = [['count', 'عدد المصاعد']];
     specGroups.forEach(function(group){
       (group.fields || []).forEach(function(f){
