@@ -5,23 +5,14 @@ services:
     repo: https://github.com/azhryb824-sys/Ertiqaa
     buildCommand: npm install && node apply-contract-form-update.cjs
     startCommand: node safe-start.cjs
-    # CRITICAL: This persistent disk stores all users, passwords, contracts,
-    # quotes, documents, and customer data. Do not remove or change it in future edits.
-    disk:
-      name: ertiqaa-secure-data
-      mountPath: /var/data
-      sizeGB: 1
+    # Durable storage is provided by Supabase so the Render free plan needs no disk.
     envVars:
       - key: HOST
         value: 0.0.0.0
-      - key: DATA_DIR
-        value: /var/data
-      - key: STORAGE_PATH
-        value: /var/data/storage.json
-      # Fail closed if the persistent disk is missing. Never start from the
-      # repository template during a normal deployment.
-      - key: REQUIRE_PERSISTENT_STORAGE
-        value: "1"
+      - key: SUPABASE_URL
+        value: https://unpcsxkushhyelmoaxoa.supabase.co
+      - key: SUPABASE_SECRET_KEY
+        sync: false
       - key: AI_BACKUP_RETENTION_DAYS
         value: "365"
       - key: AI_BACKUP_INTERVAL_MINUTES
