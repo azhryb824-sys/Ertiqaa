@@ -68,6 +68,10 @@ const deviceCookie = "misad_device";
 const entryCookieValue = crypto.createHash("sha256").update(entrySecret).digest("hex");
 let storeCache = null;
 let storeMtime = 0;
+const supabaseUrl = String(process.env.SUPABASE_URL || "").replace(/\/$/, "");
+const supabaseSecretKey = String(process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "");
+const useSupabaseStorage = Boolean(supabaseUrl && supabaseSecretKey);
+let remoteWriteQueue = Promise.resolve();
 const _lastQs = new Map(); // {userId: {q, time, answer}}
 
 try {
@@ -490,42 +494,62 @@ function sendAuthenticatedJson(res, status, payload, userId) {
   res.end(JSON.stringify({...payload, accessToken}));
 }
 
+function supabaseHeaders(extra = {}) {
+  return {"apikey": supabaseSecretKey, "Authorization": `Bearer ${supabaseSecretKey}`, "Content-Type": "application/json", ...extra};
+}
+async function supabaseRequest(pathname, options = {}) {
+  const response = await fetch(`${supabaseUrl}/rest/v1/${pathname}`, {...options, headers: supabaseHeaders(options.headers || {})});
+  if (!response.ok) throw new Error(`Supabase storage request failed (${response.status}): ${(await response.text()).slice(0, 500)}`);
+  return response;
+}
+async function loadSupabaseStore() {
+  const rows = await (await supabaseRequest("ertiqaa_storage?select=key,value&order=key.asc&limit=1000", {method:"GET"})).json();
+  const store = Object.fromEntries(rows.map(row => [String(row.key), row.value]));
+  const required = ["misadContracts","misadVisits","misadUsers","misadSchemaVersion"];
+  const missing = required.filter(key => !Object.prototype.hasOwnProperty.call(store, key));
+  if (rows.length < 10 || missing.length) throw new Error(`Supabase storage validation failed: ${rows.length} keys; missing ${missing.join(", ") || "none"}`);
+  storeCache = store; storeMtime = Date.now();
+  console.log(`Loaded ${rows.length} storage keys from Supabase`);
+}
+async function persistSupabaseStore(store) {
+  const rows = Object.entries(JSON.parse(JSON.stringify(store))).map(([key,value]) => ({key,value,updated_by:"ertiqaa-server"}));
+  await supabaseRequest("ertiqaa_storage?on_conflict=key", {method:"POST",headers:{"Prefer":"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(rows)});
+}
+async function deleteSupabaseKeys(keys) {
+  if (!useSupabaseStorage) return;
+  for (const key of keys) await supabaseRequest(`ertiqaa_storage?key=eq.${encodeURIComponent(key)}`, {method:"DELETE"});
+}
 function readStore() {
+  if (useSupabaseStorage) {
+    if (!storeCache) throw new Error("Supabase storage has not finished loading");
+    return storeCache;
+  }
   try {
     const stat = fs.existsSync(storagePath) ? fs.statSync(storagePath) : null;
     const mtime = stat?.mtimeMs || 0;
     if (storeCache && mtime === storeMtime) return storeCache;
-    storeCache = readJsonObjectFile(storagePath);
-    storeMtime = mtime;
-    return storeCache;
+    storeCache = readJsonObjectFile(storagePath); storeMtime = mtime; return storeCache;
   } catch (error) {
-    storeCache = null;
-    storeMtime = 0;
+    storeCache = null; storeMtime = 0;
     throw new Error(`Persistent storage is unavailable or invalid; write refused: ${error.message}`);
   }
 }
-
 function writeStore(store) {
-  if (!store || typeof store !== "object" || Array.isArray(store)) {
-    throw new Error("Storage write refused: the root value must be an object");
+  if (!store || typeof store !== "object" || Array.isArray(store)) throw new Error("Storage write refused: the root value must be an object");
+  if (useSupabaseStorage) {
+    storeCache = store; storeMtime = Date.now();
+    remoteWriteQueue = remoteWriteQueue.catch(error => console.error("Previous Supabase write failed:", error.message)).then(() => persistSupabaseStore(store));
+    return remoteWriteQueue;
   }
-  try { if (!fs.existsSync(path.dirname(storagePath))) fs.mkdirSync(path.dirname(storagePath), {recursive: true}); } catch {}
+  try { if (!fs.existsSync(path.dirname(storagePath))) fs.mkdirSync(path.dirname(storagePath), {recursive:true}); } catch {}
   const currentStat = fs.existsSync(storagePath) ? fs.statSync(storagePath) : null;
   if (currentStat && storeMtime && currentStat.mtimeMs !== storeMtime && process.env.ALLOW_STALE_STORAGE_WRITE !== "1") {
-    storeCache = null;
-    storeMtime = 0;
-    throw new Error("Storage changed on disk before this write. Reload storage first to avoid overwriting newer data.");
+    storeCache = null; storeMtime = 0; throw new Error("Storage changed on disk before this write. Reload storage first to avoid overwriting newer data.");
   }
-  if (currentStat) {
-    pruneBackupFiles("prewrite-", prewriteBackupMaxCount - 1, prewriteBackupMaxAgeDays);
-    createVerifiedBackup(storagePath, backupDir, "prewrite");
-  }
+  if (currentStat) { pruneBackupFiles("prewrite-", prewriteBackupMaxCount - 1, prewriteBackupMaxAgeDays); createVerifiedBackup(storagePath, backupDir, "prewrite"); }
   atomicWriteJson(storagePath, store);
-  try { atomicWriteJson(storageFailover, store); } catch (error) {
-    console.warn("Failover mirror update skipped:", error.message);
-  }
-  storeCache = store;
-  storeMtime = fs.statSync(storagePath).mtimeMs;
+  try { atomicWriteJson(storageFailover, store); } catch (error) { console.warn("Failover mirror update skipped:", error.message); }
+  storeCache = store; storeMtime = fs.statSync(storagePath).mtimeMs;
 }
 
 const backupDir = path.join(dataDir, "backups");
@@ -667,7 +691,8 @@ async function contractRecoverySourcePaths() {
   return [...recoveryCandidates(), ...historical].slice(0, contractRecoveryMaxSources());
 }
 
-function initializePersistentStorage() {
+async function initializePersistentStorage() {
+  if (useSupabaseStorage) { await loadSupabaseStore(); return; }
   if (!hasPersistentDataMount()) {
     throw new Error("Render persistent disk is not mounted at /var/data. Refusing to start to prevent database rollback.");
   }
@@ -4913,9 +4938,15 @@ function generateLocalAiResponse(question, plan, context, user = {}, knowledge =
   ]);
 }
 
-initializePersistentStorage();
+const storageReady = initializePersistentStorage().catch(error => {
+  console.error("Storage initialization failed:", error.message);
+  process.exitCode = 1;
+  setTimeout(() => process.exit(1), 100).unref?.();
+  throw error;
+});
 
 http.createServer(async (req, res) => {
+  await storageReady;
   const pathname = decodeURIComponent(req.url.split("?")[0]);
   if (sendMobileAssociation(res, pathname)) return;
   if (pathname === "/health" || pathname === "/api/health") return sendJson(res, 200, {ok: true, at: new Date().toISOString()});
@@ -8236,7 +8267,7 @@ ${JSON.stringify(rows, null, 2)}
       req.setEncoding("utf8");
       let body = "";
       req.on("data", chunk => body += chunk);
-      req.on("end", () => {
+      req.on("end", async () => {
         try {
           const input = JSON.parse(body || "{}");
           const updates = Array.isArray(input.updates) ? input.updates.slice(0, 100) : [input];
@@ -8270,7 +8301,8 @@ ${JSON.stringify(rows, null, 2)}
             if (remove) delete store[key];
             else store[key] = value;
           });
-          writeStore(store);
+          await writeStore(store);
+          await deleteSupabaseKeys(updates.filter(update => update.remove).map(update => String(update.key)));
           sendJson(res, 200, {ok: true, updated: updates.length});
         } catch {
           sendJson(res, 400, {error: "Invalid JSON"});
@@ -8306,7 +8338,8 @@ ${JSON.stringify(rows, null, 2)}
     }, extraHeaders));
     res.end(data);
   });
-}).listen(port, host, () => {
+}).listen(port, host, async () => {
+  await storageReady;
   console.log(`Server running at http://${host}:${port}/`);
   const store = readStore();
   const invites = inviteList(store);
