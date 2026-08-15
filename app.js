@@ -449,7 +449,8 @@ const specGroups=[
     {tab:"الكهرباء",fields:[["voltage","الجهد","input"],["frequency","التردد","input"],["phases","عدد الفازات","input"],["travelCableSize","مقاس الكيبل المرن","input"],["powerConsumption","استهلاك الكهرباء","input"]]},
     {tab:"الضمان",fields:[["warranty","مدة الضمان","select",["سنة","سنتان","3 سنوات","5 سنوات"]],["notes","الملاحظات","textarea"]]}
   ];
-  const maintenanceSpecKeys=new Set(["elevatorType","usage","capacity","persons","stops","age","doorType","motorManufacturer","motorType","controller","doorManufacturer","rescueSystem","intercom","camera","fan","fireMode","warranty","notes"]);
+  // عقود الصيانة تحتاج بيانات تعريف المصعد فقط؛ بقية المواصفات تخص عقود التركيب.
+  const maintenanceSpecKeys=new Set(["elevatorType","usage","capacity","persons","stops","age"]);
   const installOnlySpecKeys=specGroups.flatMap(group=>group.fields.map(field=>field[0])).filter(key=>!maintenanceSpecKeys.has(key));
   const specValue=(info,key)=>Object.prototype.hasOwnProperty.call(info||{},key)?(info[key]??""):(Object.keys(info||{}).length?"":(specDefaults[key]??""));
   const specSelect=(name,label,opts,val)=>`<label>${label}<select name="spec_${name}">${opts.map(o=>`<option ${String(val)===o?"selected":""}>${o}</option>`).join("")}</select></label>`;
@@ -604,7 +605,9 @@ function updateContractTransferNotice(f){if(!f?.matches?.('[data-form="contract"
       const tabIndex=isInstall?original:(original===0?0:(original===lastIndex?2:1));
       panel.dataset.contractTabPanel=String(tabIndex);
       panel.classList.toggle("active",tabIndex===activeTab);
-      panel.style.display="";
+      // في عقد الصيانة لا نعرض مجموعات المحرك والكابينة والأبواب والأمان
+      // والكهرباء والضمان؛ تبقى هذه المجموعات متاحة لعقد التركيب فقط.
+      panel.style.display=(!isInstall&&original>1&&original<lastIndex)?"none":"";
     });
     form.dataset.contractTabsMode=mode;
   }
