@@ -23,7 +23,14 @@ function update(path, edits) {
   for (const [index, [before, after, optional]] of edits.entries()) {
     if (source.includes(after)) continue;
     if (!source.includes(before)) {
-      if (optional) continue;
+      const currentContractForm = path === 'app.js'
+        && source.includes('function contractPaymentMethods(c)')
+        && source.includes('const maintenanceSpecKeys=new Set(')
+        && source.includes('contractForm=threeTabContractForm;');
+      const currentPdf = path === 'pdfmake-gen.js'
+        && source.includes('var excluded = {travelHeight:true')
+        && source.includes("A.contractPaymentMethods ? A.contractPaymentMethods(c)");
+      if (optional || currentContractForm || currentPdf) continue;
       throw new Error(`تعذر تطبيق تحديث العقد في ${path} (التعديل ${index + 1})`);
     }
     source = source.replace(before, () => after);
