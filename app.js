@@ -587,6 +587,10 @@ function elevatorSection(i={}){const info=Object.assign({},specDefaults,i||{});r
       else box.querySelectorAll('[data-old-contract-disabled="1"]').forEach(el=>{el.disabled=false;delete el.dataset.oldContractDisabled});
     });
     if(old)f.querySelectorAll('[name="paymentPct"],[name="paymentLabel"],[name="paymentDesc"]').forEach(el=>{el.disabled=true;el.dataset.oldContractDisabled='1'});
+    f.querySelectorAll('[name="buildingName"],[name="buildingDistrict"]').forEach(el=>{
+      if(old&&el.required){el.required=false;el.dataset.oldContractRequired='1'}
+      else if(!old&&el.dataset.oldContractRequired==='1'){el.required=true;delete el.dataset.oldContractRequired}
+    });
   }
 function updateContractTransferNotice(f){if(!f?.matches?.('[data-form="contract"],[data-form="contract-edit"]'))return;const pm=f.querySelector('[name="paymentMethod"]');if(!pm)return;const tn=f.querySelector('[data-transfer-notice]');if(tn)tn.style.display=pm.value==="تحويل بنكي"?"":"none"}
   function installationSpecRows(c){const e=Object.assign({},specDefaults,c.elevatorInfo||{},c.installationInfo||{});return specGroups.flatMap(g=>g.fields.map(([k,l])=>[l,e[k]||"حسب المواصفات"])).map(r=>`<tr><th>${r[0]}</th><td>${esc(r[1])}</td></tr>`).join("")}
