@@ -3177,6 +3177,87 @@ if (isParts) {
     setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
   }
 
+  var financialPdfTypes = {
+    'claim': true,
+    'receipt': true,
+    'contract-finance': true,
+    'contract-payments': true,
+    'purchase-invoice': true,
+    'contract-expenses': true,
+    'contract-profit': true,
+    'custody': true,
+    'payroll': true,
+    'salary-receipt': true,
+    'finance-summary': true,
+    'staff-finance': true,
+    'supplier-finance': true,
+    'installment': true,
+    'customer-invoice': true,
+    'treasury': true,
+    'payment-voucher': true,
+    'staff-payment-voucher': true,
+    'installment-demand': true,
+    'customer-statement': true,
+    'accounting-ledger': true,
+    'accounting-account-statement': true,
+    'accounting-trial-balance': true,
+    'accounting-income': true,
+    'accounting-balance-sheet': true,
+    'accounting-journal': true
+  };
+
+  function pdfNodeContainsImage(node, imageData){
+    if (!node || !imageData) return false;
+    if (Array.isArray(node)) return node.some(function(child){ return pdfNodeContainsImage(child, imageData); });
+    if (typeof node !== 'object') return false;
+    if (node.image === imageData) return true;
+    return Object.keys(node).some(function(key){
+      return key !== 'image' && pdfNodeContainsImage(node[key], imageData);
+    });
+  }
+
+  function ensureFinancialCompanyApproval(dd, type){
+    if (!financialPdfTypes[type]) return true;
+    var stamp = (A.companyStamp && A.companyStamp()) || '';
+    var signature = (A.companySignature && A.companySignature()) || '';
+    if (!stamp || !signature) {
+      pdfLog('يلزم رفع ختم الشركة وتوقيعها من بيانات المنشأة قبل إصدار أي PDF مالي');
+      return false;
+    }
+    if (!dd || !Array.isArray(dd.content)) return false;
+    var hasStamp = pdfNodeContainsImage(dd.content, stamp);
+    var hasSignature = pdfNodeContainsImage(dd.content, signature);
+    if (hasStamp && hasSignature) return true;
+    dd.content.push({
+      stack: [
+        { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.5, lineColor: '#94a3b8' }], margin: [0, 10, 0, 6] },
+        { text: 'اعتماد الشركة', bold: true, fontSize: 11, color: '#1e3a5f', alignment: 'center', margin: [0, 0, 0, 4] },
+        {
+          columns: [
+            hasSignature ? { text: '', width: '*' } : {
+              width: '*',
+              stack: [
+                { text: 'توقيع الشركة', fontSize: 8, color: '#64748b', alignment: 'center' },
+                { image: signature, fit: [150, 78], alignment: 'center', margin: [0, 3, 0, 0] }
+              ]
+            },
+            hasStamp ? { text: '', width: '*' } : {
+              width: '*',
+              stack: [
+                { text: 'ختم الشركة', fontSize: 8, color: '#64748b', alignment: 'center' },
+                { image: stamp, fit: [135, 88], alignment: 'center', margin: [0, 3, 0, 0] }
+              ]
+            }
+          ],
+          columnGap: 12
+        }
+      ],
+      unbreakable: true,
+      margin: [0, 0, 0, 4]
+    });
+    return true;
+  }
+
   window.generatePdf = async function(type, id, opts){
     if (type === 'quote' && !(opts && opts.clean)) opts = Object.assign({}, opts || {}, {letterhead:true});
     console.log("PDFGEN", "pdfmake attempt", type, id, "ready:", pdfmakeReady);
@@ -3189,6 +3270,10 @@ if (isParts) {
       return;
     }
     if (!pdfmakeReady) {
+      if (financialPdfTypes[type]) {
+        pdfLog('تعذر تجهيز PDF المالي بالختم والتوقيع حالياً، أعد المحاولة');
+        return;
+      }
       if (type === 'quote') { pdfLog('تعذر تجهيز ملف عرض السعر حالياً، أعد المحاولة'); return; }
       if (opts && opts.letterhead) {
         pdfLog('تعذر توليد PDF على مطبوعات الشركة حالياً');
@@ -3421,12 +3506,18 @@ if (isParts) {
         return;
       }
 
+      if (!ensureFinancialCompanyApproval(dd, type)) return;
+
       var suffix = (opts && opts.letterhead) ? ' (على مطبوعات الشركة)' : ((opts && opts.clean) ? ' (بدون ترويسة)' : '');
       await downloadPdfDefinition(dd, p.title + suffix + '.pdf');
       pdfLog('تم تحميل PDF بنجاح');
 
     } catch(err) {
       console.error("PDFGEN", "pdfmake error:", err);
+      if (financialPdfTypes[type]) {
+        pdfLog('تعذر إصدار PDF المالي بالختم والتوقيع، أعد المحاولة');
+        return;
+      }
       if (type === 'quote') { pdfLog('تعذر توليد ملف عرض السعر، أعد المحاولة'); return; }
       if (opts && opts.letterhead) {
         pdfLog('تعذر توليد PDF على مطبوعات الشركة');
