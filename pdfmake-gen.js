@@ -157,7 +157,7 @@
     amounts.sort(function(a, b){ return a - b; });
     dd.content.push({
       stack: [
-        { text: 'تفقيط المبالغ الواردة في المستند', bold: true, fontSize: 11, color: '#1e3a5f', alignment: 'right', margin: [0, 8, 0, 4] },
+        { text: 'بيان المبالغ رقمًا وكتابةً', bold: true, fontSize: 11, color: '#1e3a5f', alignment: 'right', margin: [0, 8, 0, 4] },
         {
           table: {
             headerRows: 1,
