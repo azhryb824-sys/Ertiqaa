@@ -44,6 +44,151 @@
     return n.toLocaleString("en-US") + ' ر.س';
   }
 
+  function arabicUnderThousand(value){
+    var n = Math.floor(Math.abs(Number(value) || 0));
+    if (!n) return '';
+    var ones = ['', 'واحد', 'اثنان', 'ثلاثة', 'أربعة', 'خمسة', 'ستة', 'سبعة', 'ثمانية', 'تسعة'];
+    var teens = ['عشرة', 'أحد عشر', 'اثنا عشر', 'ثلاثة عشر', 'أربعة عشر', 'خمسة عشر', 'ستة عشر', 'سبعة عشر', 'ثمانية عشر', 'تسعة عشر'];
+    var tens = ['', '', 'عشرون', 'ثلاثون', 'أربعون', 'خمسون', 'ستون', 'سبعون', 'ثمانون', 'تسعون'];
+    var hundreds = ['', 'مائة', 'مائتان', 'ثلاثمائة', 'أربعمائة', 'خمسمائة', 'ستمائة', 'سبعمائة', 'ثمانمائة', 'تسعمائة'];
+    var parts = [];
+    var h = Math.floor(n / 100), rest = n % 100;
+    if (h) parts.push(hundreds[h]);
+    if (rest) {
+      var tail = '';
+      if (rest < 10) tail = ones[rest];
+      else if (rest < 20) tail = teens[rest - 10];
+      else {
+        var u = rest % 10, t = Math.floor(rest / 10);
+        tail = (u ? ones[u] + ' و' : '') + tens[t];
+      }
+      parts.push(tail);
+    }
+    return parts.join(' و');
+  }
+
+  function arabicIntegerWords(value){
+    var n = Math.floor(Math.abs(Number(value) || 0));
+    if (!n) return 'صفر';
+    var scales = [
+      null,
+      { one: 'ألف', two: 'ألفان', plural: 'آلاف', many: 'ألفًا' },
+      { one: 'مليون', two: 'مليونان', plural: 'ملايين', many: 'مليونًا' },
+      { one: 'مليار', two: 'ملياران', plural: 'مليارات', many: 'مليارًا' },
+      { one: 'تريليون', two: 'تريليونان', plural: 'تريليونات', many: 'تريليونًا' }
+    ];
+    var groups = [], scaleIndex = 0;
+    while (n > 0 && scaleIndex < scales.length) {
+      var chunk = n % 1000;
+      if (chunk) {
+        if (scaleIndex === 0) groups.unshift(arabicUnderThousand(chunk));
+        else {
+          var scale = scales[scaleIndex], phrase;
+          if (chunk === 1) phrase = scale.one;
+          else if (chunk === 2) phrase = scale.two;
+          else if (chunk >= 3 && chunk <= 10) phrase = arabicUnderThousand(chunk) + ' ' + scale.plural;
+          else phrase = arabicUnderThousand(chunk) + ' ' + scale.many;
+          groups.unshift(phrase);
+        }
+      }
+      n = Math.floor(n / 1000);
+      scaleIndex++;
+    }
+    return groups.join(' و');
+  }
+
+  function amountWithCurrencyUnit(value, singular, dual, plural, accusative, oneWord, twoWord){
+    var n = Math.abs(Math.floor(Number(value) || 0)), lastTwo = n % 100;
+    if (n === 0) return 'صفر ' + singular;
+    if (n === 1) return singular + ' ' + oneWord;
+    if (n === 2) return dual + ' ' + twoWord;
+    var unit = (lastTwo >= 3 && lastTwo <= 10) ? plural : accusative;
+    return arabicIntegerWords(n) + ' ' + unit;
+  }
+
+  function arabicFeminineUnderHundred(value){
+    var n = Math.floor(Math.abs(Number(value) || 0));
+    var ones = ['', 'واحدة', 'اثنتان', 'ثلاث', 'أربع', 'خمس', 'ست', 'سبع', 'ثمان', 'تسع'];
+    var teens = ['عشر', 'إحدى عشرة', 'اثنتا عشرة', 'ثلاث عشرة', 'أربع عشرة', 'خمس عشرة', 'ست عشرة', 'سبع عشرة', 'ثماني عشرة', 'تسع عشرة'];
+    var tens = ['', '', 'عشرون', 'ثلاثون', 'أربعون', 'خمسون', 'ستون', 'سبعون', 'ثمانون', 'تسعون'];
+    if (n < 10) return ones[n];
+    if (n < 20) return teens[n - 10];
+    return (n % 10 ? ones[n % 10] + ' و' : '') + tens[Math.floor(n / 10)];
+  }
+
+  function halalaWords(value){
+    var n = Math.abs(Math.floor(Number(value) || 0)), lastTwo = n % 100;
+    if (n === 1) return 'هللة واحدة';
+    if (n === 2) return 'هللتان اثنتان';
+    var unit = (lastTwo >= 3 && lastTwo <= 10) ? 'هللات' : 'هللةً';
+    return arabicFeminineUnderHundred(n) + ' ' + unit;
+  }
+
+  function tafqitSar(value){
+    var raw = Number(value);
+    if (!Number.isFinite(raw)) return '';
+    var negative = raw < 0, totalHalalas = Math.round(Math.abs(raw) * 100);
+    var riyals = Math.floor(totalHalalas / 100), halalas = totalHalalas % 100;
+    var text = amountWithCurrencyUnit(riyals, 'ريال', 'ريالان', 'ريالات', 'ريالًا', 'واحد', 'اثنان');
+    if (halalas) text += ' و' + halalaWords(halalas);
+    return 'فقط ' + (negative ? 'سالب ' : '') + text + ' لا غير';
+  }
+
+  function collectPdfMoneyValues(node, values){
+    if (!node) return;
+    if (Array.isArray(node)) { node.forEach(function(child){ collectPdfMoneyValues(child, values); }); return; }
+    if (typeof node !== 'object') return;
+    if (typeof node.text === 'string') {
+      var re = /(-?[0-9][0-9,]*(?:\.[0-9]+)?)\s*ر\.س/g, match;
+      while ((match = re.exec(node.text))) {
+        var amount = Number(match[1].replace(/,/g, ''));
+        if (Number.isFinite(amount)) values[String(Math.round(amount * 100) / 100)] = amount;
+      }
+    }
+    Object.keys(node).forEach(function(key){ if (key !== 'text') collectPdfMoneyValues(node[key], values); });
+  }
+
+  function ensurePdfTafqit(dd){
+    if (!dd || !Array.isArray(dd.content)) return;
+    var values = {};
+    collectPdfMoneyValues(dd.content, values);
+    var amounts = Object.keys(values).map(function(key){ return values[key]; });
+    if (!amounts.length) return;
+    amounts.sort(function(a, b){ return a - b; });
+    dd.content.push({
+      stack: [
+        { text: 'تفقيط المبالغ الواردة في المستند', bold: true, fontSize: 11, color: '#1e3a5f', alignment: 'right', margin: [0, 8, 0, 4] },
+        {
+          table: {
+            headerRows: 1,
+            widths: [100, '*'],
+            body: [[
+              { text: 'المبلغ رقمًا', bold: true, color: '#fff', fillColor: '#1e3a5f', alignment: 'center' },
+              { text: 'المبلغ كتابةً', bold: true, color: '#fff', fillColor: '#1e3a5f', alignment: 'center' }
+            ]].concat(amounts.map(function(amount){
+              return [
+                { text: safeMoney(amount), fontSize: 9, alignment: 'center' },
+                { text: tafqitSar(amount), fontSize: 9, alignment: 'right' }
+              ];
+            }))
+          },
+          layout: {
+            hLineWidth: function(){ return 0.4; },
+            vLineWidth: function(){ return 0.4; },
+            hLineColor: function(){ return '#cbd5e1'; },
+            vLineColor: function(){ return '#cbd5e1'; },
+            paddingLeft: function(){ return 5; },
+            paddingRight: function(){ return 5; },
+            paddingTop: function(){ return 4; },
+            paddingBottom: function(){ return 4; }
+          }
+        }
+      ],
+      unbreakable: amounts.length <= 6,
+      margin: [0, 0, 0, 6]
+    });
+  }
+
   function safeFooter(){
     if (A.fixedPdfFooter) {
       var f = A.fixedPdfFooter();
@@ -3506,6 +3651,7 @@ if (isParts) {
         return;
       }
 
+      ensurePdfTafqit(dd);
       if (!ensureFinancialCompanyApproval(dd, type)) return;
 
       var suffix = (opts && opts.letterhead) ? ' (على مطبوعات الشركة)' : ((opts && opts.clean) ? ' (بدون ترويسة)' : '');
