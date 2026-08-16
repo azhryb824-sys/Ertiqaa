@@ -957,14 +957,13 @@
     if (!info || typeof info !== 'object') return null;
     var out = [];
     specGroups.forEach(function(group){
-      if ((excludedSections || []).indexOf(group.tab) >= 0) return;
+      var excluded = (excludedSections || []).indexOf(group.tab) >= 0;
       var rows = [];
-      group.fields.forEach(function(f){
-        var val = info[f[0]];
-        if (val && val !== '') {
-          rows.push([f[1], String(val)]);
-        }
-      });
+      if (excluded) rows.push([group.tab, 'بدون']);
+      else group.fields.forEach(function(f){
+          var val = info[f[0]];
+          if (val && val !== '') rows.push([f[1], String(val)]);
+        });
       if (rows.length) {
         if (overallTitle && !out.length) {
           out.push(sectionTitle(overallTitle, [0, 0, 0, 4]));
