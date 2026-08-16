@@ -953,10 +953,11 @@
     return out;
   }
 
-  function specTable(info, overallTitle){
+  function specTable(info, overallTitle, excludedSections){
     if (!info || typeof info !== 'object') return null;
     var out = [];
     specGroups.forEach(function(group){
+      if ((excludedSections || []).indexOf(group.tab) >= 0) return;
       var rows = [];
       group.fields.forEach(function(f){
         var val = info[f[0]];
@@ -973,6 +974,20 @@
       }
     });
     if (!out.length) return null;
+    return out;
+  }
+
+  function serviceInfoTable(info, title){
+    info = info || {};
+    var rows = [
+      ['نطاق العمل', info.scope], ['المكونات / القطع', info.components],
+      ['الكميات والمواصفات', info.quantities], ['مدة التنفيذ', info.duration],
+      ['الضمان', info.warranty], ['الاختبار والاستلام', info.acceptance],
+      ['الاستثناءات', info.exclusions]
+    ].filter(function(r){ return r[1] != null && String(r[1]).trim() !== ''; });
+    if (!rows.length) return null;
+    var out = [sectionTitle(title || 'نطاق الأعمال وشروط التنفيذ', [0, 0, 0, 4])];
+    Array.prototype.push.apply(out, horizontalKeyValueTables(rows, 4));
     return out;
   }
 
@@ -1128,6 +1143,7 @@
     var content = [];
     var isInstall = c.type === 'تركيب';
     var isParts = c.type === 'توريد وتركيب قطع غيار';
+    var isService = !isInstall && c.type !== 'صيانة';
 
     console.log("PDFGEN", "contract type:", c.type, "is install:", isInstall);
 
@@ -1190,7 +1206,7 @@
       var si = 0;
       Array.prototype.push.apply(content, sectionBlock(sec[si++], 'نطاق التوريد والتركيب', scopeText(c.details, scopeDefault)));
 
-      var st = specTable(c.elevatorInfo, 'البند ' + sec[si++] + ': المواصفات الفنية للمصعد');
+      var st = specTable(c.elevatorInfo, 'البند ' + sec[si++] + ': المواصفات الفنية للمصعد', c.excludedSections || []);
       if (st && st.length) {
         Array.prototype.push.apply(content, st);
       }
@@ -1233,7 +1249,9 @@
       var partsNode = partsTable(partsRows, 'أولاً: قطع الغيار والكميات');
       if (partsNode) Array.prototype.push.apply(content, partsNode);
       else content.push(sectionBlock('أولاً', 'قطع الغيار والكميات', scopeText('', 'لم تُسجل قطع غيار في هذا العقد.')));
-      content.push(sectionBlock('ثانياً', 'نطاق التنفيذ', scopeText(c.details, 'يشمل نطاق العمل توريد القطع المعتمدة ونقلها إلى الموقع وتركيبها وضبطها واختبارها والتأكد من سلامة تشغيل المصعد بعد الإنجاز.')));
+      var partsService = serviceInfoTable(c.serviceInfo, 'ثانياً: نطاق الأعمال وشروط التنفيذ');
+      if (partsService) Array.prototype.push.apply(content, partsService);
+      else content.push(sectionBlock('ثانياً', 'نطاق التنفيذ', scopeText(c.details, 'يشمل نطاق العمل توريد القطع المعتمدة ونقلها إلى الموقع وتركيبها وضبطها واختبارها والتأكد من سلامة تشغيل المصعد بعد الإنجاز.')));
       content.push(sectionBlock('ثالثاً', 'التزامات الطرف الأول', [
         scopeText('يلتزم الطرف الأول بتوريد قطع مطابقة للمواصفات المتفق عليها وتنفيذ التركيب بواسطة فنيين مؤهلين، مع الالتزام بمتطلبات السلامة وتسليم الموقع بحالة تشغيلية سليمة.', ''),
         scopeText('لا يُنفذ أي عمل إضافي أو استبدال خارج نطاق العقد إلا بعد موافقة الطرف الثاني وتوثيق أثره المالي والزمني.', '')
@@ -1241,6 +1259,17 @@
       content.push(sectionBlock('رابعاً', 'الضمان والاستلام', scopeText('', 'يبدأ ضمان القطع وأعمال التركيب من تاريخ الاستلام والتشغيل، وفق مدة الضمان المثبتة لكل قطعة أو العرض المعتمد، ولا يشمل سوء الاستخدام أو العبث أو الأعطال الناتجة عن أسباب خارجة عن نطاق العمل.')));
       var partsBuildings = maintenanceContractBuildingsTable(c.buildings || []);
       if (partsBuildings) content.push(sectionBlock('خامساً', 'موقع التنفيذ', partsBuildings));
+    } else if (isService) {
+      content.push(maintenanceContractPartiesTable(c, companyName));
+      content.push(summaryTable([{label:'نوع العقد',value:c.type},{label:'بداية العقد',value:c.startDate},{label:'نهاية العقد',value:c.endDate},{label:'قيمة العقد',value:safeMoney(c.value)}]));
+      var serviceNodes = serviceInfoTable(c.serviceInfo, 'نطاق الأعمال وشروط التنفيذ');
+      if (serviceNodes) Array.prototype.push.apply(content, serviceNodes);
+      else content.push(sectionBlock('أولاً', 'نطاق العمل', scopeText(c.details, 'تنفيذ الأعمال المتفق عليها وفق المواصفات الفنية والبنود المعتمدة في هذا العقد.')));
+      var serviceItems = renderItems([].concat(c.items || [], c.customItems || []), 'البنود والمكونات');
+      if (serviceItems) Array.prototype.push.apply(content, serviceItems);
+      var serviceBuildings = maintenanceContractBuildingsTable(c.buildings || []);
+      if (serviceBuildings) Array.prototype.push.apply(content, sectionBlock('ثانياً', 'موقع التنفيذ', serviceBuildings));
+      content.push(sectionBlock('ثالثاً', 'التنفيذ والاستلام', scopeText('', 'ينفذ الطرف الأول الأعمال بواسطة فنيين مؤهلين، ويجري الاختبار والتسليم وفق النطاق والمواصفات المثبتة، ولا يعتمد أي عمل إضافي إلا بعد توثيقه وموافقة الطرفين.')));
     } else {
       var basicNodes = [
         maintenanceContractPartiesTable(c, companyName),
@@ -1296,6 +1325,7 @@
     var party = q.client || q.clientCompanyName || q.clientName || "غير محدد";
     var isInstall = q.type === "تركيب";
     var isParts = q.type === "توريد وتركيب قطع غيار";
+    var isService = !isInstall && q.type !== "صيانة";
     var companyName = activeCompanyName();
     var cf = safeFooter();
     var content = [];
@@ -1363,8 +1393,13 @@
       margin: [0, 0, 0, 10]
     });
 
-    var et = elevatorTable(q.elevatorInfo);
-    if (et) Array.prototype.push.apply(content, et);
+    if (isInstall) {
+      var et = specTable(q.elevatorInfo, 'المواصفات الفنية للمصعد', q.excludedSections || []);
+      if (et) Array.prototype.push.apply(content, et);
+    } else if (q.type === 'صيانة') {
+      var met = elevatorTable(q.elevatorInfo);
+      if (met) Array.prototype.push.apply(content, met);
+    }
 
     if (isInstall) {
       var plan = (q.paymentPlan && q.paymentPlan.length) ? q.paymentPlan : [];
@@ -1414,7 +1449,12 @@
       if (pt) Array.prototype.push.apply(content, pt);
     }
 
-    if (!isInstall && !isParts) {
+    if (isService) {
+      var qs = serviceInfoTable(q.serviceInfo, 'نطاق الأعمال وشروط التنفيذ');
+      if (qs) Array.prototype.push.apply(content, qs);
+    }
+
+    if (q.type === 'صيانة') {
       var mt = maintenanceTable(q.maintenanceChecklist);
       if (mt) Array.prototype.push.apply(content, mt);
     }
