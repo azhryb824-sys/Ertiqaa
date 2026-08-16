@@ -364,6 +364,64 @@
     return { text: status, fontSize: 10, color: '#fff', background: color, alignment: 'center', margin: [0, 2, 0, 2], width: 90 };
   }
 
+  function isCancelledContract(c){
+    var status = String((c && c.status) || '').trim().toLowerCase();
+    return /(ملغي|ملغى|ملغاة|ملغية|محذوف|cancelled|canceled|deleted)/.test(status);
+  }
+
+  function readPdfRecords(key){
+    try { return A._read ? (A._read(key) || []) : JSON.parse(localStorage.getItem(key) || '[]'); }
+    catch(e){ return []; }
+  }
+
+  function relatedContractForPdf(type, id){
+    var contractId = '';
+    var direct = ['contract','contract-finance','contract-payments','contract-expenses','contract-profit','customer-statement','install-receipt'];
+    if (direct.indexOf(type) >= 0) contractId = String(id || '');
+    else if (type === 'installment' || type === 'installment-demand') contractId = String(id || '').split(':')[0];
+    else {
+      var sources = {
+        receipt: ['misadReceipts'],
+        claim: ['misadClaims'],
+        'customer-invoice': ['misadCustomerInvoices'],
+        'purchase-invoice': ['misadPurchaseInvoices'],
+        'payment-voucher': ['misadContractExpenses']
+      };
+      var source = sources[type];
+      if (source) {
+        var record = readPdfRecords(source[0]).find(function(x){ return String(x.id) === String(id); });
+        contractId = record && record.contractId ? String(record.contractId) : '';
+      }
+    }
+    if (!contractId || !A.visibleContracts) return null;
+    return A.visibleContracts().find(function(x){ return String(x.id) === contractId; }) || null;
+  }
+
+  function cancelledPdfPolicy(type, id){
+    var contract = relatedContractForPdf(type, id);
+    if (!isCancelledContract(contract)) return { allowed: true, contract: contract, cancelled: false };
+    var blocked = ['contract-finance','installment-demand','install-receipt'];
+    return {
+      allowed: blocked.indexOf(type) < 0,
+      contract: contract,
+      cancelled: true,
+      message: 'لا يمكن إنشاء هذا المستند لأن العقد ملغى ولا يصح إنشاء استحقاق مالي جديد عليه.'
+    };
+  }
+
+  function markCancelledContractPdf(dd, contract){
+    if (!dd || !dd.content || !isCancelledContract(contract)) return dd;
+    dd.content.unshift({
+      table: { widths: ['*'], body: [[{
+        text: 'نسخة تاريخية — العقد ملغى' + (contract.cancelledAt ? ' بتاريخ ' + String(contract.cancelledAt).slice(0, 10) : '') + '\nهذا المستند للأرشفة والمراجعة فقط، ولا ينشئ استحقاقاً مالياً جديداً.',
+        bold: true, fontSize: 11, color: '#991b1b', fillColor: '#fee2e2', alignment: 'center', margin: [8, 7, 8, 7]
+      }]] },
+      layout: { hLineColor: function(){ return '#dc2626'; }, vLineColor: function(){ return '#dc2626'; } },
+      margin: [0, 0, 0, 8]
+    });
+    return dd;
+  }
+
   function elevatorTable(ei){
     if (!ei || typeof ei !== 'object') return null;
     var labels = {
@@ -491,7 +549,7 @@
       body.push([
         { text: p.label, fontSize: 10, bold: true, alignment: 'right', color: '#1e3a5f' },
         { text: p.desc, fontSize: 10, color: '#64748b', alignment: 'right' },
-        { text: Math.round(p.pct * 100) + '%', fontSize: 10, alignment: 'center', color: '#1e3a5f' },
+        { text: String(Number((p.pct * 100).toFixed(8))) + '%', fontSize: 10, alignment: 'center', color: '#1e3a5f' },
         { text: safeMoney(amount), fontSize: 10, bold: true, color: '#c9a84c', alignment: 'center' }
       ]);
     });
@@ -712,7 +770,7 @@
     return dd;
   }
 
-  function contractIntroParagraph(c, isInstall){
+  function contractIntroParagraph(c, isInstall, partiesInTable){
     var co = (A.activeOwnerCompany && A.activeOwnerCompany()) || null;
     var party1Name = (c.company && c.company.name) || (co && co.name) || activeCompanyName();
     var p1 = party1Name;
@@ -740,14 +798,15 @@
       ? 'على توريد وتركيب مصعد وفق المواصفات والبنود الواردة في هذا العقد.'
       : 'على صيانة المصعد (المصاعد) وفق بنود الصيانة الدورية والشروط والمواصفات الواردة في هذا العقد.';
 
-    return [
+    var blocks = [
       { text: [{ text: 'إنه في يوم ', fontSize: 10, color: '#475569' }, { text: datePart, fontSize: 10, color: '#475569' }, { text: ' تم الاتفاق بين:', fontSize: 10, color: '#475569' }], alignment: 'right', margin: [0, 0, 0, 4] },
-      { stack: [
+    ];
+    if (!partiesInTable) blocks.push({ stack: [
           { text: [{ text: 'الطرف الأول: ', bold: true, fontSize: 10, color: '#1e3a5f' }, { text: p1, fontSize: 10, color: '#475569' }], margin: [0, 2, 0, 1], alignment: 'right' },
           { text: [{ text: 'الطرف الثاني: ', bold: true, fontSize: 10, color: '#1e3a5f' }, { text: p2, fontSize: 10, color: '#475569' }], margin: [0, 0, 0, 4], alignment: 'right' }
-      ]},
-      { text: actionText, fontSize: 10, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 10], alignment: 'right' }
-    ];
+      ]});
+    blocks.push({ text: actionText, fontSize: 10, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 10], alignment: 'right' });
+    return blocks;
   }
 
   function sectionTitle(text, margin){
@@ -902,10 +961,7 @@
       group.fields.forEach(function(f){
         var val = info[f[0]];
         if (val && val !== '') {
-          rows.push([
-            { text: f[1], bold: true, fontSize: 10, fillColor: '#e8e6e1', alignment: 'right', color: '#1e3a5f' },
-            { text: val, fontSize: 10, alignment: 'right', color: '#334155' }
-          ]);
+          rows.push([f[1], String(val)]);
         }
       });
       if (rows.length) {
@@ -913,25 +969,7 @@
           out.push(sectionTitle(overallTitle, [0, 0, 0, 4]));
         }
         out.push({ text: group.tab, fontSize: 10, bold: true, color: '#c9a84c', margin: [0, 0, 0, 2], alignment: 'right' });
-        out.push({
-          table: {
-            headerRows: 0,
-            widths: [100, '*'],
-            body: rows
-          },
-          layout: {
-            hLineWidth: function(){ return 0.5; },
-            vLineWidth: function(){ return 0.5; },
-            hLineColor: function(){ return '#94a3b8'; },
-            vLineColor: function(){ return '#94a3b8'; },
-            paddingLeft: function(){ return 8; },
-            paddingRight: function(){ return 8; },
-            paddingTop: function(){ return 5; },
-            paddingBottom: function(){ return 5; },
-            fillColor: function(i){ return i % 2 === 0 ? null : '#f1f0ec'; }
-          },
-          margin: [0, 0, 0, 8]
-        });
+        Array.prototype.push.apply(out, horizontalKeyValueTables(rows, 4));
       }
     });
     if (!out.length) return null;
@@ -1134,12 +1172,15 @@
         { label: 'منشأة الإصدار', value: companyName }
       ].concat([{label:'مدة التركيب',value:(c.installationInfo?.installDuration||'45 يوماً')}]).concat(c.deliveryDate?[{label:'تاريخ التسليم',value:c.deliveryDate}]:[]).concat([{label:'طريقة الدفع',value:A.contractPaymentMethods?A.contractPaymentMethods(c):'لم تسجل دفعات بعد'}])));
 
+      content.push(sectionTitle('بيانات أطراف العقد', [0, 0, 0, 4]));
+      content.push(maintenanceContractPartiesTable(c, companyName));
+
       if (c.financialNotes) {
         content.push({ text: 'ملاحظات مالية', fontSize: 12, bold: true, color: '#1e3a5f', margin: [0, 6, 0, 4], alignment: 'right' });
         content.push({ text: c.financialNotes, fontSize: 10, color: '#475569', margin: [0, 0, 0, 6], alignment: 'right' });
       }
 
-      var intro = contractIntroParagraph(c, true);
+      var intro = contractIntroParagraph(c, true, true);
       if (intro) Array.prototype.push.apply(content, intro);
     }
 
@@ -1166,17 +1207,8 @@
 
       var buildings = c.buildings || [];
       if (buildings.length > 0) {
-        var bd = [{ text: '', margin: [0, 0, 0, 2] }];
-        buildings.forEach(function(b){
-          bd.push({
-            stack: [
-              { text: b.name || 'غير محدد', bold: true, fontSize: 10, color: '#1e293b', margin: [0, 0, 0, 1], alignment: 'right' },
-              { text: [b.district, b.mapUrl].filter(Boolean).join(' - ') || '', fontSize: 10, color: '#64748b', margin: [0, 0, 0, 4], alignment: 'right' }
-            ],
-            margin: [0, 0, 0, 2]
-          });
-        });
-        Array.prototype.push.apply(content, sectionBlock(sec[si++], 'المباني والمواقع', bd));
+        var bd = maintenanceContractBuildingsTable(buildings);
+        if (bd) Array.prototype.push.apply(content, sectionBlock(sec[si++], 'المباني والمواقع', bd));
       }
       if (c.deliveryDate && c.maintenanceEndDate) {
         var p = { text: 'تبدأ فترة الصيانة من تاريخ تسليم المصعد (' + c.deliveryDate + ') إلى تاريخ (' + c.maintenanceEndDate + ')، على أن تشمل أعمال الصيانة الدورية والطارئة وفق بنود الصيانة المتفق عليها أعلاه.', fontSize: 10, color: '#475569', alignment: 'right', lineHeight: 1.15 };
@@ -3442,6 +3474,11 @@ if (isParts) {
   window.generatePdf = async function(type, id, opts){
     if (type === 'quote' && !(opts && opts.clean)) opts = Object.assign({}, opts || {}, {letterhead:true});
     console.log("PDFGEN", "pdfmake attempt", type, id, "ready:", pdfmakeReady);
+    var cancellationPolicy = cancelledPdfPolicy(type, id);
+    if (!cancellationPolicy.allowed) {
+      pdfLog(cancellationPolicy.message);
+      return;
+    }
     if (opts && opts.letterhead && A.canUseCompanyLetterhead && !A.canUseCompanyLetterhead()) {
       pdfLog('غير مصرح باستخدام مطبوعات الشركة');
       return;
@@ -3451,6 +3488,10 @@ if (isParts) {
       return;
     }
     if (!pdfmakeReady) {
+      if (cancellationPolicy.cancelled) {
+        pdfLog('تعذر إنشاء النسخة التاريخية الموضح عليها إلغاء العقد حالياً، أعد المحاولة.');
+        return;
+      }
       if (financialPdfTypes[type]) {
         pdfLog('تعذر تجهيز PDF المالي بالختم والتوقيع حالياً، أعد المحاولة');
         return;
@@ -3687,6 +3728,7 @@ if (isParts) {
         return;
       }
 
+      markCancelledContractPdf(dd, cancellationPolicy.contract);
       ensurePdfTafqit(dd);
       if (!ensureFinancialCompanyApproval(dd, type)) return;
 
@@ -3696,6 +3738,10 @@ if (isParts) {
 
     } catch(err) {
       console.error("PDFGEN", "pdfmake error:", err);
+      if (cancellationPolicy.cancelled) {
+        pdfLog('تعذر إنشاء نسخة تاريخية آمنة توضح إلغاء العقد، ولم يتم تنزيل أي ملف.');
+        return;
+      }
       if (financialPdfTypes[type]) {
         pdfLog('تعذر إصدار PDF المالي بالختم والتوقيع، أعد المحاولة');
         return;
@@ -3718,6 +3764,7 @@ if (isParts) {
     if (!contract) throw new Error('لم يتم العثور على العقد');
     var logoData = await loadLogo();
     var dd = contractPdfDefinition(contract, logoData, {letterhead:true});
+    markCancelledContractPdf(dd, contract);
     return createPdfBlob(dd);
   };
 
