@@ -148,45 +148,60 @@
     Object.keys(node).forEach(function(key){ if (key !== 'text') collectPdfMoneyValues(node[key], values); });
   }
 
+  function pdfCellPlainText(cell){
+    if (cell == null) return '';
+    if (typeof cell === 'string' || typeof cell === 'number') return String(cell);
+    if (Array.isArray(cell)) return cell.map(pdfCellPlainText).filter(Boolean).join(' ');
+    if (typeof cell !== 'object') return '';
+    if (typeof cell.text === 'string' || typeof cell.text === 'number') return String(cell.text);
+    if (cell.stack) return pdfCellPlainText(cell.stack);
+    return '';
+  }
+
+  function moneyValuesFromPdfCell(cell){
+    var values = {};
+    collectPdfMoneyValues(cell, values);
+    return Object.keys(values).map(function(key){ return values[key]; });
+  }
+
+  function addInlineTafqitColumns(node){
+    if (!node) return;
+    if (Array.isArray(node)) { node.forEach(addInlineTafqitColumns); return; }
+    if (typeof node !== 'object') return;
+    if (node.table && Array.isArray(node.table.body) && node.table.body.length) {
+      var body = node.table.body;
+      var header = Array.isArray(body[0]) ? body[0] : [];
+      var alreadyApplied = header.some(function(cell){ return pdfCellPlainText(cell).indexOf('المبلغ كتابة') >= 0; });
+      var hasMoney = body.slice(1).some(function(row){
+        return Array.isArray(row) && row.some(function(cell){ return moneyValuesFromPdfCell(cell).length > 0; });
+      });
+      if (!alreadyApplied && hasMoney) {
+        var originalColumns = header.length;
+        header.push({ text: 'المبلغ كتابةً', bold: true, color: '#fff', fillColor: '#1e3a5f', alignment: 'center', fontSize: originalColumns > 5 ? 8 : 9 });
+        for (var r = 1; r < body.length; r++) {
+          var row = body[r];
+          if (!Array.isArray(row)) continue;
+          var phrases = [];
+          for (var c = 0; c < originalColumns && c < row.length; c++) {
+            var amounts = moneyValuesFromPdfCell(row[c]);
+            var label = pdfCellPlainText(header[c]).replace(/[:：]/g, '').trim();
+            amounts.forEach(function(amount){
+              phrases.push((label ? label + ': ' : '') + tafqitSar(amount));
+            });
+          }
+          row.push({ text: phrases.join('\n'), fontSize: originalColumns > 5 ? 7 : 8, lineHeight: 1.25, alignment: 'right', color: '#334155' });
+        }
+        if (Array.isArray(node.table.widths)) node.table.widths.push(originalColumns > 5 ? 110 : '*');
+      }
+    }
+    Object.keys(node).forEach(function(key){
+      if (key !== 'table') addInlineTafqitColumns(node[key]);
+    });
+  }
+
   function ensurePdfTafqit(dd){
     if (!dd || !Array.isArray(dd.content)) return;
-    var values = {};
-    collectPdfMoneyValues(dd.content, values);
-    var amounts = Object.keys(values).map(function(key){ return values[key]; });
-    if (!amounts.length) return;
-    amounts.sort(function(a, b){ return a - b; });
-    dd.content.push({
-      stack: [
-        { text: 'بيان المبالغ رقمًا وكتابةً', bold: true, fontSize: 11, color: '#1e3a5f', alignment: 'right', margin: [0, 8, 0, 4] },
-        {
-          table: {
-            headerRows: 1,
-            widths: [100, '*'],
-            body: [[
-              { text: 'المبلغ رقمًا', bold: true, color: '#fff', fillColor: '#1e3a5f', alignment: 'center' },
-              { text: 'المبلغ كتابةً', bold: true, color: '#fff', fillColor: '#1e3a5f', alignment: 'center' }
-            ]].concat(amounts.map(function(amount){
-              return [
-                { text: safeMoney(amount), fontSize: 9, alignment: 'center' },
-                { text: tafqitSar(amount), fontSize: 9, alignment: 'right' }
-              ];
-            }))
-          },
-          layout: {
-            hLineWidth: function(){ return 0.4; },
-            vLineWidth: function(){ return 0.4; },
-            hLineColor: function(){ return '#cbd5e1'; },
-            vLineColor: function(){ return '#cbd5e1'; },
-            paddingLeft: function(){ return 5; },
-            paddingRight: function(){ return 5; },
-            paddingTop: function(){ return 4; },
-            paddingBottom: function(){ return 4; }
-          }
-        }
-      ],
-      unbreakable: amounts.length <= 6,
-      margin: [0, 0, 0, 6]
-    });
+    addInlineTafqitColumns(dd.content);
   }
 
   function safeFooter(){
