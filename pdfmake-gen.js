@@ -164,6 +164,21 @@
     return Object.keys(values).map(function(key){ return values[key]; });
   }
 
+  function primaryMoneyColumnScore(label){
+    var text = String(label || '').replace(/[:：]/g, '').trim();
+    if (/المتبقي|المستحق|الخصم|الضريبة|الرصيد|سعر الوحدة|التكلفة/.test(text)) return -100;
+    if (/صافي الراتب|صافي المبلغ|الصافي/.test(text)) return 120;
+    if (/إجمالي الفاتورة|إجمالي السند|الإجمالي الكلي/.test(text)) return 115;
+    if (/المبلغ المدفوع|المبلغ المصروف|المبلغ المستلم/.test(text)) return 110;
+    if (/^المبلغ$|قيمة الدفعة|قيمة الفاتورة|قيمة السند/.test(text)) return 105;
+    if (/^المدفوع$|المسدّد|المسدد/.test(text)) return 100;
+    if (/^الإجمالي$|إجمالي/.test(text)) return 115;
+    if (/المحصل|المستلم/.test(text)) return 90;
+    if (/القيمة|المبلغ/.test(text)) return 80;
+    if (/مدين|دائن/.test(text)) return 20;
+    return 0;
+  }
+
   function addInlineTafqitColumns(node){
     if (!node) return;
     if (Array.isArray(node)) { node.forEach(addInlineTafqitColumns); return; }
@@ -181,15 +196,21 @@
         for (var r = 1; r < body.length; r++) {
           var row = body[r];
           if (!Array.isArray(row)) continue;
-          var phrases = [];
+          var candidates = [];
           for (var c = 0; c < originalColumns && c < row.length; c++) {
             var amounts = moneyValuesFromPdfCell(row[c]);
             var label = pdfCellPlainText(header[c]).replace(/[:：]/g, '').trim();
             amounts.forEach(function(amount){
-              phrases.push((label ? label + ': ' : '') + tafqitSar(amount));
+              candidates.push({ amount: amount, score: primaryMoneyColumnScore(label), index: c });
             });
           }
-          row.push({ text: phrases.join('\n'), fontSize: originalColumns > 5 ? 7 : 8, lineHeight: 1.25, alignment: 'right', color: '#334155' });
+          candidates.sort(function(a, b){
+            if (b.score !== a.score) return b.score - a.score;
+            if ((b.amount !== 0) !== (a.amount !== 0)) return b.amount !== 0 ? 1 : -1;
+            return b.index - a.index;
+          });
+          var primary = candidates.length ? candidates[0] : null;
+          row.push({ text: primary ? tafqitSar(primary.amount) : '', fontSize: originalColumns > 5 ? 7 : 8, lineHeight: 1.25, alignment: 'right', color: '#334155' });
         }
         if (Array.isArray(node.table.widths)) node.table.widths.push(originalColumns > 5 ? 110 : '*');
       }
