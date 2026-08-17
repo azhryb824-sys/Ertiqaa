@@ -21,5 +21,9 @@ assert.match(app,/الملحقات ونطاق التركيب/,'تبويب متخ
 assert.match(app,/المكوّن والاستبدال/,'تبويب متخصص لعقد استبدال المكون');
 assert.match(pdf,/function serviceInfoTable/,'PDF يدعم نطاق وشروط الأنواع الأخرى');
 assert.match(pdf,/serviceInfoTable\(c\.serviceInfo/,'PDF العقد يطبع حقول النوع الآخر');
+assert.match(app,/function contractEndFromExecutionDuration/,'تحسب نهاية العقود غير الصيانة من مدة التنفيذ');
+assert.match(app,/if\(type!=="صيانة"&&row\.startDate\)/,'يبقى عقد الصيانة مستثنى من حساب مدة التنفيذ');
+assert.match(app,/row\.executionDuration=duration;row\.endDate=calculated;row\.contractYears=null/,'تُحفظ مدة التنفيذ وتاريخ النهاية المحسوب');
+assert.match(app,/مدة تركيب مخصصة/,'يمكن إدخال مدة تركيب مخصصة');
 assert.match(app,/align-items:center">\$\{receiptLinks\}<\/div>/,'تبقى روابط سندات العقود الموجودة ظاهرة');
 console.log('contract lifecycle and extended types tests passed');

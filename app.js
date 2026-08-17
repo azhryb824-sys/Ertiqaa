@@ -45,6 +45,14 @@
     row.excludedSections=type==="تركيب"?specGroups.filter(g=>!form.querySelector(`[name="includedPdfSection"][value="${g.tab}"]`)?.checked).map(g=>g.tab):[];
     if(isExtendedContractType(type))row.serviceInfo={scope:form.querySelector('[name="serviceScope"]')?.value||"",components:form.querySelector('[name="serviceComponents"]')?.value||"",quantities:form.querySelector('[name="serviceQuantities"]')?.value||"",duration:form.querySelector('[name="serviceDuration"]')?.value||"",warranty:form.querySelector('[name="serviceWarranty"]')?.value||"",acceptance:form.querySelector('[name="serviceAcceptance"]')?.value||"",exclusions:form.querySelector('[name="serviceExclusions"]')?.value||""};
     if(type==="توريد وتركيب قطع غيار"&&typeof selectedContractParts==="function")row.partsItems=selectedContractParts(form);
+    if(type!=="صيانة"&&row.startDate){
+      const selected=form.querySelector('[name="installDuration"]')?.value||row.installationInfo?.installDuration||"";
+      const custom=form.querySelector('[name="installDurationCustom"]')?.value||"";
+      const execution=form.querySelector('[name="serviceDuration"]')?.value||row.serviceInfo?.duration||"";
+      const duration=type==="تركيب"?(selected==="أخرى"?custom:selected):execution;
+      const calculated=contractEndFromExecutionDuration(row.startDate,duration);
+      if(calculated){row.executionDuration=duration;row.endDate=calculated;row.contractYears=null}
+    }
   }
   function enforceTechnicianVisitAssignments(k,v){if(k!=="misadVisits"||!Array.isArray(v))return;const technicians=(read("misadCompanyStaff")||[]).filter(s=>s.role==="technician"&&activeStaffMember(s)),ids=new Set(technicians.flatMap(s=>[cleanId(s.identity),cleanId(s.id)]).filter(Boolean));v.forEach(visit=>{const assigned=cleanId(visit?.assignedTo);if(assigned&&!ids.has(assigned)){visit.assignedTo="";visit.assignedName="بانتظار الإسناد";if(!["مكتملة","ملغية","بانتظار الاعتماد"].includes(String(visit.status||"")))visit.status="بانتظار الإسناد";visit.assignmentCorrection="non-technician-removed";visit.assignmentCorrectedAt=new Date().toISOString()}})}
   const write=(k,v)=>{enrichDocumentWrite(k,v);enforceTechnicianVisitAssignments(k,v);localStorage.setItem(k,JSON.stringify(v))};
@@ -221,6 +229,25 @@
   function logActivity(type,title,ref=""){activity.unshift({id:`ACT-${Date.now()}`,companyOwnerId:ownerId(),type,title,ref,user:session.name,userId:session.id,createdAt:new Date().toLocaleString("ar-SA"),createdAtMs:Date.now()});activity=activity.slice(0,300);write("misadActivityLog",activity)}
   function fmtDate(v){if(!v)return "غير محدد";const d=new Date(v);return Number.isNaN(d.getTime())?v:d.toLocaleString("ar-SA")}
   function addYears(date,years){const d=new Date(date);d.setFullYear(d.getFullYear()+Number(years||1));d.setDate(d.getDate()-1);return d}
+  function contractEndFromExecutionDuration(start,duration){
+    const text=String(duration||"").trim(),amount=Number((text.match(/[\d٠-٩۰-۹]+/)||[])[0]?.replace(/[٠-٩]/g,d=>"٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(/[۰-۹]/g,d=>"۰۱۲۳۴۵۶۷۸۹".indexOf(d))||0);
+    if(!start||!(amount>0))return"";
+    const end=new Date(`${String(start).slice(0,10)}T00:00`);
+    if(/شهر|أشهر|اشهر/.test(text))end.setMonth(end.getMonth()+amount);
+    else if(/سنة|سنوات|عام/.test(text))end.setFullYear(end.getFullYear()+amount);
+    else end.setDate(end.getDate()+amount);
+    end.setDate(end.getDate()-1);
+    return dateVal(end);
+  }
+  document.addEventListener("submit",e=>{
+    const form=e.target;if(!form?.matches?.('form[data-form="contract"],form[data-form="contract-edit"]'))return;
+    const type=form.querySelector('[name="type"]')?.value||"";if(type==="صيانة")return;
+    const selected=form.querySelector('[name="installDuration"]')?.value||"",custom=form.querySelector('[name="installDurationCustom"]')?.value||"",execution=form.querySelector('[name="serviceDuration"]')?.value||"";
+    const duration=type==="تركيب"?(selected==="أخرى"?custom:selected):execution,start=form.querySelector('[name="contractStartDate"]')?.value||"";
+    if(contractEndFromExecutionDuration(start,duration))return;
+    e.preventDefault();e.stopImmediatePropagation();toast("أدخل مدة التركيب أو التنفيذ بصورة صحيحة، مثل: 45 يوماً أو 3 أشهر");
+    (type==="تركيب"&&selected==="أخرى"?form.querySelector('[name="installDurationCustom"]'):form.querySelector('[name="serviceDuration"]'))?.focus();
+  },true);
   function dateVal(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`}
   function nextContractId(){const used=new Set(contracts.map(c=>c.id));let n=contracts.reduce((m,c)=>{const x=String(c.id||"").match(/^CONT(\d{4})$/);return x?Math.max(m,Number(x[1])):m},0)+1;while(used.has(`CONT${String(n).padStart(4,"0")}`))n++;return `CONT${String(n).padStart(4,"0")}`}
   function table(h,r){return `<div class="panel"><table class="data-table"><thead><tr>${h.map(x=>`<th>${x}</th>`).join("")}</tr></thead><tbody>${r.map(row=>`<tr>${row.map(c=>`<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`}
@@ -797,6 +824,8 @@ function updateContractTransferNotice(f){if(!f?.matches?.('[data-form="contract"
     const isInstall=f?.type?.value==="تركيب";
     const isParts=f?.type?.value==="توريد وتركيب قطع غيار";
     const isService=isExtendedContractType(f?.type?.value);
+    const installDuration=f?.querySelector('[name="installDuration"]');
+    if(installDuration&&!f.querySelector('[name="installDurationCustom"]'))installDuration.closest("label")?.insertAdjacentHTML("afterend",'<label>مدة تركيب مخصصة<input name="installDurationCustom" placeholder="مثال: 75 يوماً أو 3 أشهر"></label>');
     const panels=Array.from(f?.children||[]).filter(x=>x.hasAttribute?.("data-contract-tab-panel"));
     const lastPanel=panels[panels.length-1];
     if(lastPanel&&!lastPanel.querySelector(".parts-contract-mode")){
