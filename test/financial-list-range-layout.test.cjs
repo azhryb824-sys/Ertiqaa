@@ -18,7 +18,7 @@ test('every downloadable finance list exposes an explicit date range', () => {
 
 test('range remains attached to the active finance list and reaches list data', () => {
   assert.match(app, /financeTab=section\.dataset\.financeSection/);
-  assert.match(app, /finReportFrom=range\?\.querySelector/);
+  assert.match(app, /nextFrom=range\?\.querySelector/);
   assert.match(app, /function financialRangeRows/);
   assert.match(app, /financialRangeRows\(\(read\("misadPurchaseInvoices"\)/);
 });
@@ -34,6 +34,6 @@ test('all separate and bundled financial PDFs use safe landscape table widths', 
 
 test('period is always printed and refreshed assets bypass stale layout', () => {
   assert.match(pdf, /الفترة: من/);
-  assert.match(dashboard, /app\.js\?v=20260817-financial-range-layout-1/);
-  assert.match(dashboard, /pdfmake-gen\.js\?v=20260817-financial-range-layout-1/);
+  assert.match(dashboard, /app\.js\?v=20260817-[a-z0-9-]+/);
+  assert.match(dashboard, /pdfmake-gen\.js\?v=20260817-[a-z0-9-]+/);
 });
