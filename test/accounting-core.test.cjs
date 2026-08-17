@@ -9,6 +9,8 @@ assert.deepEqual(accounting.customerInvoiceInfo(invoice), {
   status: 'جزئية',
 });
 assert.equal(accounting.customerInvoiceInfo({total: 1000, paid: 250}).paid, 250);
+assert.equal(accounting.customerInvoiceInfo({total: 1000, payments: [{amount: 400}, {amount: 200, status: 'ملغى'}]}).paid, 400,
+  'الدفعة الملغاة تبقى محفوظة ولا تدخل في المحصل');
 assert.deepEqual(accounting.customerInvoiceInfo({total: 1000, paid: 250, status: 'ملغاة'}), {
   paid: 250,
   total: 1000,
@@ -30,6 +32,11 @@ assert.equal(accounting.validateTreasuryMove(
 
 assert.equal(accounting.payrollBalanced({totalGross: 5200, totalCustodyDeducted: 200, totalNet: 5000}), true);
 assert.equal(accounting.payrollBalanced({totalGross: 5200, totalCustodyDeducted: 200, totalNet: 5100}), false);
+
+assert.deepEqual(accounting.collectionAllocation(1000, 600), {total: 1000, receivable: 600, revenue: 400},
+  'التحصيل يسدد الذمم أولاً ولا يكرر الإيراد المثبت');
+assert.deepEqual(accounting.collectionAllocation(500, 900), {total: 500, receivable: 500, revenue: 0},
+  'إذا غطت الذمم كامل التحصيل فلا ينشأ إيراد جديد');
 
 const journal = [
   {companyOwnerId: 'CO-1', date: '2026-01-01', lines: [
