@@ -124,7 +124,7 @@ update('pdfmake-gen.js', [
   ],
   [
     '    if (!rows.length) return null;',
-    "    if (!rows.length) {\n      out.push({ text: 'مواصفات المصعد غير موجودة في بيانات هذا العقد، ويلزم استعادتها من نسخة موثوقة قبل اعتماد المستند.', bold: true, fontSize: 9, color: '#9f3a38', fillColor: '#fff4f2', alignment: 'right', margin: [8, 7, 8, 7] });\n      return out;\n    }",
+    "    if (!rows.length) return [{ text: 'مواصفات المصعد غير موجودة في بيانات هذا العقد، ويلزم استعادتها من نسخة موثوقة قبل اعتماد المستند.', bold: true, fontSize: 9, color: '#9f3a38', fillColor: '#fff4f2', alignment: 'right', margin: [8, 7, 8, 7] }];",
   ],
 ]);
 

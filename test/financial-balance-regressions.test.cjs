@@ -9,6 +9,8 @@ const server = fs.readFileSync(path.join(root, 'server.cjs'), 'utf8');
 
 test('treasury category tabs never hide bank-account rows', () => {
   assert.match(app, /markTreasuryBankAccountsStatic\(section\)/);
+  assert.match(app, /h\.closest\("\.section-toolbar"\)/, 'يتم الوصول إلى حاوية العنوان الفعلية قبل تحديد جدول الحسابات');
+  assert.match(app, /headingBar\?\.nextElementSibling/, 'يتم تثبيت جدول الحسابات البنكية الملاصق لشريط العنوان');
   assert.match(app, /!target\.closest\('\[data-finance-filter-static\]'\)/);
 });
 

@@ -1695,7 +1695,9 @@ const unlinkUser=e.target.closest("[data-unlink-user]");if(unlinkUser){const uid
   function markTreasuryBankAccountsStatic(section){
     if(section?.dataset.financeSection!=="treasury")return;
     [...section.querySelectorAll("h3")].filter(h=>h.textContent.includes("الحسابات البنكية")).forEach(h=>{
-      const wrapper=h.nextElementSibling;
+      const headingBar=h.closest(".section-toolbar");
+      const wrapper=headingBar?.nextElementSibling;
+      headingBar?.setAttribute("data-finance-filter-static","1");
       if(wrapper)wrapper.dataset.financeFilterStatic="1";
     });
   }

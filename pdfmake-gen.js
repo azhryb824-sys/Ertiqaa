@@ -984,7 +984,7 @@
       ['الضمان', info.warranty], ['الاختبار والاستلام', info.acceptance],
       ['الاستثناءات', info.exclusions]
     ].filter(function(r){ return r[1] != null && String(r[1]).trim() !== ''; });
-    if (!rows.length) return null;
+    if (!rows.length) return [{ text: 'مواصفات المصعد غير موجودة في بيانات هذا العقد، ويلزم استعادتها من نسخة موثوقة قبل اعتماد المستند.', bold: true, fontSize: 9, color: '#9f3a38', fillColor: '#fff4f2', alignment: 'right', margin: [8, 7, 8, 7] }];
     var out = [sectionTitle(title || 'نطاق الأعمال وشروط التنفيذ', [0, 0, 0, 4])];
     Array.prototype.push.apply(out, horizontalKeyValueTables(rows, 4));
     return out;
