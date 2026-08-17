@@ -2832,15 +2832,22 @@ if (isParts) {
     var content = [];
     appendDocumentHeader(content, logoData, opts);
     var list = [];
-    if (A.visibleContracts) {
+    if (A.activeContractsForReport) {
+      list = A.activeContractsForReport() || [];
+    } else if (A.visibleContracts) {
       list = A.visibleContracts().filter(function(x){ return A.sameCompany ? A.sameCompany(x) : true; }).filter(function(x){ return x.status === 'ساري'; });
     }
     list = list.slice().sort(function(a,b){ return String(a.endDate || 'zz').localeCompare(String(b.endDate || 'zz')); });
-    var total = list.reduce(function(s,x){ return s + Number(x.value || 0); }, 0);
-    content.push({ text: 'جدول العقود السارية', fontSize: 14, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 2] });
+    var total = list.reduce(function(s,x){ return s + Number(x.value || 0); }, 0), paid=0;
+    try { var entries=(A._read?A._read('misadFinancialEntries'):[])||[];paid=entries.filter(function(e){return e.direction==='in'&&list.some(function(c){return c.id===e.contractId})}).reduce(function(s,e){return s+Number(e.amount||0)},0); } catch(e){}
+    var rr={from:'',to:''};try{rr=A.reportCenterRange?A.reportCenterRange():rr}catch(e){}
+    content.push({ text: 'العقود السارية المنشأة خلال الفترة', fontSize: 14, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 2] });
+    if(rr.from||rr.to)content.push({text:'من '+(rr.from||'البداية')+' إلى '+(rr.to||'النهاية'),fontSize:9,color:'#64748b',margin:[0,0,0,4]});
     content.push(summaryTable([
       { label: 'عدد العقود', value: String(list.length) },
-      { label: 'إجمالي القيمة', value: safeMoney(total) }
+      { label: 'إجمالي القيمة', value: safeMoney(total) },
+      { label: 'المحصل', value: safeMoney(paid) },
+      { label: 'المتبقي', value: safeMoney(Math.max(0,total-paid)) }
     ]));
     if (list.length) {
       var rows = list.map(function(c){
@@ -2877,6 +2884,22 @@ if (isParts) {
     var n = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
     var m = parseInt(p[1], 10);
     return m >= 1 && m <= 12 ? (n[m - 1] + ' ' + p[0]) : ym;
+  }
+  function staffSummaryPdfDefinition(logoData, opts){
+    var cf=safeFooter(),content=[];appendDocumentHeader(content,logoData,opts);
+    var rows=[];try{rows=A.staffSummaryRows?A.staffSummaryRows():[]}catch(e){}
+    var salaries=rows.reduce(function(s,x){return s+Number(x.baseSalary||0)},0),due=rows.reduce(function(s,x){return s+Number(x.payrollPayable||0)},0);
+    content.push({text:'التقرير الإداري والمالي للموظفين',fontSize:14,bold:true,color:'#1e3a5f',margin:[0,0,0,3]});
+    content.push(summaryTable([{label:'عدد الموظفين',value:String(rows.length)},{label:'الرواتب الأساسية',value:safeMoney(salaries)},{label:'الرواتب المستحقة',value:safeMoney(due)}]));
+    if(rows.length){var body=rows.map(function(x){return [{text:x.name,fontSize:9,alignment:'right'},{text:x.role,fontSize:9,alignment:'right'},{text:safeMoney(x.baseSalary),fontSize:9,alignment:'center'},{text:safeMoney(x.payrollPaid),fontSize:9,alignment:'center'},{text:safeMoney(x.payrollPayable),fontSize:9,alignment:'center'},{text:safeMoney(x.advances),fontSize:9,alignment:'center'},{text:safeMoney(x.custodyRemaining),fontSize:9,alignment:'center'}]});var heads=['الموظف','الوظيفة','الراتب الأساسي','المسدد','المستحق','السلف','العهد'].map(function(t){return{text:t,bold:true,fontSize:9,color:'#fff',fillColor:'#1e3a5f',alignment:'center',margin:[2,2,2,2]}});content.push({table:{widths:['*','*','auto','auto','auto','auto','auto'],headerRows:1,body:[heads].concat(body)},margin:[0,0,0,4]})}else content.push({text:'لا يوجد موظفون',color:'#94a3b8'});
+    return makeDd(content,cf,opts);
+  }
+  function reportsBundlePdfDefinition(logoData,opts){
+    var cf=safeFooter(),content=[];appendDocumentHeader(content,logoData,opts);content.push({text:'التقرير التنفيذي المجمع',fontSize:16,bold:true,color:'#1e3a5f',margin:[0,0,0,5]});
+    var range={from:'',to:''};try{range=A.reportCenterRange?A.reportCenterRange():range}catch(e){}if(range.from||range.to)content.push({text:'الفترة: من '+(range.from||'البداية')+' إلى '+(range.to||'النهاية'),fontSize:10,color:'#64748b',margin:[0,0,0,6]});
+    function section(title,dd){content.push({text:title,fontSize:13,bold:true,color:'#1e3a5f',pageBreak:content.length>3?'before':undefined,margin:[0,0,0,4]});(dd&&dd.content?dd.content:[]).forEach(function(n,i){if(i>0)content.push(n)})}
+    section('الملخص المالي',financeSummaryPdfDefinition(logoData,opts));section('العقود السارية المنشأة خلال الفترة',activeContractsTablePdfDefinition(logoData,opts));section('قائمة الدخل',incomePdfDefinition(logoData,opts));section('الموظفون',staffSummaryPdfDefinition(logoData,opts));
+    return makeDd(content,cf,opts);
   }
   function monthlyVisitsPdfDefinition(month, logoData, opts){
     var cf = safeFooter();
@@ -3456,6 +3479,11 @@ if (isParts) {
     'accounting-income': true,
     'accounting-balance-sheet': true,
     'accounting-journal': true
+    ,'contracts-table': true
+    ,'visits-monthly': true
+    ,'staff-summary': true
+    ,'reports-bundle': true
+    ,'report': true
   };
 
   function pdfNodeContainsImage(node, imageData){
@@ -3677,6 +3705,12 @@ if (isParts) {
 
       } else if (type === 'contracts-table') {
         dd = activeContractsTablePdfDefinition(logoData, opts);
+
+      } else if (type === 'staff-summary') {
+        dd = staffSummaryPdfDefinition(logoData, opts);
+
+      } else if (type === 'reports-bundle') {
+        dd = reportsBundlePdfDefinition(logoData, opts);
 
       } else if (type === 'visits-monthly') {
         dd = monthlyVisitsPdfDefinition(String(id || '').slice(0, 7), logoData, opts);
