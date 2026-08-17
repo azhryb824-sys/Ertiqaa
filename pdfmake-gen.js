@@ -1872,7 +1872,8 @@ if (isParts) {
             {
               stack: [
                 { text: 'المبلغ', fontSize: 9, color: '#94a3b8', alignment: 'center', margin: [0, 0, 0, 2] },
-                { text: safeMoney(r.amount), bold: true, fontSize: 18, color: '#b8862d', alignment: 'center' }
+                { text: safeMoney(r.amount), bold: true, fontSize: 18, color: '#b8862d', alignment: 'center' },
+                { text: 'المبلغ كتابةً: ' + tafqitSar(r.amount), fontSize: 10, color: '#475569', alignment: 'center', margin: [0, 4, 0, 0] }
               ],
               alignment: 'center',
               fillColor: '#fdf6e8',
