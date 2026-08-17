@@ -13,7 +13,7 @@ assert.match(css,/contract-state-yellow/);
 assert.match(css,/contract-state-red/);
 assert.match(app,/c\?\.type==="صيانة"&&\(phase==="yellow"\|\|phase==="red"\)/,'التجديد محصور بعقود الصيانة');
 assert.match(app,/renewalOf:c\.id/,'ينشأ سجل عقد جديد مرتبط بالعقد السابق');
-assert.match(app,/expired\?today:String\(c\.endDate/,'يبدأ التجديد بعد الانتهاء من تاريخ الضغط وقبله من نهاية العقد');
+assert.match(app,/renewContractAsNew\(c,selectedStartDate\)/,'يختار المستخدم تاريخ بداية العقد الجديد');
 assert.match(app,/const extendedContractTypes=\["توريد وتركيب قطع غيار","إعادة تأهيل مصعد","إضافة ملحقات مصعد","استبدال مكون"\]/);
 assert.match(app,/serviceInfoFields\(c\?\.serviceInfo\|\|\{\}\)/,'حقول الأنواع الأخرى مستقلة في نموذج العقد');
 assert.match(app,/أعمال إعادة التأهيل/,'تبويب متخصص لعقد إعادة التأهيل');
