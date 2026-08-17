@@ -22,6 +22,8 @@ class _QuoteFormScreenState extends State<QuoteFormScreen> {
   String _client = '';
   double _baseValue = 0;
   final _valueCtrl = TextEditingController();
+  final _taxRateCtrl = TextEditingController(text: '15');
+  bool _taxEnabled = false;
   final List<String> _selectedDefaultIds = [];
   final List<PartsItem> _parts = [];
   final List<CustomItem> _custom = [];
@@ -46,11 +48,15 @@ class _QuoteFormScreenState extends State<QuoteFormScreen> {
     _titleCtrl.dispose();
     _detailsCtrl.dispose();
     _valueCtrl.dispose();
+    _taxRateCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _save() async {
     final now = DateTime.now();
+    final taxRate = _taxEnabled ? (double.tryParse(_taxRateCtrl.text) ?? 0).clamp(0.0, 100.0).toDouble() : 0.0;
+    final tax = _subtotal * taxRate / 100;
+    final total = _subtotal + tax;
     final quote = {
       'id': 'QTO-${now.millisecondsSinceEpoch}',
       'companyOwnerId': app.ownerId,
@@ -61,8 +67,12 @@ class _QuoteFormScreenState extends State<QuoteFormScreen> {
       'client': _client,
       'title': _titleCtrl.text.trim().isEmpty ? 'عرض سعر ${_type}' : _titleCtrl.text.trim(),
       'type': _type,
-      'value': _baseValue,
+      'value': total,
       'subtotal': _subtotal,
+      'taxEnabled': _taxEnabled,
+      'taxRate': taxRate,
+      'taxAmount': tax,
+      'totalWithTax': total,
       'status': 'بانتظار المراجعة والاعتماد',
       'items': _defaultItems(),
       'partsItems': _parts.map((p) => p.toJson()).toList(),
@@ -233,11 +243,18 @@ class _QuoteFormScreenState extends State<QuoteFormScreen> {
                     children: [
                       const Text('الإجمالي:', style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w800)),
                       const Spacer(),
-                      MoneyText(_subtotal, large: true),
+                      MoneyText(_subtotal + (_taxEnabled ? _subtotal * (double.tryParse(_taxRateCtrl.text) ?? 0).clamp(0.0, 100.0) / 100 : 0), large: true),
                     ],
                   ),
                 ),
                 const SizedBox(height: 12),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('تطبيق الضريبة على هذا العرض', style: TextStyle(fontFamily: 'Cairo')),
+                  value: _taxEnabled,
+                  onChanged: (value) => setState(() => _taxEnabled = value),
+                ),
+                if (_taxEnabled) AppField(label: 'نسبة الضريبة (%)', keyboard: TextInputType.number, controller: _taxRateCtrl, onChanged: (_) => setState(() {})),
                 ElevatedButton(onPressed: _save, child: const Text('حفظ عرض السعر')),
               ],
             ),
