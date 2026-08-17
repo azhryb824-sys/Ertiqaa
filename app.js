@@ -547,6 +547,16 @@
   ["owner","company_admin","admin"].forEach(role=>{if(!navs[role].some(x=>x[0]==="reports-center"))navs[role].splice(1,0,["reports-center","التقارير"])});
   Object.values(navs).forEach(items=>{if(!items.some(x=>x[0]==="knowledge-hub"))items.splice(1,0,["knowledge-hub","المركز التوعوي"])});
   if(session.role==="admin"){navs.admin.splice(1,0,["admin-system","لوحة النظام"]);navs.admin.push(["admin-banners","إدارة البنرات"],["admin-knowledge","إدارة التوعية"])}
+  const primarySidebarOrder=["contracts","finance","team","reports-center"];
+  Object.values(navs).forEach(items=>{
+    const promoted=primarySidebarOrder.map(id=>items.find(item=>item[0]===id)).filter(Boolean);
+    if(!promoted.length)return;
+    const promotedIds=new Set(promoted.map(item=>item[0]));
+    const remaining=items.filter(item=>!promotedIds.has(item[0]));
+    const overviewIndex=remaining.findIndex(item=>item[0]==="overview");
+    remaining.splice(overviewIndex+1,0,...promoted);
+    items.splice(0,items.length,...remaining);
+  });
   const adminMode=session.role==="admin"&&session.adminMode==="company";
   const navKey=adminMode?"company_admin":session.role;
   if(adminMode&&!session.companyOwnerId&&session._linkedCoId){const co=ownerCompanies.find(c=>c.ownerId===session._linkedCoId||c.id===session._linkedCoId||c.ownerIds?.includes(session._linkedCoId));if(co)session.companyOwnerId=co.ownerId||co.id;else session.companyOwnerId=session._linkedCoId}
