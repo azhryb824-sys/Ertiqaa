@@ -35,6 +35,6 @@ test('payroll edits recalculate gross and net, preserve custody settlement and r
 });
 
 test('current assets are cache busted', () => {
-  assert.match(dashboard, /app\.js\?v=20260817-finance-performance-1/);
+  assert.match(dashboard, /app\.js\?v=20260817-navigation-loader-1/);
   assert.match(dashboard, /pdfmake-gen\.js\?v=20260817-[a-z0-9-]+/);
 });
