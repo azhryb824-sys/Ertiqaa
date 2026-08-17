@@ -12,13 +12,15 @@
 
   function customerInvoiceInfo(invoice) {
     const inv = invoice || {};
-    const payments = Array.isArray(inv.payments) ? inv.payments : [];
+    const cancelledStatuses = ["ملغي", "ملغى", "ملغاة", "ملغية", "محذوف", "cancelled", "canceled", "deleted"];
+    const payments = (Array.isArray(inv.payments) ? inv.payments : [])
+      .filter(payment => !cancelledStatuses.includes(String(payment && payment.status || "").trim().toLowerCase()));
     const paid = payments.length
       ? payments.reduce((sum, payment) => sum + Math.max(0, amount(payment.amount)), 0)
       : Math.max(0, amount(inv.paid));
     const total = Math.max(0, amount(inv.total));
     const rawStatus = String(inv.status || "").trim().toLowerCase();
-    const cancelled = ["ملغي", "ملغى", "ملغاة", "ملغية", "محذوف", "cancelled", "canceled", "deleted"].includes(rawStatus);
+    const cancelled = cancelledStatuses.includes(rawStatus);
     const due = cancelled ? 0 : Math.max(0, total - paid);
     const status = cancelled
       ? "ملغاة"
@@ -28,6 +30,16 @@
           ? "جزئية"
           : "مستحقة";
     return { paid, total, due, status };
+  }
+
+  function collectionAllocation(value, receivableOutstanding) {
+    const total = Math.max(0, amount(value));
+    const receivable = Math.min(total, Math.max(0, amount(receivableOutstanding)));
+    return {
+      total,
+      receivable,
+      revenue: Math.max(0, Math.round((total - receivable) * 100) / 100),
+    };
   }
 
   function treasuryState(transactions, bankAccounts) {
@@ -185,6 +197,7 @@
   return {
     amount,
     customerInvoiceInfo,
+    collectionAllocation,
     treasuryState,
     treasuryBalance,
     validateTreasuryMove,
