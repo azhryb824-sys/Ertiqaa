@@ -1687,7 +1687,7 @@ function redistributeVisits(store, options = {}) {
   const tickets = scoped.tickets;
   
   const availableTechnicians = staff.filter(s => 
-    ["technician", "engineer"].includes(s.role) && 
+    s.role === "technician" &&
     (s.availability || "working") === "working"
   );
   
@@ -4356,6 +4356,8 @@ function executeAiAction(actionData, store) {
       }
       case "create_visit": {
         const visits = parseStoredJson(store, "misadVisits");
+        const visitStaff = parseStoredJson(store, "misadCompanyStaff");
+        const requestedTechnician = visitStaff.find(s => String(s.identity || s.id) === String(actionData.data.assignedTo || "") && s.role === "technician" && (s.availability || "working") === "working");
         const visit = {
           id: `VIS-${Date.now()}`,
           companyOwnerId: actionData.data.companyOwnerId || actionOwnerId || actionData.userId || "ai",
@@ -4368,8 +4370,8 @@ function executeAiAction(actionData, store) {
           contractId: actionData.data.contractId || "",
           building: actionData.data.building || {},
           scheduledAt: actionData.data.scheduledAt || new Date().toISOString(),
-          assignedTo: actionData.data.assignedTo || "",
-          assignedName: actionData.data.assignedName || "",
+          assignedTo: requestedTechnician?.identity || requestedTechnician?.id || "",
+          assignedName: requestedTechnician?.name || "",
           createdBy: actionData.userId || "ai",
           createdAt: new Date().toISOString()
         };
@@ -4383,6 +4385,7 @@ function executeAiAction(actionData, store) {
       }
       case "assign_visit": {
         const visits = parseStoredJson(store, "misadVisits");
+        const visitStaff = parseStoredJson(store, "misadCompanyStaff");
         const visitIndex = visits.findIndex(v => v.id === actionData.data.visitId);
         if (visitIndex === -1) {
           result.message = "الزيارة غير موجودة";
@@ -4392,13 +4395,18 @@ function executeAiAction(actionData, store) {
           result.message = "لا تملك صلاحية تعديل هذه الزيارة";
           break;
         }
-        visits[visitIndex].assignedTo = actionData.data.technicianId || "";
-        visits[visitIndex].assignedName = actionData.data.technicianName || "";
+        const technician = visitStaff.find(s => String(s.identity || s.id) === String(actionData.data.technicianId || "") && s.role === "technician" && (s.availability || "working") === "working");
+        if (!technician) {
+          result.message = "لا يمكن إسناد الزيارة إلا إلى موظف مسجل كفني ومتواجد للعمل";
+          break;
+        }
+        visits[visitIndex].assignedTo = technician.identity || technician.id;
+        visits[visitIndex].assignedName = technician.name;
         visits[visitIndex].assignedAt = new Date().toISOString();
         store.misadVisits = JSON.stringify(visits);
         writeStore(store);
         result.executed = true;
-        result.message = `تم إسناد الزيارة ${actionData.data.visitId} إلى ${actionData.data.technicianName}`;
+        result.message = `تم إسناد الزيارة ${actionData.data.visitId} إلى ${technician.name}`;
         break;
       }
       case "redistribute_visits": {
