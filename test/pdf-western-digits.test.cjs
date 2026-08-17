@@ -8,6 +8,7 @@ assert.match(pdf, /[\\u0660-\\u0669]/, 'يحوّل الأرقام العربية
 assert.match(pdf, /[\\u06f0-\\u06f9]/, 'يحوّل الأرقام الفارسية');
 assert.match(pdf, /function receiptPdfDate\(value, timestamp\)/, 'يوحّد تاريخ سند القبض');
 assert.match(pdf, /receiptPdfDate\(r\.createdAt, r\.createdAtMs\)/, 'يصحح تاريخ الإصدار والدفع في سند القبض');
+assert.match(pdf, /المبلغ كتابةً: ' \+ tafqitSar\(r\.amount\)/, 'يعرض مبلغ سند القبض كتابةً');
 assert.match(pdf, /ensurePdfTafqit\(dd\);\s*normalizePdfDigits\(dd\);/, 'يطبّق الأرقام الإنجليزية على جميع ملفات PDF');
 
 console.log('PDF western digit and receipt date tests passed.');
