@@ -1786,6 +1786,55 @@ function redistributeVisits(store, options = {}) {
   return analysis;
 }
 
+function autoAssignPendingVisits(store) {
+  const visits = parseStoredJson(store, "misadVisits");
+  const staff = parseStoredJson(store, "misadCompanyStaff");
+  const contracts = parseStoredJson(store, "misadContracts");
+  const protectedStatuses = new Set(["مكتملة", "ملغية", "بانتظار الاعتماد", "بانتظار اعتماد العميل"]);
+  const inactiveStatuses = new Set(["غير نشط", "منتهي الخدمة", "منتهية الخدمة", "موقوف", "محذوف"]);
+  const technicians = staff.filter(member =>
+    member && member.role === "technician" &&
+    !member.deletedAt &&
+    !inactiveStatuses.has(String(member.employmentStatus || member.status || "")) &&
+    ["working", "available"].includes(String(member.availability || "working"))
+  );
+  if (!technicians.length || !visits.length) return {assigned: 0, total: visits.length};
+  const technicianIds = new Set(technicians.flatMap(member => [cleanId(member.identity), cleanId(member.id)]).filter(Boolean));
+  const contractOwners = new Map(contracts.map(contract => [String(contract.id || ""), String(contract.companyOwnerId || "")]));
+  const ownerForVisit = visit => String(visit.companyOwnerId || contractOwners.get(String(visit.contractId || "")) || "");
+  const technicianOwner = member => String(member.companyOwnerId || "");
+  const openVisits = visits.filter(visit => !protectedStatuses.has(String(visit.status || "")) && !visit.reportId);
+  const load = new Map(technicians.map(member => [cleanId(member.identity || member.id), 0]));
+  openVisits.forEach(visit => {
+    const assigned = cleanId(visit.assignedTo);
+    if (assigned && technicianIds.has(assigned)) load.set(assigned, (load.get(assigned) || 0) + 1);
+  });
+  const pending = openVisits.filter(visit => !technicianIds.has(cleanId(visit.assignedTo))).sort((left, right) =>
+    String(left.scheduledAt || "").localeCompare(String(right.scheduledAt || "")) || String(left.id || "").localeCompare(String(right.id || ""))
+  );
+  let assigned = 0;
+  const now = new Date().toISOString();
+  pending.forEach(visit => {
+    const owner = ownerForVisit(visit);
+    const candidates = technicians.filter(member => !owner || technicianOwner(member) === owner);
+    if (!candidates.length) return;
+    const selected = candidates.slice().sort((left, right) =>
+      (load.get(cleanId(left.identity || left.id)) || 0) - (load.get(cleanId(right.identity || right.id)) || 0) ||
+      String(left.name || "").localeCompare(String(right.name || ""), "ar")
+    )[0];
+    const technicianId = cleanId(selected.identity || selected.id);
+    visit.assignedTo = selected.identity || selected.id;
+    visit.assignedName = selected.name || "فني";
+    if (!visit.status || visit.status === "بانتظار الإسناد") visit.status = "مجدولة";
+    visit.autoAssignedAt = now;
+    visit.autoAssignmentReason = "ten-second-technician-balancing";
+    load.set(technicianId, (load.get(technicianId) || 0) + 1);
+    assigned++;
+  });
+  if (assigned) store.misadVisits = JSON.stringify(visits);
+  return {assigned, total: visits.length};
+}
+
 function analyzeTechnicianLocation(technicianId, store, user = {}) {
   const scoped = scopeAiData(store, user);
   const locations = scoped.locations;
@@ -8386,6 +8435,20 @@ ${JSON.stringify(rows, null, 2)}
   runBackup();
   setInterval(runBackup, backupIntervalMs).unref?.();
   console.log(`Auto-backup every ${Math.round(backupIntervalMs/60000)} min, retention ${backupMaxAgeDays} days`);
+  // Automatic technician-only visit assignment scheduler (every 10 seconds).
+  const runVisitAssignment = () => {
+    try {
+      const store = readStore();
+      const result = autoAssignPendingVisits(store);
+      if (result.assigned) {
+        Promise.resolve(writeStore(store)).catch(error => console.log("[Auto] Visit assignment write failed:", error.message));
+        console.log(`[Auto] Assigned ${result.assigned} visits to active technicians`);
+      }
+    } catch (error) { console.log("[Auto] Visit assignment error:", error.message); }
+  };
+  runVisitAssignment();
+  setInterval(runVisitAssignment, 10 * 1000).unref?.();
+  console.log("Automatic technician visit assignment active (10 sec interval)");
   // Auto-visit operations scheduler (every 5 minutes) - direct function calls
   const runVisitOps = () => {
     try {
