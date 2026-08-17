@@ -1946,7 +1946,7 @@ if (isParts) {
               stack: [
                 { text: 'المصدر (المنشأة)', fontSize: 10, bold: true, color: '#1e3a5f', alignment: 'center', margin: [0, 0, 0, 4] },
                 { text: companyName, fontSize: 10, color: '#1e3a5f', bold: true, alignment: 'center' },
-                (function(){ var stamp = (A.companyStamp && A.companyStamp()) || ''; var signature = (A.companySignature && A.companySignature()) || ''; var imgs = []; if (signature) imgs.push({ image: signature, fit: [120, 70], alignment: 'center', margin: [0, 3, 0, 0] }); if (stamp) imgs.push({ image: stamp, fit: [120, 90], alignment: 'center', margin: [0, 3, 0, 0] }); if (imgs.length) return { stack: [{ text: 'التوقيق / الختم', fontSize: 8, color: '#94a3b8', alignment: 'center' }].concat(imgs) }; return { text: 'التوقيق / الختم: ...............................', fontSize: 10, color: '#94a3b8', alignment: 'center' }; })()
+                (function(){ var stamp = (A.companyStamp && A.companyStamp()) || ''; var signature = (A.companySignature && A.companySignature()) || ''; var imgs = []; if (signature) imgs.push({ image: signature, fit: [90, 58], alignment: 'center', width: '*' }); if (stamp) imgs.push({ image: stamp, fit: [90, 66], alignment: 'center', width: '*' }); if (imgs.length) return { stack: [{ text: 'التوقيق / الختم', fontSize: 8, color: '#94a3b8', alignment: 'center' }, { columns: imgs, columnGap: 4, margin: [0, 3, 0, 0] }] }; return { text: 'التوقيق / الختم: ...............................', fontSize: 10, color: '#94a3b8', alignment: 'center' }; })()
               ]
             }
           ],
@@ -1957,7 +1957,9 @@ if (isParts) {
       unbreakable: true,
       margin: [0, 0, 0, 0]
     });
-    return makeDd(content, cf, opts);
+    var receiptDd = makeDd(content, cf, opts);
+    receiptDd.content = [{ stack: receiptDd.content, unbreakable: true }];
+    return receiptDd;
   }
 
   // ==================== STAFF FINANCE ====================
