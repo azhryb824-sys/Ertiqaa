@@ -22,5 +22,5 @@ test('IBAN prefix cannot be deleted and incomplete values cannot be submitted',(
 });
 
 test('current dashboard loads the IBAN-safe application asset',()=>{
-  assert.match(dashboard,/app\.js\?v=20260817-auto-visit-assignment-1/);
+  assert.match(dashboard,/app\.js\?v=20260817-finance-integrity-1/);
 });
