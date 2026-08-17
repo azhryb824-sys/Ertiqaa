@@ -212,7 +212,7 @@
           var primary = candidates.length ? candidates[0] : null;
           row.push({ text: primary ? tafqitSar(primary.amount) : '', fontSize: originalColumns > 5 ? 7 : 8, lineHeight: 1.25, alignment: 'right', color: '#334155' });
         }
-        if (Array.isArray(node.table.widths)) node.table.widths.push(originalColumns > 5 ? 110 : '*');
+        if (Array.isArray(node.table.widths)) node.table.widths.push(node.financialListTable ? 105 : (originalColumns > 5 ? 110 : '*'));
       }
     }
     Object.keys(node).forEach(function(key){
@@ -707,7 +707,7 @@
         nodes.table.keepWithHeaderRows = Math.min(2, Math.max(2, nodes.table.body.length - Number(nodes.table.headerRows)));
         nodes.table.dontBreakRows = true;
       }
-      nodes.layout = {
+      if (!nodes.preserveTableLayout) nodes.layout = {
         hLineWidth: function(i, node){ return (i === 0 || i === node.table.body.length) ? 0.6 : 0.3; },
         vLineWidth: function(){ return 0; },
         hLineColor: function(i){ return i === 0 ? '#1e3a5f' : '#cbd5e1'; },
@@ -2897,7 +2897,7 @@ if (isParts) {
     return makeDd(content,cf,opts);
   }
   function financialListColumnWidths(cols){
-    var available=720,weights=cols.map(function(c){var t=String(c||'');if(/البيان|الوصف|الطرف|المورد|الموظف|العقد/.test(t))return 1.55;if(/التاريخ|الفترة|الحالة|النوع/.test(t))return .9;if(/عدد/.test(t))return .65;if(/إجمالي|قيمة|مدفوع|محصل|متبقي|مستحق|مبلغ|صافي|راتب|المسوّى/.test(t))return .85;return 1});var total=weights.reduce(function(s,x){return s+x},0)||1;return weights.map(function(x){return Math.floor(available*x/total)})
+    var available=620,weights=cols.map(function(c){var t=String(c||'');if(/البيان|الوصف|الطرف|المورد|الموظف|العقد/.test(t))return 1.55;if(/التاريخ|الفترة|الحالة|النوع/.test(t))return .9;if(/عدد/.test(t))return .65;if(/إجمالي|قيمة|مدفوع|محصل|متبقي|مستحق|مبلغ|صافي|راتب|المسوّى/.test(t))return .85;return 1});var total=weights.reduce(function(s,x){return s+x},0)||1;return weights.map(function(x){return Math.floor(available*x/total)})
   }
   var financialListTableLayout={hLineWidth:function(){return .35},vLineWidth:function(){return .35},hLineColor:function(){return'#cbd5e1'},vLineColor:function(){return'#e2e8f0'},paddingLeft:function(){return 2},paddingRight:function(){return 2},paddingTop:function(){return 2},paddingBottom:function(){return 2},fillColor:function(i){return i>0&&i%2===0?'#f8fafc':null}};
   function financialLandscapeChrome(dd,opts){if(!dd)return dd;dd.pageSize='A4';dd.pageOrientation='landscape';dd.pageMargins=[30,(dd.pageMargins&&dd.pageMargins[1])||88,30,(dd.pageMargins&&dd.pageMargins[3])||78];if(!(opts&&opts.letterhead)&&!(opts&&opts.clean))dd.header=function(){var co=(A.activeOwnerCompany&&A.activeOwnerCompany())||null,name=(co&&co.name)||'نظام شموس';return{stack:[{text:name,fontSize:9,color:'#1e3a5f',alignment:'center',margin:[0,8,0,2],bold:true},{canvas:[{type:'line',x1:30,y1:0,x2:812,y2:0,lineWidth:.5,lineColor:'#c9a84c'}]},{text:'',margin:[0,0,0,6]}]}};return dd}
@@ -2906,7 +2906,7 @@ if (isParts) {
     content.push({text:data.title||'قائمة مالية',fontSize:14,bold:true,color:'#1e3a5f',margin:[0,0,0,2]});var range=accRange();content.push({text:'الفترة: من '+(range.from||'البداية')+' إلى '+(range.to||'النهاية'),fontSize:9,color:'#64748b',margin:[0,0,0,4]});
     if((data.totals||[]).length)content.push(summaryTable(data.totals.map(function(x){return{label:String(x[0]),value:(typeof x[1]==='number'&&/إجمالي|مدفوع|محصل|متبقي|مستحق|رواتب|مصروفات|مشتريات|مبيعات|مقبوضات|عهد/.test(String(x[0])))?safeMoney(x[1]):String(x[1])}})));
     var cols=data.columns||[],rows=data.rows||[],fontSize=cols.length>=8?6.2:cols.length>=6?7:8,moneyCol=function(i){return /إجمالي|قيمة|مدفوع|محصل|متبقي|مستحق|مبلغ|صافي|راتب|المسوّى/.test(String(cols[i]||''))};
-    if(rows.length){var head=cols.map(function(t){return{text:String(t),bold:true,fontSize:fontSize,color:'#fff',fillColor:'#1e3a5f',alignment:'center',margin:[0,1,0,1]}}),body=rows.map(function(row){return row.map(function(v,i){return{text:typeof v==='number'&&moneyCol(i)?safeMoney(v):String(v==null?'—':v),fontSize:fontSize,alignment:moneyCol(i)?'center':'right',margin:[0,0,0,0]}})});content.push({table:{widths:financialListColumnWidths(cols),headerRows:1,dontBreakRows:true,body:[head].concat(body)},layout:financialListTableLayout,alignment:'center',margin:[0,0,0,4]})}else content.push({text:'لا توجد بيانات في الفترة المحددة',fontSize:10,color:'#94a3b8'});
+    if(rows.length){var head=cols.map(function(t){return{text:String(t),bold:true,fontSize:fontSize,color:'#fff',fillColor:'#1e3a5f',alignment:'center',margin:[0,1,0,1]}}),body=rows.map(function(row){return row.map(function(v,i){return{text:typeof v==='number'&&moneyCol(i)?safeMoney(v):String(v==null?'—':v),fontSize:fontSize,alignment:moneyCol(i)?'center':'right',margin:[0,0,0,0]}})});content.push({table:{widths:financialListColumnWidths(cols),headerRows:1,dontBreakRows:true,body:[head].concat(body)},layout:financialListTableLayout,preserveTableLayout:true,financialListTable:true,alignment:'center',margin:[0,0,0,4]})}else content.push({text:'لا توجد بيانات في الفترة المحددة',fontSize:10,color:'#94a3b8'});
     return financialLandscapeChrome(makeDd(content,cf,opts),opts);
   }
   function financialListsBundlePdfDefinition(logoData,opts){var cf=safeFooter(),content=[];appendDocumentHeader(content,logoData,opts);content.push({text:'القوائم المالية المجمعة',fontSize:16,bold:true,color:'#1e3a5f',margin:[0,0,0,5]});var range=accRange();content.push({text:'الفترة: من '+(range.from||'البداية')+' إلى '+(range.to||'النهاية'),fontSize:9,color:'#64748b',margin:[0,0,0,5]});var kinds=[];try{kinds=A.financialListKinds?A.financialListKinds():[]}catch(e){}kinds.forEach(function(item,index){var dd=financialListPdfDefinition(item[0],logoData,opts);content.push({text:item[1],fontSize:13,bold:true,color:'#1e3a5f',pageBreak:index?'before':undefined,margin:[0,0,0,4]});(dd&&dd.content||[]).forEach(function(n,i){if(i>0)content.push(n)})});return financialLandscapeChrome(makeDd(content,cf,opts),opts)}
