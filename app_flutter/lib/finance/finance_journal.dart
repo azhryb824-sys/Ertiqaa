@@ -8,9 +8,11 @@ class FinanceJournal {
     '1100': 'الصندوق (الخزينة النقدية)',
     '1200': 'البنوك',
     '1320': 'ذمم فواتير العملاء',
+    '1330': 'ضريبة قيمة مضافة قابلة للاسترداد',
     '1410': 'سلف الموظفين',
     '1420': 'عهد الموظفين',
     '2200': 'مستحقات',
+    '2300': 'ضريبة قيمة مضافة مستحقة',
     '3100': 'رأس المال',
     '3200': 'جاري المالك',
     '4100': 'إيرادات عقود الصيانة',
@@ -257,6 +259,8 @@ class FinanceJournal {
 
   static Future<bool> postCustomerInvoice(AppState app, Map<String, dynamic> invoice) {
     final amount = _amount(invoice['total']);
+    final tax = _amount(invoice['tax']).clamp(0.0, amount).toDouble();
+    final revenue = amount - tax;
     if (amount <= 0) return Future.value(false);
     return post(
       app,
@@ -272,10 +276,17 @@ class FinanceJournal {
           'refClientId': invoice['clientId'] ?? '',
           'refContractId': invoice['contractId'] ?? '',
         },
+        if (tax > 0) {
+          'account': '2300',
+          'side': 'credit',
+          'amount': tax,
+          'refClientId': invoice['clientId'] ?? '',
+          'refContractId': invoice['contractId'] ?? '',
+        },
         {
           'account': '4300',
           'side': 'credit',
-          'amount': amount,
+          'amount': revenue,
           'refClientId': invoice['clientId'] ?? '',
           'refContractId': invoice['contractId'] ?? '',
         },
