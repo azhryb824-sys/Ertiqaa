@@ -38,3 +38,11 @@ test('legacy ticket invoices are included in accounts receivable without duplica
   assert.match(app, /CINV-TICKET-\$\{inv\.id\}/);
   assert.match(app, /legacyInvoiceId:inv\.id/);
 });
+
+test('contract list cannot create receipts and every receipt PDF uses the normalized purpose', () => {
+  const actions = app.match(/function contractActions\(c\)[^\n]+/)?.[0] || '';
+  assert.doesNotMatch(actions, /data-contract-receipt/, 'قائمة العقود لا تعرض زر إنشاء سند قبض');
+  assert.match(app, /function receiptPurposeText\(r\)/);
+  assert.match(app, /receiptDetailsHTML\(r\)[^\n]+receiptPurposeText\(r\)/);
+  assert.match(fs.readFileSync(path.join(root, 'pdfmake-gen.js'), 'utf8'), /A\.receiptPurposeText \? A\.receiptPurposeText\(r\)/);
+});

@@ -1622,7 +1622,7 @@ if (isParts) {
       var receiptNo = cl.id || '—';
       var receiptDate = (linkedEntry && linkedEntry.date) || cl.createdAt || '—';
       var paymentMethod = (linkedEntry && linkedEntry.paymentMethod) || '—';
-      var installmentLabel = (linkedEntry && (linkedEntry.paymentLabel || linkedEntry.description)) || (cl.purpose || 'دفعة من عقد');
+      var installmentLabel = A.receiptPurposeText ? A.receiptPurposeText(cl) : ((linkedEntry && (linkedEntry.paymentLabel || linkedEntry.description)) || (cl.purpose || 'مقابل دفعة عقد'));
 
       content.push({
         columns: [
@@ -1891,7 +1891,7 @@ if (isParts) {
       { label: 'طريقة الدفع', value: paymentMethod },
       { label: 'تاريخ الدفع', value: paymentDate }
     ];
-    if (r.purpose) summaryItems.push({ label: 'الغرض', value: r.purpose });
+    summaryItems.push({ label: 'الغرض', value: A.receiptPurposeText ? A.receiptPurposeText(r) : (r.purpose || 'مقابل دفعة عقد') });
     if (r.clientCompanyUnifiedNumber) summaryItems.push({ label: 'الرقم الموحد', value: r.clientCompanyUnifiedNumber });
     content.push(summaryTable(summaryItems));
 
