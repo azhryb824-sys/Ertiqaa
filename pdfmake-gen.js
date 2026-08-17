@@ -2894,6 +2894,15 @@ if (isParts) {
     if(rows.length){var body=rows.map(function(x){return [{text:x.name,fontSize:9,alignment:'right'},{text:x.role,fontSize:9,alignment:'right'},{text:safeMoney(x.baseSalary),fontSize:9,alignment:'center'},{text:safeMoney(x.payrollPaid),fontSize:9,alignment:'center'},{text:safeMoney(x.payrollPayable),fontSize:9,alignment:'center'},{text:safeMoney(x.advances),fontSize:9,alignment:'center'},{text:safeMoney(x.custodyRemaining),fontSize:9,alignment:'center'}]});var heads=['الموظف','الوظيفة','الراتب الأساسي','المسدد','المستحق','السلف','العهد'].map(function(t){return{text:t,bold:true,fontSize:9,color:'#fff',fillColor:'#1e3a5f',alignment:'center',margin:[2,2,2,2]}});content.push({table:{widths:['*','*','auto','auto','auto','auto','auto'],headerRows:1,body:[heads].concat(body)},margin:[0,0,0,4]})}else content.push({text:'لا يوجد موظفون',color:'#94a3b8'});
     return makeDd(content,cf,opts);
   }
+  function financialListPdfDefinition(kind,logoData,opts){
+    var cf=safeFooter(),content=[],data={title:'قائمة مالية',columns:[],rows:[],totals:[]};appendDocumentHeader(content,logoData,opts);try{data=A.financialListData?A.financialListData(kind):data}catch(e){}
+    content.push({text:data.title||'قائمة مالية',fontSize:14,bold:true,color:'#1e3a5f',margin:[0,0,0,2]});var range=accRange();if(range.from||range.to)content.push({text:'الفترة: من '+(range.from||'البداية')+' إلى '+(range.to||'النهاية'),fontSize:9,color:'#64748b',margin:[0,0,0,4]});
+    if((data.totals||[]).length)content.push(summaryTable(data.totals.map(function(x){return{label:String(x[0]),value:(typeof x[1]==='number'&&/إجمالي|مدفوع|محصل|متبقي|مستحق|رواتب|مصروفات|مشتريات|مبيعات|مقبوضات|عهد/.test(String(x[0])))?safeMoney(x[1]):String(x[1])}})));
+    var cols=data.columns||[],rows=data.rows||[],moneyCol=function(i){return /إجمالي|قيمة|مدفوع|محصل|متبقي|مستحق|مبلغ|صافي|راتب|المسوّى/.test(String(cols[i]||''))};
+    if(rows.length){var head=cols.map(function(t){return{text:String(t),bold:true,fontSize:8,color:'#fff',fillColor:'#1e3a5f',alignment:'center',margin:[2,2,2,2]}}),body=rows.map(function(row){return row.map(function(v,i){return{text:typeof v==='number'&&moneyCol(i)?safeMoney(v):String(v==null?'—':v),fontSize:8,alignment:moneyCol(i)?'center':'right'}})});content.push({table:{widths:cols.map(function(){return'*'}),headerRows:1,body:[head].concat(body)},layout:'lightHorizontalLines',margin:[0,0,0,4]})}else content.push({text:'لا توجد بيانات في الفترة المحددة',fontSize:10,color:'#94a3b8'});
+    return makeDd(content,cf,opts);
+  }
+  function financialListsBundlePdfDefinition(logoData,opts){var cf=safeFooter(),content=[];appendDocumentHeader(content,logoData,opts);content.push({text:'القوائم المالية المجمعة',fontSize:16,bold:true,color:'#1e3a5f',margin:[0,0,0,5]});var kinds=[];try{kinds=A.financialListKinds?A.financialListKinds():[]}catch(e){}kinds.forEach(function(item,index){var dd=financialListPdfDefinition(item[0],logoData,opts);content.push({text:item[1],fontSize:13,bold:true,color:'#1e3a5f',pageBreak:index?'before':undefined,margin:[0,0,0,4]});(dd.content||[]).forEach(function(n,i){if(i>0)content.push(n)})});return makeDd(content,cf,opts)}
   function reportsBundlePdfDefinition(logoData,opts){
     var cf=safeFooter(),content=[];appendDocumentHeader(content,logoData,opts);content.push({text:'التقرير التنفيذي المجمع',fontSize:16,bold:true,color:'#1e3a5f',margin:[0,0,0,5]});
     var range={from:'',to:''};try{range=A.reportCenterRange?A.reportCenterRange():range}catch(e){}if(range.from||range.to)content.push({text:'الفترة: من '+(range.from||'البداية')+' إلى '+(range.to||'النهاية'),fontSize:10,color:'#64748b',margin:[0,0,0,6]});
@@ -3464,6 +3473,8 @@ if (isParts) {
     'payroll': true,
     'salary-receipt': true,
     'finance-summary': true,
+    'financial-list': true,
+    'financial-lists-bundle': true,
     'staff-finance': true,
     'supplier-finance': true,
     'installment': true,
@@ -3702,6 +3713,12 @@ if (isParts) {
 
       } else if (type === 'finance-summary') {
         dd = financeSummaryPdfDefinition(logoData, opts);
+
+      } else if (type === 'financial-list') {
+        dd = financialListPdfDefinition(id, logoData, opts);
+
+      } else if (type === 'financial-lists-bundle') {
+        dd = financialListsBundlePdfDefinition(logoData, opts);
 
       } else if (type === 'contracts-table') {
         dd = activeContractsTablePdfDefinition(logoData, opts);
