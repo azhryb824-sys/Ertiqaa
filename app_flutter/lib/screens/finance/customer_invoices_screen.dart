@@ -26,6 +26,8 @@ class _CustomerInvoicesScreenState extends State<CustomerInvoicesScreen> {
   final _dateCtrl = TextEditingController();
   final _dueDateCtrl = TextEditingController();
   final _discountCtrl = TextEditingController(text: '0');
+  final _taxRateCtrl = TextEditingController(text: '15');
+  bool _taxEnabled = false;
   final _notesCtrl = TextEditingController();
   final _items = <({TextEditingController desc, TextEditingController qty, TextEditingController price})>[];
 
@@ -42,6 +44,7 @@ class _CustomerInvoicesScreenState extends State<CustomerInvoicesScreen> {
     _dateCtrl.dispose();
     _dueDateCtrl.dispose();
     _discountCtrl.dispose();
+    _taxRateCtrl.dispose();
     _notesCtrl.dispose();
     for (final it in _items) {
       it.desc.dispose();
@@ -121,9 +124,10 @@ class _CustomerInvoicesScreenState extends State<CustomerInvoicesScreen> {
     for (final it in items) {
       subtotal += (it['qty'] as double) * (it['unitPrice'] as double);
     }
-    const taxRate = 0.0;
-    const tax = 0.0;
-    final total = (subtotal - discount).clamp(0.0, double.infinity).toDouble();
+    final taxRate = _taxEnabled ? (double.tryParse(_taxRateCtrl.text) ?? 0).clamp(0.0, 100.0).toDouble() : 0.0;
+    final taxable = (subtotal - discount).clamp(0.0, double.infinity).toDouble();
+    final tax = taxable * taxRate / 100;
+    final total = taxable + tax;
 
     Contract? c;
     for (final x in app.allContracts) {
@@ -147,6 +151,7 @@ class _CustomerInvoicesScreenState extends State<CustomerInvoicesScreen> {
       'dueDate': _dueDateCtrl.text,
       'items': items,
       'taxRate': taxRate,
+      'taxEnabled': _taxEnabled,
       'discount': discount,
       'subtotal': subtotal,
       'tax': tax,
@@ -508,6 +513,13 @@ class _CustomerInvoicesScreenState extends State<CustomerInvoicesScreen> {
               label: const Text('إضافة بند', style: TextStyle(fontFamily: 'Cairo')),
             ),
             AppField(label: 'الخصم (ر.س)', keyboard: TextInputType.number, controller: _discountCtrl),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('تطبيق الضريبة على هذه الفاتورة', style: TextStyle(fontFamily: 'Cairo')),
+              value: _taxEnabled,
+              onChanged: (value) => setState(() => _taxEnabled = value),
+            ),
+            if (_taxEnabled) AppField(label: 'نسبة الضريبة (%)', keyboard: TextInputType.number, controller: _taxRateCtrl),
             AppField(label: 'ملاحظات', controller: _notesCtrl, maxLines: 2),
             const SizedBox(height: 10),
             ElevatedButton(onPressed: _createInvoice, child: const Text('حفظ الفاتورة')),
