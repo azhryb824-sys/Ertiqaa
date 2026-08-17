@@ -25,5 +25,7 @@ assert.match(app,/function contractEndFromExecutionDuration/,'تحسب نهاي�
 assert.match(app,/if\(type!=="صيانة"&&row\.startDate\)/,'يبقى عقد الصيانة مستثنى من حساب مدة التنفيذ');
 assert.match(app,/row\.executionDuration=duration;row\.endDate=calculated;row\.contractYears=null/,'تُحفظ مدة التنفيذ وتاريخ النهاية المحسوب');
 assert.match(app,/مدة تركيب مخصصة/,'يمكن إدخال مدة تركيب مخصصة');
+assert.match(app,/contractActionsWithFinance\(c\)\.replace\([\s\S]*الإدارة المالية/,'يحذف زر الإدارة المالية من إجراءات قائمة العقود فقط');
+assert.match(app,/data-contract-finance="\$\{esc\(x\.id\)\}">مالية العقد/,'يبقى زر مالية العقد في القائمة');
 assert.match(app,/align-items:center">\$\{receiptLinks\}<\/div>/,'تبقى روابط سندات العقود الموجودة ظاهرة');
 console.log('contract lifecycle and extended types tests passed');
