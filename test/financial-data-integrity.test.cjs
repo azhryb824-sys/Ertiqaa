@@ -32,16 +32,15 @@ assert.doesNotMatch(
 
 assert.match(app, /source:\s*"manual-journal"/, 'الحركة المالية العامة موسومة للترحيل المزدوج');
 assert.match(app, /refType:\s*"reversal"/, 'إبطال القيود يحفظ الأصل وينشئ قيداً عكسياً');
-const defaultChartLine = app.match(/function defaultChartOfAccounts[^\n]+/)?.[0] || '';
-assert.doesNotMatch(defaultChartLine, /2300|ضريبة مستحقة/, 'دليل الحسابات الجديد لا ينشئ حساب ضريبة');
-assert.match(app, /const quoteTaxRate=0/, 'عروض الأسعار الجديدة بلا ضريبة');
-assert.match(app, /const taxRate=0,discount=[^;]+tax=0,total=Math\.max\(0,subtotal-discount\)/, 'فواتير العملاء الجديدة بلا ضريبة');
-assert.match(app, /subtotal=Number\(d\.get\('subtotal'\)[^;]+taxRate=0,tax=0,total=subtotal/, 'فواتير الشراء الجديدة بلا ضريبة');
-assert.doesNotMatch(flutterInvoices, /_taxRateCtrl|الضريبة \(%\)/, 'تطبيق Flutter لا يطلب ضريبة للفواتير الجديدة');
-assert.doesNotMatch(flutterQuoteForm, /بدون ضريبة|الضريبة/, 'نموذج عرض السعر لا يعرض حقلاً أو تسمية ضريبية');
+assert.match(app, /function optionalTaxFromForm\(/, 'الضريبة موحدة واختيارية في النماذج المالية');
+assert.match(app, /taxEnabled:taxInfo\.taxEnabled/, 'حالة اختيار الضريبة تحفظ صراحةً');
+assert.match(app, /account:"2300"/, 'ضريبة المبيعات الاختيارية ترحّل إلى حساب مستقل');
+assert.match(app, /account:"1330"/, 'ضريبة المشتريات الاختيارية ترحّل إلى أصل قابل للاسترداد');
+assert.match(flutterInvoices, /_taxEnabled|_taxRateCtrl/, 'تطبيق Flutter يدعم الضريبة الاختيارية لفواتير العملاء');
+assert.match(flutterQuoteForm, /_taxEnabled|_taxRateCtrl/, 'تطبيق Flutter يدعم الضريبة الاختيارية لعروض الأسعار');
 assert.doesNotMatch(legacyPdf, /totals\.tax|>الضريبة:</, 'مولد PDF القديم لا يضيف ضريبة');
 assert.doesNotMatch(enhancedPdf, /totals\.tax|>الضريبة:</, 'مولد PDF المحسن لا يضيف ضريبة');
-assert.doesNotMatch(pdfMake.slice(pdfMake.indexOf('function quotePdfDefinition'), pdfMake.indexOf('// ==================== TICKET')), /القيمة المضافة|taxAmount/, 'PDF عرض السعر لا يضيف ضريبة');
+assert.match(pdfMake.slice(pdfMake.indexOf('function quotePdfDefinition'), pdfMake.indexOf('// ==================== TICKET')), /taxAmount|الضريبة الاختيارية/, 'PDF عرض السعر يعرض الضريبة فقط عند اختيارها');
 for (const key of ['misadClaims', 'misadPayrolls', 'misadCustodies', 'misadPurchaseInvoices', 'misadContractExpenses', 'misadContractPayments']) {
   assert.match(app, new RegExp(`dashboardKeys=\\[[^\\n]+${key}`), `الويب يحمّل ${key} ضمن المزامنة الأولية`);
   assert.match(flutterConstants, new RegExp(`['\"]${key}['\"]`), `Flutter يحمّل ${key} ضمن المزامنة الأولية`);
