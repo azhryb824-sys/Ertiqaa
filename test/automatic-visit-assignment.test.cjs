@@ -24,5 +24,5 @@ test('completed and cancelled visits are protected and workload is balanced',()=
 
 test('visits page refreshes every ten seconds without interrupting an open modal',()=>{
   assert.match(app,/currentPage==="visits"[\s\S]*classList\.contains\("open"\)/);
-  assert.match(dashboard,/app\.js\?v=20260817-auto-visit-assignment-1/);
+  assert.match(dashboard,/app\.js\?v=20260817-finance-integrity-1/);
 });
