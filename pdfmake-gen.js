@@ -2917,19 +2917,19 @@ if (isParts) {
     section('الملخص المالي',financeSummaryPdfDefinition(logoData,opts));section('العقود السارية المنشأة خلال الفترة',activeContractsTablePdfDefinition(logoData,opts));section('قائمة الدخل',incomePdfDefinition(logoData,opts));section('الموظفون',staffSummaryPdfDefinition(logoData,opts));
     return makeDd(content,cf,opts);
   }
-  function monthlyVisitsPdfDefinition(month, logoData, opts){
+  function monthlyVisitsPdfDefinition(month, logoData, opts, exactDay){
     var cf = safeFooter();
     var content = [];
     appendDocumentHeader(content, logoData, opts);
     var visits = [];
     try { visits = (A._read ? A._read('misadVisits') : JSON.parse(localStorage.getItem('misadVisits') || '[]')) || []; } catch(e){ visits = []; }
-    var list = visits.filter(function(v){ return String(v.scheduledAt || '').slice(0, 7) === String(month || ''); }).filter(function(v){ return A.sameCompany ? A.sameCompany(v) : true; });
+    var list = visits.filter(function(v){ return String(v.scheduledAt || '').slice(0, exactDay ? 10 : 7) === String(month || ''); }).filter(function(v){ return A.sameCompany ? A.sameCompany(v) : true; });
     list = list.slice().sort(function(a,b){ return String(a.scheduledAt || '').localeCompare(String(b.scheduledAt || '')); });
-    var monthName = monthLabel(month);
+    var monthName = exactDay ? String(month || '') : monthLabel(month);
     var totalVisits = list.length;
     var done = list.filter(function(v){ return v.status === 'مكتملة'; }).length;
     var canceled = list.filter(function(v){ return v.status === 'ملغية'; }).length;
-    content.push({ text: 'جدول زيارات ' + monthName, fontSize: 14, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 2] });
+    content.push({ text: (exactDay ? 'جدول زيارات اليوم ' : 'جدول زيارات ') + monthName, fontSize: 14, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 2] });
     content.push(summaryTable([
       { label: 'عدد الزيارات', value: String(totalVisits) },
       { label: 'مكتملة', value: String(done) },
@@ -2961,10 +2961,11 @@ if (isParts) {
         ]
       ].concat(rows) }, margin: [0, 0, 0, 4] });
     } else {
-      content.push({ text: 'لا توجد زيارات في هذا الشهر', fontSize: 10, color: '#94a3b8', margin: [0, 0, 0, 4] });
+      content.push({ text: exactDay ? 'لا توجد زيارات في هذا اليوم' : 'لا توجد زيارات في هذا الشهر', fontSize: 10, color: '#94a3b8', margin: [0, 0, 0, 4] });
     }
     return makeDd(content, cf, opts);
   }
+  function dailyVisitsPdfDefinition(day, logoData, opts){ return monthlyVisitsPdfDefinition(String(day || '').slice(0,10), logoData, opts, true); }
   function staffFinancePdfDefinition(id, logoData, opts){
     var cf = safeFooter();
     var content = [];
@@ -3488,6 +3489,7 @@ if (isParts) {
     'payroll': true,
     'salary-receipt': true,
     'finance-summary': true,
+    'visits-daily': true,
     'financial-list': true,
     'financial-lists-bundle': true,
     'staff-finance': true,
@@ -3744,6 +3746,8 @@ if (isParts) {
       } else if (type === 'reports-bundle') {
         dd = reportsBundlePdfDefinition(logoData, opts);
 
+      } else if (type === 'visits-daily') {
+        dd = dailyVisitsPdfDefinition(String(id || '').slice(0, 10), logoData, opts);
       } else if (type === 'visits-monthly') {
         dd = monthlyVisitsPdfDefinition(String(id || '').slice(0, 7), logoData, opts);
 
