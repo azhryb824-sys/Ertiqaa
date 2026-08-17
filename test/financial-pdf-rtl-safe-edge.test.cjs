@@ -5,11 +5,15 @@ const fs = require('node:fs');
 const pdf = fs.readFileSync('pdfmake-gen.js', 'utf8');
 
 test('RTL financial tables reserve enough room for cell padding and borders', () => {
-  assert.match(pdf, /var available=720/);
+  assert.match(pdf, /var available=620/);
   assert.match(pdf, /paddingLeft:function\(\)\{return 2\}/);
   assert.match(pdf, /paddingRight:function\(\)\{return 2\}/);
   assert.match(pdf, /pageMargins=\[30,/);
   assert.match(pdf, /alignment:'center'/);
+  assert.match(pdf, /preserveTableLayout:true/);
+  assert.match(pdf, /if \(!nodes\.preserveTableLayout\) nodes\.layout/);
+  assert.match(pdf, /node\.financialListTable \? 105/);
+  assert.match(pdf, /financialListTable:true/);
 });
 
 test('financial landscape header spans the landscape page safely', () => {
