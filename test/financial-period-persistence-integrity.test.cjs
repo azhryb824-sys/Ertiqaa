@@ -13,6 +13,9 @@ test('applying a financial period keeps the current list visible', () => {
   assert.doesNotMatch(rangeCode, /render\("finance"\)/);
   assert.match(rangeCode, /financeTab=section\.dataset\.financeSection/);
   assert.match(rangeCode, /financialListData\(button\.dataset\.pdfId\)/);
+  assert.match(rangeCode, /applyFinancialRangeToVisibleSection/);
+  assert.match(app, /row\.style\.display=visible/);
+  assert.match(app, /المعروض في الفترة/);
 });
 
 test('invoice payment edits cannot exceed invoice total and rollback on posting failure', () => {
@@ -32,6 +35,6 @@ test('payroll edits recalculate gross and net, preserve custody settlement and r
 });
 
 test('current assets are cache busted', () => {
-  assert.match(dashboard, /app\.js\?v=20260817-financial-integrity-1/);
-  assert.match(dashboard, /pdfmake-gen\.js\?v=20260817-financial-integrity-1/);
+  assert.match(dashboard, /app\.js\?v=20260817-visible-period-filter-1/);
+  assert.match(dashboard, /pdfmake-gen\.js\?v=20260817-[a-z0-9-]+/);
 });
