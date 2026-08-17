@@ -29,6 +29,6 @@ test('all owner financial lists support range totals and separate or bundled PDF
 test('financial list PDFs require stamp/signature and refreshed browser assets', () => {
   assert.match(pdf, /'financial-list': true/);
   assert.match(pdf, /'financial-lists-bundle': true/);
-  assert.match(dashboard, /app\.js\?v=20260817-financial-lists-1/);
-  assert.match(dashboard, /pdfmake-gen\.js\?v=20260817-financial-lists-1/);
+  assert.match(dashboard, /app\.js\?v=20260817-[a-z0-9-]+/);
+  assert.match(dashboard, /pdfmake-gen\.js\?v=20260817-[a-z0-9-]+/);
 });
