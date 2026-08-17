@@ -2575,7 +2575,9 @@ if (isParts) {
     content.push({ text: 'فاتورة شراء', fontSize: 14, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 2] });
     content.push(summaryTable([
       { label: 'رقم الفاتورة', value: pi.invoiceNo || pi.id },
-      { label: 'المورد', value: supplier.name || pi.supplierId || '—' },
+      { label: 'المورد', value: supplier.name || pi.supplierName || pi.supplierId || '—' },
+      { label: 'السجل / الرقم الموحد', value: supplier.commercialRegistration || supplier.unifiedNumber || pi.supplierCommercialRegistration || pi.supplierUnifiedNumber || '—' },
+      { label: 'جوال المورد', value: supplier.phone || '—' },
       { label: 'العقد', value: pi.contractId ? (pi.contractId + ' - ' + safeLabel(contract)) : 'بدون ربط' }
     ]));
     var purchaseSummary = [
@@ -3013,6 +3015,14 @@ if (isParts) {
     var supplier = suppliers.filter(function(x){ return A.sameCompany ? A.sameCompany(x) : true; }).find(function(x){ return (x.id || x.idx) === id; }) || {};
     content.push({ text: 'كشف مالي للمورد', fontSize: 14, bold: true, color: '#1e3a5f', margin: [0, 0, 0, 2] });
     content.push({ text: supplier.name || id, fontSize: 12, color: '#3a4f5a', margin: [0, 0, 0, 4] });
+    content.push(summaryTable([
+      { label: 'النوع', value: supplier.type || 'منشأة' },
+      { label: 'السجل / الرقم الموحد', value: supplier.commercialRegistration || supplier.unifiedNumber || '—' },
+      { label: 'مسؤول التواصل', value: supplier.contactPerson || '—' },
+      { label: 'الجوال', value: supplier.phone || '—' },
+      { label: 'المدينة', value: supplier.city || '—' },
+      { label: 'التخصص', value: supplier.category || '—' }
+    ]));
     var invoices = [];
     try {
       var raw = (A._read ? A._read('misadPurchaseInvoices') : JSON.parse(localStorage.getItem('misadPurchaseInvoices') || '[]'));
