@@ -552,6 +552,33 @@ function writeStore(store) {
   storeCache = store; storeMtime = fs.statSync(storagePath).mtimeMs;
 }
 
+function mergeConcurrentRecordArray(currentValue, incomingValue, baseValue) {
+  if (baseValue === undefined || baseValue === null || currentValue === baseValue) return incomingValue;
+  let current, incoming, base;
+  try {
+    current = typeof currentValue === "string" ? JSON.parse(currentValue) : currentValue;
+    incoming = typeof incomingValue === "string" ? JSON.parse(incomingValue) : incomingValue;
+    base = typeof baseValue === "string" ? JSON.parse(baseValue) : baseValue;
+  } catch { return incomingValue; }
+  if (![current, incoming, base].every(Array.isArray)) return incomingValue;
+  const usable = list => list.every(row => row && typeof row === "object" && row.id !== undefined && row.id !== null);
+  if (!usable(current) || !usable(incoming) || !usable(base)) return incomingValue;
+  const key = row => String(row.id);
+  const currentMap = new Map(current.map(row => [key(row), row]));
+  const incomingMap = new Map(incoming.map(row => [key(row), row]));
+  const baseMap = new Map(base.map(row => [key(row), row]));
+  for (const id of baseMap.keys()) if (!incomingMap.has(id)) currentMap.delete(id);
+  for (const [id, row] of incomingMap) {
+    const before = baseMap.get(id);
+    if (!before || JSON.stringify(before) !== JSON.stringify(row) || !currentMap.has(id)) currentMap.set(id, row);
+  }
+  const merged = [];
+  incoming.forEach(row => { const id = key(row); if (currentMap.has(id)) { merged.push(currentMap.get(id)); currentMap.delete(id); } });
+  current.forEach(row => { const id = key(row); if (currentMap.has(id)) { merged.push(currentMap.get(id)); currentMap.delete(id); } });
+  currentMap.forEach(row => merged.push(row));
+  return typeof incomingValue === "string" ? JSON.stringify(merged) : merged;
+}
+
 const backupDir = path.join(dataDir, "backups");
 const backupMaxAgeDays = Math.max(1, Number(process.env.AI_BACKUP_RETENTION_DAYS || 30));
 const backupMaxCount = Math.max(3, Number(process.env.AI_BACKUP_MAX_COUNT || 96));
@@ -8354,9 +8381,11 @@ ${JSON.stringify(rows, null, 2)}
             const validation = validateContractWrite(store.misadContracts, contractUpdate.value, authenticatedUserId);
             if (!validation.ok) return sendJson(res, 409, {error: validation.error});
           }
-          updates.forEach(({key, value, remove}) => {
+          updates.forEach(({key, value, remove, baseValue}) => {
             if (remove) delete store[key];
-            else store[key] = value;
+            else store[key] = financeKeys.has(String(key))
+              ? mergeConcurrentRecordArray(store[key], value, baseValue)
+              : value;
           });
           await writeStore(store);
           await deleteSupabaseKeys(updates.filter(update => update.remove).map(update => String(update.key)));
