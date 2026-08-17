@@ -11,9 +11,18 @@
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="assets/shumoos-logo.png">
   <title>لوحة التحكم | شموس</title>
-  <link rel="stylesheet" href="styles.css?v=20260806-finance-fix">
+  <link rel="stylesheet" href="styles.css?v=20260817-navigation-loader-1">
 </head>
 <body class="dashboard-page">
+  <div id="pageLoader" class="page-loader" role="status" aria-live="polite" aria-label="جاري تحميل الصفحة" aria-hidden="true">
+    <div class="page-loader-card">
+      <div class="page-loader-logo" aria-hidden="true">
+        <img class="page-loader-logo-base" src="assets/shumoos-logo.png" alt="">
+        <span class="page-loader-logo-fill"><img src="assets/shumoos-logo.png" alt=""></span>
+      </div>
+      <b>جاري تجهيز الصفحة...</b>
+    </div>
+  </div>
   <button class="sidebar-backdrop" aria-label="إغلاق القائمة"></button>
 
   <aside class="sidebar">
@@ -83,7 +92,7 @@
 <script src="src/finance/accounting-core.js?v=20260811-accounting-core-2"></script>
 <script src="src/finance/staff-finance.js?v=20260811-staff-finance-2"></script>
 
-<script src="app.js?v=20260817-finance-performance-1"></script>
+<script src="app.js?v=20260817-navigation-loader-1"></script>
 <script src="pdfmake-gen.js?v=20260817-pdf-safe-width-1"></script>
 </body>
 </html>
