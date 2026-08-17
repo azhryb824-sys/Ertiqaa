@@ -44,6 +44,35 @@
     return n.toLocaleString("en-US") + ' ر.س';
   }
 
+  function westernPdfDigits(value){
+    return String(value == null ? '' : value)
+      .replace(/[\u0660-\u0669]/g, function(d){ return String(d.charCodeAt(0) - 0x0660); })
+      .replace(/[\u06f0-\u06f9]/g, function(d){ return String(d.charCodeAt(0) - 0x06f0); });
+  }
+
+  function normalizePdfDigits(node){
+    if (node == null) return node;
+    if (typeof node === 'string') return westernPdfDigits(node);
+    if (Array.isArray(node)) {
+      node.forEach(function(value, index){ node[index] = normalizePdfDigits(value); });
+      return node;
+    }
+    if (typeof node !== 'object') return node;
+    Object.keys(node).forEach(function(key){
+      if (key === 'image' || key === 'canvas') return;
+      node[key] = normalizePdfDigits(node[key]);
+    });
+    return node;
+  }
+
+  function receiptPdfDate(value, timestamp){
+    var date = Number(timestamp) ? new Date(Number(timestamp)) : new Date(value);
+    if (!Number.isFinite(date.getTime())) return westernPdfDigits(value || '—').replace(/[\u061c\u200e\u200f]/g, '');
+    var pad = function(n){ return String(n).padStart(2, '0'); };
+    return pad(date.getDate()) + '/' + pad(date.getMonth() + 1) + '/' + date.getFullYear() +
+      ' ' + pad(date.getHours()) + ':' + pad(date.getMinutes()) + ':' + pad(date.getSeconds());
+  }
+
   function arabicUnderThousand(value){
     var n = Math.floor(Math.abs(Number(value) || 0));
     if (!n) return '';
@@ -1827,7 +1856,7 @@ if (isParts) {
         {
           stack: [
             { text: 'تاريخ الإصدار', fontSize: 9, color: '#94a3b8', alignment: 'left' },
-            { text: r.createdAt || '—', bold: true, fontSize: 11, color: '#1e3a5f', alignment: 'left' }
+            { text: receiptPdfDate(r.createdAt, r.createdAtMs), bold: true, fontSize: 11, color: '#1e3a5f', alignment: 'left' }
           ],
           width: '50%'
         }
@@ -1867,7 +1896,7 @@ if (isParts) {
     content.push({ canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.3, lineColor: '#e2e8f0' }], margin: [0, 0, 0, 6] });
 
     var contract = (A.visibleContracts && A.visibleContracts()) ? A.visibleContracts().find(function(x){ return x.id === r.contractId; }) : null;
-    var paymentDate = r.createdAt || '—';
+    var paymentDate = receiptPdfDate(r.createdAt, r.createdAtMs);
     if (contract && contract.type === 'صيانة' && contract.startDate) paymentDate = contract.startDate;
 
     var paymentMethod = '—';
@@ -3839,6 +3868,7 @@ if (isParts) {
 
       markCancelledContractPdf(dd, cancellationPolicy.contract);
       ensurePdfTafqit(dd);
+      normalizePdfDigits(dd);
       if (!ensureFinancialCompanyApproval(dd, type)) return;
 
       var suffix = (opts && opts.letterhead) ? ' (على مطبوعات الشركة)' : ((opts && opts.clean) ? ' (بدون ترويسة)' : '');
@@ -3874,6 +3904,7 @@ if (isParts) {
     var logoData = await loadLogo();
     var dd = contractPdfDefinition(contract, logoData, {letterhead:true});
     markCancelledContractPdf(dd, contract);
+    normalizePdfDigits(dd);
     return createPdfBlob(dd);
   };
 
@@ -3885,6 +3916,7 @@ if (isParts) {
     if (!quote) throw new Error('لم يتم العثور على عرض السعر');
     var logoData = await loadLogo();
     var dd = quotePdfDefinition(quote, logoData, {letterhead:true});
+    normalizePdfDigits(dd);
     return createPdfBlob(dd);
   };
 
