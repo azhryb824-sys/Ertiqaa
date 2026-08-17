@@ -1,0 +1,25 @@
+const fs=require('fs');
+const assert=require('assert');
+const app=fs.readFileSync('app.js','utf8');
+const css=fs.readFileSync('styles.css','utf8');
+const pdf=fs.readFileSync('pdfmake-gen.js','utf8');
+
+assert.match(app,/daysLeft\/totalDays<=0\.1/,'تبدأ الحالة الصفراء عند آخر 10% من مدة العقد');
+assert.match(app,/d\.getDay\(\)!==5/,'يستبعد يوم الجمعة من عداد الأيام المتبقية');
+assert.match(app,/label:"منتهي"/,'تظهر كلمة منتهي بعد انتهاء العقد');
+assert.match(app,/contractStatusBadge\(x\)/,'تعرض قائمة العقود شارة دورة حياة العقد');
+assert.match(css,/contract-state-green/);
+assert.match(css,/contract-state-yellow/);
+assert.match(css,/contract-state-red/);
+assert.match(app,/c\?\.type==="صيانة"&&\(phase==="yellow"\|\|phase==="red"\)/,'التجديد محصور بعقود الصيانة');
+assert.match(app,/renewalOf:c\.id/,'ينشأ سجل عقد جديد مرتبط بالعقد السابق');
+assert.match(app,/expired\?today:String\(c\.endDate/,'يبدأ التجديد بعد الانتهاء من تاريخ الضغط وقبله من نهاية العقد');
+assert.match(app,/const extendedContractTypes=\["توريد وتركيب قطع غيار","إعادة تأهيل مصعد","إضافة ملحقات مصعد","استبدال مكون"\]/);
+assert.match(app,/serviceInfoFields\(c\?\.serviceInfo\|\|\{\}\)/,'حقول الأنواع الأخرى مستقلة في نموذج العقد');
+assert.match(app,/أعمال إعادة التأهيل/,'تبويب متخصص لعقد إعادة التأهيل');
+assert.match(app,/الملحقات ونطاق التركيب/,'تبويب متخصص لعقد الملحقات');
+assert.match(app,/المكوّن والاستبدال/,'تبويب متخصص لعقد استبدال المكون');
+assert.match(pdf,/function serviceInfoTable/,'PDF يدعم نطاق وشروط الأنواع الأخرى');
+assert.match(pdf,/serviceInfoTable\(c\.serviceInfo/,'PDF العقد يطبع حقول النوع الآخر');
+assert.match(app,/align-items:center">\$\{receiptLinks\}<\/div>/,'تبقى روابط سندات العقود الموجودة ظاهرة');
+console.log('contract lifecycle and extended types tests passed');
