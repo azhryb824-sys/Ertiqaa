@@ -1349,7 +1349,9 @@
 
   // ==================== QUOTE ====================
   function quotePdfDefinition(q, logoData, opts){
-    var total = Number(q.subtotal != null ? q.subtotal : (q.value != null ? q.value : (q.totalWithTax || 0)));
+    var subtotal = Number(q.subtotal != null ? q.subtotal : (q.value != null ? q.value : 0));
+    var tax = Math.max(0, Number(q.taxAmount || q.tax || 0));
+    var total = Number(q.totalWithTax != null ? q.totalWithTax : (q.value != null ? q.value : subtotal + tax));
     var party = q.client || q.clientCompanyName || q.clientName || "غير محدد";
     var isInstall = q.type === "تركيب";
     var isParts = q.type === "توريد وتركيب قطع غيار";
@@ -1402,9 +1404,16 @@
     content.push(summaryTable(quoteSummary));
 
     var financialRows = [[
-      { text: 'الإجمالي', alignment: 'right', bold: true, color: '#b8862d' },
-      { text: safeMoney(total), alignment: 'center', bold: true, color: '#b8862d' }
+      { text: tax > 0 ? 'القيمة قبل الضريبة' : 'الإجمالي', alignment: 'right', bold: true, color: '#b8862d' },
+      { text: safeMoney(tax > 0 ? subtotal : total), alignment: 'center', bold: true, color: '#b8862d' }
     ]];
+    if (tax > 0) financialRows.push([
+      { text: 'الضريبة الاختيارية (' + Number(q.taxRate || 0) + '%)', alignment: 'right' },
+      { text: safeMoney(tax), alignment: 'center' }
+    ], [
+      { text: 'الإجمالي شامل الضريبة', alignment: 'right', bold: true, color: '#b8862d' },
+      { text: safeMoney(total), alignment: 'center', bold: true, color: '#b8862d' }
+    ]);
     content.push({
       table: { widths: ['*', 110], body: financialRows },
       layout: {
@@ -2487,7 +2496,7 @@ if (isParts) {
       [ { text: 'المجموع الفرعي', fontSize: 10 }, { text: safeMoney(inv.subtotal), fontSize: 10, alignment: 'center' } ]
     ];
     if (Number(inv.tax||0) > 0) amountRows.push([
-      { text: 'ضريبة محفوظة من فاتورة سابقة (' + Number(inv.taxRate||0) + '%)', fontSize: 10 },
+      { text: 'الضريبة الاختيارية (' + Number(inv.taxRate||0) + '%)', fontSize: 10 },
       { text: safeMoney(inv.tax), fontSize: 10, alignment: 'center' }
     ]);
     amountRows.push(
@@ -2618,7 +2627,7 @@ if (isParts) {
       { label: 'الإجمالي', value: safeMoney(pi.total) }
     ];
     if (Number(pi.tax||0) > 0) purchaseSummary.splice(2, 0, {
-      label: 'ضريبة محفوظة من فاتورة سابقة (' + Number(pi.taxRate||0) + '%)',
+      label: 'الضريبة الاختيارية (' + Number(pi.taxRate||0) + '%)',
       value: safeMoney(pi.tax)
     });
     content.push(summaryTable(purchaseSummary));
