@@ -661,6 +661,7 @@ function elevatorSection(i={},excluded=[]){const info=Object.assign({},specDefau
   function contractLifecycle(c,at=new Date()){
     const cancelled=["ملغي","ملغاة","محذوف"].includes(String(c?.status||""));
     if(cancelled)return{phase:"red",label:String(c.status||"ملغي"),daysLeft:null,workDaysLeft:null};
+    if(c?.renewalLocked||c?.renewedContractId)return{phase:"red",label:"تم التجديد",daysLeft:0,workDaysLeft:0};
     if(!c?.endDate)return{phase:"green",label:String(c?.status||"غير محدد"),daysLeft:null,workDaysLeft:null};
     const today=new Date(dateVal(at)+"T00:00"),end=new Date(String(c.endDate).slice(0,10)+"T00:00"),start=c.startDate?new Date(String(c.startDate).slice(0,10)+"T00:00"):null;
     const daysLeft=Math.round((end-today)/86400000);
@@ -674,13 +675,16 @@ function elevatorSection(i={},excluded=[]){const info=Object.assign({},specDefau
   }
   const contractDaysLeft=c=>contractLifecycle(c).daysLeft;
   const contractHasRenewal=c=>contracts.some(x=>String(x.renewalOf||"")===String(c?.id||"")&&!['ملغي','ملغاة','محذوف'].includes(String(x.status||'')));
-  const contractNeedsRenewal=c=>{const phase=contractLifecycle(c).phase;return c?.type==="صيانة"&&(phase==="yellow"||phase==="red")&&!contractHasRenewal(c)&&!["ملغي","ملغاة","محذوف"].includes(String(c?.status||""))};
+  const contractNeedsRenewal=c=>{const phase=contractLifecycle(c).phase;return c?.type==="صيانة"&&(phase==="yellow"||phase==="red")&&!c.renewalLocked&&!c.renewedContractId&&!contractHasRenewal(c)&&!["ملغي","ملغاة","محذوف"].includes(String(c?.status||""))};
   const contractStatusBadge=c=>{const state=contractLifecycle(c);return `<span class="badge contract-state-${state.phase}" data-contract-state="${state.phase}" title="${state.daysLeft===null?'لا يوجد تاريخ انتهاء':`المتبقي التقويمي: ${state.daysLeft} يوم`}">${esc(state.label)}</span>`};
-  function renewContractAsNew(c){
+  function renewContractAsNew(c,selectedStartDate){
     if(!c||!contractNeedsRenewal(c))return null;
-    const today=dateVal(new Date()),expired=contractLifecycle(c).phase==="red",startDate=expired?today:String(c.endDate||today).slice(0,10),years=Math.max(1,Number(c.contractYears||1)),next=JSON.parse(JSON.stringify(c));
-    Object.assign(next,{id:nextContractId(),startDate,endDate:dateVal(addYears(new Date(startDate+"T00:00"),years)),status:"بانتظار موافقة العميل",renewalOf:c.id,renewedFromEndDate:c.endDate||"",createdAt:new Date().toLocaleString("ar-SA"),createdAtMs:Date.now(),createdBy:session.id,stageCompletion:{},transferNotices:[],transferNoticeData:""});
-    ["activatedAt","activatedBy","activationReason","firstPaymentEntryId","firstPaymentDate","expiredAt","expiredAtLabel","expirationReason","cancelledAt","cancelledBy","cancelReason","deletedAt","deletedBy"].forEach(key=>delete next[key]);
+    const startDate=String(selectedStartDate||"").slice(0,10),parsedStart=new Date(startDate+"T00:00");
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(startDate)||!Number.isFinite(parsedStart.getTime()))return null;
+    const years=Math.max(1,Number(c.contractYears||1)),next=JSON.parse(JSON.stringify(c));
+    Object.assign(next,{id:nextContractId(),startDate,endDate:dateVal(addYears(new Date(startDate+"T00:00"),years)),status:"بانتظار موافقة العميل",renewalOf:c.id,renewalReplaces:c.id,renewedFromEndDate:c.endDate||"",createdAt:new Date().toLocaleString("ar-SA"),createdAtMs:Date.now(),createdBy:session.id,stageCompletion:{},transferNotices:[],transferNoticeData:"",paidAmount:0,remainingAmount:Number(c.value||0),financialStatus:"غير محصل"});
+    ["activatedAt","activatedBy","activationReason","firstPaymentEntryId","firstPaymentDate","expiredAt","expiredAtLabel","expirationReason","cancelledAt","cancelledBy","cancelReason","deletedAt","deletedBy","renewalLocked","renewedContractId","renewedAt","renewedBy"].forEach(key=>delete next[key]);
+    c.renewalLocked=true;c.renewedContractId=next.id;c.replacedByContractId=next.id;c.status="تم التجديد";c.renewedAt=new Date().toISOString();c.renewedBy=session.id;
     contracts.unshift(next);write("misadContracts",contracts);logActivity("تجديد عقد",`إنشاء العقد ${next.id} كتجديد للعقد ${c.id} من ${startDate}`,next.id);return next;
   }
   document.addEventListener("click",e=>{
@@ -690,10 +694,17 @@ function elevatorSection(i={},excluded=[]){const info=Object.assign({},specDefau
     const c=contracts.find(x=>x.id===renew.dataset.renewContract);
     if(!c||!canManageContract(c)||c.type!=="صيانة")return toast("التجديد متاح لعقود الصيانة فقط");
     if(!contractNeedsRenewal(c))return toast("لا يمكن تجديد هذا العقد في الوقت الحالي");
-    if(confirm(`إنشاء عقد صيانة جديد كتجديد للعقد ${c.id}؟`)){
-      const next=renewContractAsNew(c);
-      if(next){render("contracts");toast(`تم إنشاء عقد التجديد ${next.id} مع إبقاء العقد السابق`)}
-    }
+    const today=dateVal(new Date()),suggested=contractLifecycle(c).phase==="red"?today:String(c.endDate||today).slice(0,10);
+    modal("تجديد العقد",`<form class="modal-form" data-form="contract-renew"><input type="hidden" name="contractId" value="${esc(c.id)}"><div class="form-note">سيتم إنشاء عقد جديد مرتبط بالعقد ${esc(c.id)}، وبعد الإنشاء لن يكون العقد القديم قابلاً للتجديد مرة أخرى.</div><label>تاريخ بداية العقد الجديد<input type="date" name="startDate" value="${esc(suggested)}" required></label><button class="btn-primary">إنشاء عقد التجديد</button></form>`);
+  },true);
+  document.addEventListener("submit",e=>{
+    const form=e.target;if(form.dataset.form!=="contract-renew")return;
+    e.preventDefault();e.stopImmediatePropagation();
+    const data=new FormData(form),c=contracts.find(x=>x.id===data.get("contractId"));
+    if(!c||!canManageContract(c)||!contractNeedsRenewal(c))return toast("هذا العقد غير قابل للتجديد");
+    const next=renewContractAsNew(c,data.get("startDate"));
+    if(!next)return toast("اختر تاريخ بداية صحيحاً للعقد الجديد");
+    modalClose(`تم إنشاء عقد التجديد ${next.id}`);render("contracts");
   },true);
    function contractActions(c){let b=`<button class="action-btn primary" data-pdf-doc="contract" data-pdf-id="${c.id}">PDF</button> <button class="action-btn" data-pdf-doc="contract" data-pdf-id="${c.id}" data-pdf-clean="true">نظيف</button>${canUseCompanyLetterhead?` <button class="action-btn" data-pdf-doc="contract" data-pdf-id="${c.id}" data-pdf-letterhead="true">على مطبوعات الشركة</button>`:""} <button class="action-btn primary" data-view-contract="${c.id}">عرض</button>`;if(canManageContract(c))b+=` <button class="action-btn" data-upload-transfer="${c.id}">${(c.transferNotices?.length||c.transferNoticeData)?"رفع إشعار تحويل إضافي":"رفع إشعار التحويل"}</button>`;if(canManageContract(c)&&contractNeedsRenewal(c))b+=` <button class="action-btn renewal-btn" data-renew-contract="${c.id}">تجديد العقد</button>`;if(canEditContract(c))b+=` <button class="action-btn" data-action="edit-contract:${c.id}">تعديل</button>`;if(canManageContract(c)&&!["ملغي","محذوف"].includes(c.status))b+=` <button class="action-btn" data-contract-cancel="${c.id}">إلغاء</button>`;if(canManageContract(c))b+=` <button class="action-btn" data-contract-delete="${c.id}">حذف</button>`;if(canManageContract(c)||session.role==="client")b+=` <button class="action-btn ${session.role==="client"?"":"success"}" data-contract-finance="${c.id}">الإدارة المالية</button>`;if(c.type==="تركيب"&&canManageContract(c)&&!c.deliveryDate&&!["ملغي","محذوف","منتهيا"].includes(c.status))b+=` <button class="action-btn success" data-install-done="${c.id}">تم تركيب المصعد</button>`;if(c.type==="تركيب"&&canManageContract(c)&&c.deliveryDate)b+=` <button class="action-btn" data-pdf-doc="install-receipt" data-pdf-id="${c.id}">إقرار الاستلام</button>`;if(c.type==="تركيب"&&canManageContract(c)&&c.deliveryDate&&!contracts.some(x=>x.sourceContractId===c.id&&x.type==="صيانة"))b+=` <button class="action-btn success" data-create-maintenance-contract="${c.id}">إنشاء عقد صيانة</button>`;if(canManageContract(c)){const contractReceipts=(read("misadReceipts")||[]).filter(r=>r.contractId===c.id);const receiptLinks=contractReceipts.map(r=>`<button class="action-btn primary" data-pdf-doc="receipt" data-pdf-id="${r.id}" style="font-size:10px;padding:2px 6px">سند ${r.id.slice(-4)}</button>`).join("");if(receiptLinks)b+=` <div style="display:inline-flex;gap:4px;align-items:center">${receiptLinks}</div>`}return b}
   const contractActionsWithFinance=contractActions.bind(null);
