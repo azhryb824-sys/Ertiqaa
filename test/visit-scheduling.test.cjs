@@ -17,8 +17,8 @@ assert.match(app, /rescheduleReason="technician-added"/,
 assert.match(app, /role==="technician"\?rescheduleActiveContractVisitsAfterTechnicianAdded\(member\):0/,
   'يجب تشغيل إعادة الجدولة عند إضافة الموظف كفني فقط');
 
-assert.match(app, /data-pdf-doc="visits-monthly"/,
-  'يجب إتاحة تنزيل جدول الزيارات الشهرية PDF');
+assert.match(app, /visits-daily":"visits-monthly/,
+  'يجب إتاحة تنزيل جدول الزيارات اليومية والشهرية PDF بحسب التبويب');
 for (const heading of ['الطرف الثاني', 'اسم المبنى', 'الحي', 'الفني', 'الموعد', 'حالة الزيارة']) {
   assert.ok(app.includes(`<th>${heading}</th>`), `يجب أن يحتوي PDF على عمود ${heading}`);
 }
