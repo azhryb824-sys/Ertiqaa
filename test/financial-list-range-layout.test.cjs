@@ -25,11 +25,12 @@ test('range remains attached to the active finance list and reaches list data', 
 
 test('all separate and bundled financial PDFs use safe landscape table widths', () => {
   assert.match(pdf, /function financialListColumnWidths/);
-  assert.match(pdf, /available=790/);
+  assert.match(pdf, /available=720/);
   assert.match(pdf, /pageOrientation='landscape'/);
   assert.match(pdf, /fontSize=cols\.length>=8\?6\.2/);
   assert.match(pdf, /dontBreakRows:true/);
-  assert.match(pdf, /bundle\.pageOrientation='landscape'/);
+  assert.match(pdf, /financialListTableLayout/);
+  assert.match(pdf, /financialLandscapeChrome/);
 });
 
 test('period is always printed and refreshed assets bypass stale layout', () => {
