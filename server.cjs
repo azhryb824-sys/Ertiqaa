@@ -5097,6 +5097,7 @@ http.createServer(async (req, res) => {
     authStore: createV2AuthStore({dataDir,key:String(process.env.V2_AUTH_KEY||entrySecret),issuer:"Shumoos V2"}),
     authToken: req => parseCookies(req.headers.cookie).v2_session || "",
     authCookieName: "v2_session",
+    sharedAuthOnly: true,
     strictAuth: String(process.env.V2_STRICT_AUTH||"").toLowerCase()==="true",
     secureCookies: isRenderDeployment,
     backupKey: String(process.env.V2_BACKUP_KEY || entrySecret),

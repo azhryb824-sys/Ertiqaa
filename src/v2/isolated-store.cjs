@@ -118,7 +118,9 @@ function createV2Api(options) {
     const tenantId = safeTenant(role === "owner" ? userId : (user.companyOwnerId || userId));
     return {userId: String(userId), role, tenantId, name: user.name || ""};
   };
-  const resolveContext = req => options.authStore.identity(options.authToken(req)) || (options.strictAuth ? null : resolveLegacyContext(req));
+  const resolveContext = req => options.sharedAuthOnly
+    ? resolveLegacyContext(req)
+    : options.authStore.identity(options.authToken(req)) || (options.strictAuth ? null : resolveLegacyContext(req));
   const enqueue = task => {
     const result = queue.catch(() => {}).then(task); queue = result.catch(() => {}); return result;
   };
@@ -134,6 +136,7 @@ function createV2Api(options) {
     if (!pathname.startsWith("/api/v2/")) return false;
     if(typeof res.setHeader==="function"){res.setHeader("Cache-Control","no-store, max-age=0");res.setHeader("Pragma","no-cache");res.setHeader("X-Content-Type-Options","nosniff");res.setHeader("Referrer-Policy","no-referrer");res.setHeader("Content-Security-Policy","default-src 'none'; frame-ancestors 'none'")}
     try{
+      if(options.sharedAuthOnly&&pathname.startsWith("/api/v2/auth/")){send(res,410,{error:"V2 uses the shared system login"});return true}
       if(pathname==="/api/v2/auth/login"&&req.method==="POST"){const input=await readBody(req),session=options.authStore.login(input.userId,input.password,input.code);if(typeof res.setHeader==="function")res.setHeader("Set-Cookie",`${options.authCookieName}=${session.token}; Path=/api/v2; HttpOnly${authCookieSecurity}; SameSite=Strict; Max-Age=1800`);send(res,200,{ok:true,expiresAt:session.expiresAt,identity:session.identity});return true}
       if(pathname==="/api/v2/auth/logout"&&req.method==="POST"){options.authStore.logout(options.authToken(req));if(typeof res.setHeader==="function")res.setHeader("Set-Cookie",`${options.authCookieName}=; Path=/api/v2; HttpOnly${authCookieSecurity}; SameSite=Strict; Max-Age=0`);send(res,200,{ok:true});return true}
       const legacy=resolveLegacyContext(req);
@@ -146,7 +149,7 @@ function createV2Api(options) {
       const windowId=Math.floor(Date.now()/60000),bucketKey=`${ctx.userId}:${windowId}:${req.method==="GET"?"read":"write"}`,limit=req.method==="GET"?300:120,count=(rateBuckets.get(bucketKey)||0)+1;rateBuckets.set(bucketKey,count);if(rateBuckets.size>10000)for(const key of rateBuckets.keys())if(!key.includes(`:${windowId}:`))rateBuckets.delete(key);if(count>limit){if(typeof res.setHeader==="function")res.setHeader("Retry-After","60");throw Object.assign(new Error("V2 request rate limit exceeded"),{status:429})}
       const csrf = options.sign(`v2:${ctx.userId}:${ctx.tenantId}`);
       if (pathname === "/api/v2/session" && req.method === "GET") {
-        send(res, 200, {ok: true, csrf, role: ctx.role, tenant: ctx.tenantId, isolated: true, authentication: options.strictAuth?"v2-mfa":"legacy-preview"}); return true;
+        send(res, 200, {ok: true, csrf, role: ctx.role, tenant: ctx.tenantId, isolated: true, authentication: options.sharedAuthOnly?"shared-system-session":options.strictAuth?"v2-mfa":"legacy-preview"}); return true;
       }
       if (["POST", "PUT", "PATCH", "DELETE"].includes(req.method) && String(req.headers["x-v2-csrf"] || "") !== csrf) {
         send(res, 403, {error: "Invalid V2 request token"}); return true;

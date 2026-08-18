@@ -14,10 +14,5 @@ window.V2Persistence=(()=>{
   function command(type,input){const idempotencyKey=globalThis.crypto?.randomUUID?.()||`v2-${Date.now()}-${Math.random().toString(16).slice(2)}`,task=async()=>{await ensureSession();const body=await request("../api/v2/command",{method:"POST",headers:{"X-Idempotency-Key":idempotencyKey},body:JSON.stringify({version,type,input})});version=Number(body.version||version+1);return body};const result=queue.then(task);queue=result.catch(()=>{});return result}
   async function health(){return request("../api/v2/health")}
   async function report(type,filters={}){await ensureSession();const query=new URLSearchParams(filters).toString();return request(`../api/v2/report/${encodeURIComponent(type)}${query?`?${query}`:""}`)}
-  async function authBootstrap(){return request("../api/v2/auth/bootstrap-session")}
-  async function authEnroll(password,enrollCsrf){return request("../api/v2/auth/enroll",{method:"POST",headers:{"X-V2-Enroll-CSRF":enrollCsrf},body:JSON.stringify({password})})}
-  async function authConfirm(code,enrollCsrf){return request("../api/v2/auth/confirm",{method:"POST",headers:{"X-V2-Enroll-CSRF":enrollCsrf},body:JSON.stringify({code})})}
-  async function authLogin(userId,password,code){return request("../api/v2/auth/login",{method:"POST",body:JSON.stringify({userId,password,code})})}
-  async function authLogout(){csrf="";return request("../api/v2/auth/logout",{method:"POST",body:"{}"})}
-  return{load,bootstrap,demo,command,health,report,authBootstrap,authEnroll,authConfirm,authLogin,authLogout,get version(){return version},get initialized(){return initialized}};
+  return{load,bootstrap,demo,command,health,report,get version(){return version},get initialized(){return initialized}};
 })();
