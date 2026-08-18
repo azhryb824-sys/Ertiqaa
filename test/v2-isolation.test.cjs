@@ -17,4 +17,5 @@ assert.match(persistence,/api\/v2\/state/,"v2 must persist through its isolated 
 assert.doesNotMatch(persistence,/function save\(/,"v2 UI must not expose bulk state writes");
 assert.match(persistence,/api\/v2\/command/,"v2 mutations must use audited commands");
 assert.match(server,/v2Api\.handle\(req, res, pathname\)/,"the server must route v2 separately");
+assert.match(server,/V2_EPHEMERAL_PREVIEW/);assert.match(server,/preferredDataDir\.startsWith\("\/tmp\/"\)/,"ephemeral preview must be explicit and limited to tmp");
 console.log("v2 isolation checks passed");

@@ -56,8 +56,10 @@ const host = process.env.HOST || "0.0.0.0";
 // passwords, contracts, quotes, documents, and all customer operational data.
 const preferredDataDir = process.env.DATA_DIR || (process.env.RENDER === "true" ? "/var/data" : path.join(require("os").homedir(), ".elevator-data"));
 const isRenderDeployment = process.env.RENDER === "true";
+const isEphemeralV2Preview = isRenderDeployment && process.env.V2_EPHEMERAL_PREVIEW === "true" && preferredDataDir.startsWith("/tmp/");
 function hasPersistentDataMount() {
   if (!isRenderDeployment) return true;
+  if (isEphemeralV2Preview) return true;
   try {
     return fs.readFileSync("/proc/self/mountinfo", "utf8").split("\n").some(line => line.split(" ")[4] === "/var/data");
   } catch {
@@ -739,6 +741,7 @@ async function initializePersistentStorage() {
   if (!hasPersistentDataMount()) {
     throw new Error("Render persistent disk is not mounted at /var/data. Refusing to start to prevent database rollback.");
   }
+  if (isEphemeralV2Preview) console.warn("V2 EPHEMERAL PREVIEW: data is isolated and will be reset when the instance restarts.");
   fs.mkdirSync(path.dirname(storagePath), {recursive: true});
   let restoredFrom = "";
 
