@@ -57,6 +57,9 @@ const host = process.env.HOST || "0.0.0.0";
 const preferredDataDir = process.env.DATA_DIR || (process.env.RENDER === "true" ? "/var/data" : path.join(require("os").homedir(), ".elevator-data"));
 const isRenderDeployment = process.env.RENDER === "true";
 const isEphemeralV2Preview = isRenderDeployment && process.env.V2_EPHEMERAL_PREVIEW === "true" && preferredDataDir.startsWith("/tmp/");
+const v1AuthOrigin = isEphemeralV2Preview ? String(process.env.V1_AUTH_ORIGIN || "https://ertiqaa.onrender.com").replace(/\/$/, "") : "";
+const upstreamAuthIdentities = new Map();
+if (v1AuthOrigin && v1AuthOrigin !== "https://ertiqaa.onrender.com") throw new Error("V1_AUTH_ORIGIN must be the trusted production origin");
 function hasPersistentDataMount() {
   if (!isRenderDeployment) return true;
   if (isEphemeralV2Preview) return true;
@@ -500,6 +503,37 @@ function deviceAccessIdentity(req) {
 function issueDeviceAccessToken(userId) {
   const deviceId = `login-${crypto.randomBytes(12).toString("hex")}`;
   return `${userId}.${deviceId}.${sign(`${userId}:${deviceId}`)}`;
+}
+
+async function authenticateAgainstV1(userId, password) {
+  if (!v1AuthOrigin) return null;
+  let response;
+  try {
+    response = await fetch(`${v1AuthOrigin}/api/auth/login`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json", "Accept": "application/json"},
+      body: JSON.stringify({userId, password}),
+      signal: AbortSignal.timeout(10000)
+    });
+  } catch {
+    throw Object.assign(new Error("تعذر الاتصال بخدمة تسجيل الدخول للنسخة الأولى"), {status: 502});
+  }
+  if (response.status === 401 || response.status === 400) return null;
+  if (!response.ok) throw Object.assign(new Error("خدمة تسجيل الدخول للنسخة الأولى غير متاحة مؤقتًا"), {status: 502});
+  const profile = await response.json();
+  const id = cleanId(profile.id);
+  const role = String(profile.role || "");
+  if (id !== cleanId(userId) || !["owner","company_admin","admin","technician","client","accountant","employee","engineer"].includes(role)) {
+    throw Object.assign(new Error("استجابة تسجيل الدخول المشتركة غير صالحة"), {status: 502});
+  }
+  return {
+    id,
+    role,
+    name: String(profile.name || ""),
+    permissions: Array.isArray(profile.permissions) ? profile.permissions : [],
+    mustChangePassword: Boolean(profile.mustChangePassword),
+    companyOwnerId: String(profile.companyOwnerId || profile._linkedCoId || "")
+  };
 }
 
 function sendAuthenticatedJson(res, status, payload, userId) {
@@ -5104,6 +5138,7 @@ http.createServer(async (req, res) => {
     dataDir,
     sendJson,
     authIdentity: deviceAccessIdentity,
+    authProfile: userId => upstreamAuthIdentities.get(cleanId(userId)) || null,
     readSource: readStore,
     parseArray: parseStoredJson,
     cleanId,
@@ -5124,8 +5159,12 @@ http.createServer(async (req, res) => {
       if (!uid || !pwd) return sendJson(res, 400, {error: "رقم الهوية وكلمة المرور مطلوبان"});if(!isValidId(uid))return sendJson(res,400,{error:"رقم الهوية غير صالح. يجب أن يبدأ بـ 1 أو 2"})
       const store = readStore();
       const storedUsers = parseStoredJson(store, "misadUsers");
-      const user = storedUsers.find(u => cleanId(u.id) === uid && u.password === pwd)
+      let user = storedUsers.find(u => cleanId(u.id) === uid && u.password === pwd)
         || serverSystemUsers.find(u => cleanId(u.id) === uid && u.password === pwd);
+      if (!user) {
+        user = await authenticateAgainstV1(uid, pwd);
+        if (user) upstreamAuthIdentities.set(uid, user);
+      }
       if (!user) return sendJson(res, 401, {error: "رقم الهوية أو كلمة المرور غير صحيحة"});
       const storedUser = storedUsers.find(u => cleanId(u.id) === uid);
       const coId = storedUser?.companyOwnerId || user.companyOwnerId || "";
