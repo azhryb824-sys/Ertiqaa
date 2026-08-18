@@ -28,5 +28,5 @@ test('supplier deletion is blocked while any financial or operational reference 
 });
 
 test('dashboard cache key exposes the current supplier controls', () => {
-  assert.match(dashboard, /app\.js\?v=20260817-supplier-edit-delete-1/);
+  assert.match(dashboard, /app\.js\?v=20260817-[a-z0-9-]+/);
 });

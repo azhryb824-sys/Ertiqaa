@@ -25,11 +25,11 @@ test('owner, company administrator, and system administrator can mutate employee
 });
 
 test('employee mutations reverse and repost every cash or bank journal source', () => {
-  assert.match(app, /removeJournalForSource\("staff-advance",entry\.id\)/);
-  assert.match(app, /removeJournalForSource\('custody-recovery',entry\.id\)/);
+  assert.match(app, /voidSourceOrFail\("staff-advance",entry\.id/);
+  assert.match(app, /voidSourceOrFail\("custody-recovery",entry\.id/);
   assert.match(app, /removeJournalForSource\("payroll-payment",candidate\.id\)/);
   assert.match(app, /removeJournalForSource\("payroll",candidate\.id\)/);
-  assert.match(app, /removeJournalForSource\("staff-voucher",id\)/);
+  assert.match(app, /voidSourceOrFail\("staff-voucher",id/);
   assert.match(app, /recalculatePayrollFromStaffEntries/);
 });
 
