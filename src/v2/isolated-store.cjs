@@ -5,6 +5,11 @@ const path = require("path");
 const crypto = require("crypto");
 
 const ALLOWED_COLLECTIONS = new Set([
+  "misadUsers", "misadClientCompanies", "misadDefaultItems", "misadVisitReports", "misadQuotes",
+  "misadCompanyDocs", "misadActivityLog", "misadVisitMessages", "misadMeetings", "misadSystemBanners",
+  "misadKnowledgePages", "misadAdminInvites", "misadInvoices", "misadTreasury", "misadContractPayments",
+  "misadStaffPurchaseInvoices", "misadStaffVouchers", "misadChartOfAccounts", "misadFinanceLinkBackups",
+  "misadAccountingPeriods", "misadStaffLocations", "misadNotifications",
   "misadContracts", "misadVisits", "misadTickets", "misadCompanyStaff", "misadOwnerCompanies",
   "misadElevatorAssets", "misadPartsInventory", "misadSuppliers", "misadPurchaseInvoices",
   "misadCustomerInvoices", "misadReceipts", "misadClaims", "misadPayrolls", "misadCustodies",
@@ -151,12 +156,48 @@ function createV2Api(options) {
       if (pathname === "/api/v2/session" && req.method === "GET") {
         send(res, 200, {ok: true, csrf, role: ctx.role, tenant: ctx.tenantId, isolated: true, authentication: options.sharedAuthOnly?"shared-system-session":options.strictAuth?"v2-mfa":"legacy-preview"}); return true;
       }
-      if (["POST", "PUT", "PATCH", "DELETE"].includes(req.method) && String(req.headers["x-v2-csrf"] || "") !== csrf) {
+      if (pathname !== "/api/v2/legacy-storage" && ["POST", "PUT", "PATCH", "DELETE"].includes(req.method) && String(req.headers["x-v2-csrf"] || "") !== csrf) {
         send(res, 403, {error: "Invalid V2 request token"}); return true;
       }
       if (pathname === "/api/v2/state" && req.method === "GET") {
         const root = readFile(storageFile), tenant = tenantState(root, ctx);
         send(res, 200, {ok: true, version: tenant.version, data: tenant.data, updatedAt: tenant.updatedAt, isolated: true}); return true;
+      }
+      if (pathname === "/api/v2/legacy-storage" && req.method === "GET") {
+        const url = new URL(req.url || pathname, "http://v2.local");
+        const key = String(url.searchParams.get("key") || "");
+        const keys = String(url.searchParams.get("keys") || "").split(",").map(value => value.trim()).filter(Boolean).slice(0, 100);
+        const root = readFile(storageFile), tenant = tenantState(root, ctx), data = tenant.data || {};
+        if (key) {
+          if (!ALLOWED_COLLECTIONS.has(key) || !Object.prototype.hasOwnProperty.call(data, key)) return send(res, 200, {}), true;
+          send(res, 200, {key, value: JSON.stringify(data[key])}); return true;
+        }
+        const values = {};
+        for (const name of keys) if (ALLOWED_COLLECTIONS.has(name) && Object.prototype.hasOwnProperty.call(data, name)) values[name] = JSON.stringify(data[name]);
+        send(res, 200, {values, summaries: {}, version: tenant.version, isolated: true}); return true;
+      }
+      if (pathname === "/api/v2/legacy-storage" && req.method === "POST") {
+        const body = await readBody(req), updates = asArray(body.updates).slice(0, 100);
+        if (!updates.length || updates.some(update => !update || !ALLOWED_COLLECTIONS.has(String(update.key || "")))) throw Object.assign(new Error("Invalid V2 storage update"), {status: 400});
+        if (["technician", "client"].includes(ctx.role) && updates.some(update => FINANCE_COLLECTIONS.has(String(update.key)))) throw Object.assign(new Error("Finance write permission required"), {status: 403});
+        await enqueue(async () => {
+          const root = readFile(storageFile), existing = tenantState(root, ctx), previous = normalizeData(existing.data || {}), next = clone(previous);
+          for (const update of updates) {
+            const key = String(update.key);
+            if (update.remove) next[key] = key === "v2Settings" ? {} : [];
+            else {
+              let decoded = update.value;
+              if (typeof decoded === "string") { try { decoded = JSON.parse(decoded); } catch { decoded = []; } }
+              next[key] = key === "v2Settings" ? (decoded && typeof decoded === "object" && !Array.isArray(decoded) ? decoded : {}) : asArray(decoded);
+            }
+          }
+          validateState(previous, next, ctx.role);
+          if (fs.existsSync(storageFile)) backup(root, "before-legacy-command");
+          root.tenants[ctx.tenantId] = {version: existing.version + 1, data: next, history: asArray(existing.history), createdAt: existing.createdAt || now(), updatedAt: now(), updatedBy: ctx.userId};
+          atomicWrite(storageFile, root);
+        });
+        const root = readFile(storageFile), tenant = tenantState(root, ctx);
+        send(res, 200, {ok: true, version: tenant.version, isolated: true}); return true;
       }
       if (pathname.startsWith("/api/v2/report/") && req.method === "GET") {
         if (!["owner","admin","company_admin","accountant"].includes(ctx.role)) { send(res,403,{error:"Report permission required"}); return true; }
