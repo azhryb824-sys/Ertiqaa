@@ -4,6 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+const dashboard = fs.readFileSync(path.join(__dirname, '..', 'dashboard.html'), 'utf8');
 
 test('all employee-finance groups expose edit and delete actions', () => {
   assert.match(app, /data-staff-entry-edit/);
@@ -20,6 +21,7 @@ test('all employee-finance groups expose edit and delete actions', () => {
 
 test('owner, company administrator, and system administrator can mutate employee finance', () => {
   assert.match(app, /function financeOwnerCanMutate\(\)\{return !!session&&\["owner","company_admin","admin"\]/);
+  assert.match(dashboard, /app\.js\?v=20260817-staff-finance-mutations-1/);
 });
 
 test('employee mutations reverse and repost every cash or bank journal source', () => {
