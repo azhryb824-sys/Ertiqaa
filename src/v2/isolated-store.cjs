@@ -117,7 +117,7 @@ function createV2Api(options) {
     if (!userId) return null;
     const source = options.readSource();
     const users = options.parseArray(source, "misadUsers");
-    const user = users.find(item => options.cleanId(item.id) === options.cleanId(userId)) || options.systemUsers.find(item => options.cleanId(item.id) === options.cleanId(userId)) || options.authProfile?.(userId);
+    const user = users.find(item => options.cleanId(item.id) === options.cleanId(userId)) || options.systemUsers.find(item => options.cleanId(item.id) === options.cleanId(userId)) || options.authProfile?.(userId) || options.authContext?.(req);
     if (!user) return null;
     const role = String(user.role || "");
     const tenantId = safeTenant(role === "owner" ? userId : (user.companyOwnerId || userId));

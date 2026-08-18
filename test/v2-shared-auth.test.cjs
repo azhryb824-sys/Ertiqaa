@@ -15,6 +15,7 @@ const api=createV2Api({
   readSource:()=>({misadUsers:"[]"}),
   parseArray:(source,key)=>JSON.parse(source[key]||"[]"),
   authProfile:userId=>userId==="OWNER"?{id:"OWNER",role:"owner",name:"المالك"}:null,
+  authContext:req=>req.sharedProfile||null,
   cleanId:String,
   systemUsers:[],
   sign:value=>`signed:${value}`,
@@ -39,6 +40,8 @@ async function call(method,pathname,userId="OWNER"){
   assert.equal(res.status,410);
   res=await call("GET","/api/v2/session",null);
   assert.equal(res.status,401);
+  const fallbackReq=Readable.from([]);fallbackReq.method="GET";fallbackReq.userId="REMOTE";fallbackReq.sharedProfile={id:"REMOTE",role:"owner",name:"مالك بعيد"};fallbackReq.headers={};
+  const fallbackRes={setHeader(){}};assert.equal(await api.handle(fallbackReq,fallbackRes,"/api/v2/session"),true);assert.equal(fallbackRes.status,200);assert.equal(fallbackRes.body.tenant,"REMOTE");
   fs.rmSync(dataDir,{recursive:true,force:true});
   console.log("v2 shared authentication checks passed");
 })().catch(error=>{console.error(error);process.exitCode=1});

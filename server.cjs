@@ -59,6 +59,7 @@ const isRenderDeployment = process.env.RENDER === "true";
 const isEphemeralV2Preview = isRenderDeployment && process.env.V2_EPHEMERAL_PREVIEW === "true" && preferredDataDir.startsWith("/tmp/");
 const v1AuthOrigin = isEphemeralV2Preview ? String(process.env.V1_AUTH_ORIGIN || "https://ertiqaa.onrender.com").replace(/\/$/, "") : "";
 const upstreamAuthIdentities = new Map();
+const sharedIdentityCookie = "misad_identity";
 if (v1AuthOrigin && v1AuthOrigin !== "https://ertiqaa.onrender.com") throw new Error("V1_AUTH_ORIGIN must be the trusted production origin");
 function hasPersistentDataMount() {
   if (!isRenderDeployment) return true;
@@ -505,6 +506,21 @@ function issueDeviceAccessToken(userId) {
   return `${userId}.${deviceId}.${sign(`${userId}:${deviceId}`)}`;
 }
 
+function issueSharedIdentityToken(profile = {}) {
+  const safe = {id: cleanId(profile.id), role: String(profile.role || ""), name: String(profile.name || "").slice(0, 160), companyOwnerId: String(profile.companyOwnerId || profile._linkedCoId || "").slice(0, 80), permissions: Array.isArray(profile.permissions) ? profile.permissions.slice(0, 100) : []};
+  const payload = Buffer.from(JSON.stringify(safe), "utf8").toString("base64url");
+  return `${payload}.${sign(`identity:${payload}`)}`;
+}
+
+function sharedIdentity(req) {
+  const token = String(parseCookies(req.headers.cookie)[sharedIdentityCookie] || ""), index = token.lastIndexOf(".");
+  if (index < 1) return null;
+  const payload = token.slice(0, index), signature = token.slice(index + 1);
+  if (signature !== sign(`identity:${payload}`)) return null;
+  try { const profile = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")), userId = deviceAccessIdentity(req); return userId && cleanId(profile.id) === cleanId(userId) ? profile : null; }
+  catch { return null; }
+}
+
 async function authenticateAgainstV1(userId, password) {
   if (!v1AuthOrigin) return null;
   let response;
@@ -541,7 +557,7 @@ function sendAuthenticatedJson(res, status, payload, userId) {
   res.writeHead(status, {
     "Content-Type": "application/json; charset=utf-8",
     "Cache-Control": "no-store",
-    "Set-Cookie": `${deviceCookie}=${accessToken}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000`
+    "Set-Cookie": [`${deviceCookie}=${accessToken}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000`, `${sharedIdentityCookie}=${issueSharedIdentityToken(payload)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000`]
   });
   res.end(JSON.stringify({...payload, accessToken}));
 }
@@ -5138,6 +5154,7 @@ http.createServer(async (req, res) => {
     dataDir,
     sendJson,
     authIdentity: deviceAccessIdentity,
+    authContext: sharedIdentity,
     authProfile: userId => upstreamAuthIdentities.get(cleanId(userId)) || null,
     readSource: readStore,
     parseArray: parseStoredJson,
