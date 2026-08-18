@@ -1,0 +1,1 @@
+{"name":"شموس المطوّر","short_name":"شموس V2","description":"نظام تشغيل ومحاسبة مطور لشركات المصاعد","start_url":"./index.html","scope":"./","display":"standalone","orientation":"any","background_color":"#071c23","theme_color":"#071b22","dir":"rtl","lang":"ar-SA","icons":[{"src":"../assets/shumoos-logo.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}]}

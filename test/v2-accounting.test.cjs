@@ -1,0 +1,17 @@
+"use strict";
+const assert=require("node:assert/strict");
+const {validateJournal,postJournal,reverseJournal,replacePostedSource,periodClosed}=require("../src/v2/accounting.cjs");
+const periods=[{companyOwnerId:"C1",from:"2026-01-01",to:"2026-01-31",status:"closed"}];
+assert.equal(periodClosed("2026-01-20",periods,"C1"),true);
+assert.equal(periodClosed("2026-02-01",periods,"C1"),false);
+assert.equal(validateJournal({companyOwnerId:"C1",date:"2026-02-01",lines:[{account:"1100",side:"debit",amount:100},{account:"4100",side:"credit",amount:90}]},periods).ok,false);
+const state={journals:[]};
+const posted=postJournal(state,{companyOwnerId:"C1",date:"2026-02-01",description:"تحصيل",refType:"receipt",refId:"R1",lines:[{account:"1100",side:"debit",amount:100},{account:"1320",side:"credit",amount:100}]},"U1",periods);
+assert.equal(posted.ok,true);assert.equal(state.journals.length,1);
+assert.equal(postJournal(state,{companyOwnerId:"C1",date:"2026-02-01",refType:"receipt",refId:"R1",lines:[{account:"1100",side:"debit",amount:100},{account:"1320",side:"credit",amount:100}]},"U1",periods).ok,false);
+const reversed=reverseJournal(state,posted.entry.id,"U1","تصحيح",periods,"2026-01-20");
+assert.equal(reversed.ok,true);assert.equal(reversed.reversal.date,"2026-02-01");assert.equal(state.journals.length,2);assert.ok(posted.entry.voidedAt);
+const state2={journals:[]};const first=postJournal(state2,{companyOwnerId:"C1",date:"2026-02-02",description:"فاتورة",refType:"invoice",refId:"I1",lines:[{account:"1320",side:"debit",amount:200},{account:"4100",side:"credit",amount:200}]},"U1",periods);
+const replaced=replacePostedSource(state2,first.entry.id,{companyOwnerId:"C1",date:"2026-02-03",description:"فاتورة مصححة",refType:"invoice-correction",refId:"I1-C1",lines:[{account:"1320",side:"debit",amount:225},{account:"4100",side:"credit",amount:225}]},"U1","تعديل القيمة",periods);
+assert.equal(replaced.ok,true);assert.equal(state2.journals.length,3);assert.equal(replaced.replacement.correctionOf,first.entry.id);
+console.log("v2 accounting checks passed");

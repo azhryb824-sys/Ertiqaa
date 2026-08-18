@@ -1,0 +1,22 @@
+<!doctype html><html lang="ar" dir="rtl"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#071b22">
+<title>شموس المطوّر | بيئة التجربة</title><link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="../assets/shumoos-logo.png"><link rel="stylesheet" href="v2.css">
+</head><body class="v2-app">
+<div class="v2-layout">
+ <aside class="v2-sidebar">
+  <a class="v2-brand" href="../version-select.html"><img src="../assets/shumoos-logo.png" alt=""><div><b>شموس</b><span>ENTERPRISE PREVIEW</span></div></a>
+  <div class="v2-mode"><i></i><div><b>بيئة تجريبية معزولة</b><span>لا تكتب في النسخة الأولى</span></div></div>
+  <nav id="v2Nav">
+   <small>القيادة</small><button class="active" data-view="overview"><span>◈</span>مركز القيادة</button><button data-view="operations"><span>◎</span>مركز التشغيل</button>
+   <small>الخدمة والأصول</small><button data-view="customers"><span>◇</span>العملاء وCRM</button><button data-view="contracts"><span>▣</span>العقود وSLA</button><button data-view="field"><span>⌖</span>الخدمة الميدانية</button><button data-view="assets"><span>◉</span>الأصول والصيانة</button><button data-view="inventory"><span>▦</span>المخزون</button><button data-view="procurement"><span>◈</span>المشتريات والموردون</button><button data-view="team"><span>◎</span>الموظفون والرواتب</button>
+   <small>الرقابة المالية</small><button data-view="finance"><span>◇</span>المالية والمحاسبة</button><button data-view="controls"><span>✓</span>الرقابة والامتثال</button><button data-view="analytics"><span>∿</span>التحليلات</button><button data-view="reports"><span>▤</span>التقارير</button><button data-view="settings"><span>⚙</span>إعدادات V2</button>
+  </nav>
+  <footer><button id="backToVersions">↳ تبديل الإصدار</button></footer>
+ </aside>
+ <section class="v2-main">
+  <header class="v2-header"><button class="menu" id="menuBtn">☰</button><div class="v2-search"><span>⌕</span><input id="globalSearch" type="search" placeholder="ابحث في العقود والأصول والزيارات..."><kbd>⌘ K</kbd></div><div class="v2-head-actions"><span class="safe-pill"><i></i>قاعدة تجربية</span><button id="syncPreview" class="icon-btn" title="إنشاء نسخة قراءة من الأصل">↻</button><div class="profile"><span id="avatar">م</span><div><b id="profileName">المستخدم</b><small id="profileRole">الحساب</small></div></div></div></header>
+  <main id="v2Content"></main>
+ </section>
+</div>
+<div id="v2Toast" role="status"></div><div id="v2Modal" class="v2-modal" aria-hidden="true"><section><button class="close" aria-label="إغلاق">×</button><div id="v2ModalBody"></div></section></div>
+<script src="persistence.js"></script><script src="v2.js"></script></body></html>

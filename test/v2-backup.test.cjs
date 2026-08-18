@@ -1,0 +1,4 @@
+"use strict";
+const assert=require("node:assert/strict"),fs=require("fs"),os=require("os"),path=require("path"),backup=require("../src/v2/backup.cjs");
+const dir=fs.mkdtempSync(path.join(os.tmpdir(),"v2-backup-")),root={schemaVersion:1,tenants:{C1:{version:3,data:{v2Audit:[]}}}},secret="a-test-key-that-is-not-used-in-production";
+const written=backup.writeBackup(dir,"restore-drill",root,secret);assert.ok(written.file.endsWith(".v2bak"));assert.doesNotMatch(fs.readFileSync(written.file,"utf8"),/schemaVersion/);assert.deepEqual(backup.readBackup(written.file,secret).value,root);assert.equal(backup.verifyLatest(dir,secret).ok,true);assert.throws(()=>backup.readBackup(written.file,"wrong-key"));assert.throws(()=>backup.writeBackup(dir,"unsafe",root,""),/V2_BACKUP_KEY/);fs.rmSync(dir,{recursive:true,force:true});console.log("v2 encrypted backup and restore checks passed");

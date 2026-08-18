@@ -1,0 +1,4 @@
+"use strict";
+const assert=require("node:assert/strict"),fs=require("fs"),os=require("os"),path=require("path"),docs=require("../src/v2/documents.cjs"),dir=fs.mkdtempSync(path.join(os.tmpdir(),"v2-docs-")),state={},ctx={userId:"O1",role:"owner",tenantId:"C1"};
+const png=Buffer.from([137,80,78,71,13,10,26,10,0,0,0,0]),result=docs.upload(state,{name:"invoice.png",mimeType:"image/png",base64:png.toString("base64")},ctx,dir);assert.equal(result.ok,true);assert.equal(result.record.sha256.length,64);assert.equal(fs.existsSync(path.join(dir,"C1",result.record.storageName)),true);assert.equal(state.v2Documents.length,1);
+const disguised=docs.upload(state,{name:"fake.pdf",mimeType:"application/pdf",base64:png.toString("base64")},ctx,dir);assert.equal(disguised.ok,false);assert.match(disguised.error,/does not match/);assert.equal(state.v2Documents.length,1);fs.rmSync(dir,{recursive:true,force:true});console.log("v2 secure document upload checks passed");

@@ -1,0 +1,11 @@
+"use strict";
+const assert=require("node:assert/strict"),fs=require("fs"),path=require("path"),source=fs.readFileSync(path.join(__dirname,"../v2/v2.js"),"utf8");
+for(const command of ["sales-invoice.create","receipt.create","purchase-invoice.create","supplier-payment.create","payroll.accrue","journal.create"])assert.match(source,new RegExp(command.replace(".","\\.")),`${command} must be reachable from V2 UI`);
+assert.match(source,/taxEnabled/);assert.match(source,/بدون ضريبة/);assert.match(source,/data-action="supplier-payment"/);assert.doesNotMatch(source,/V2Persistence\.save/);
+assert.match(source,/approval\.approve/);assert.match(source,/data-approve-id/);
+for(const command of ["purchase-order.approve","goods-receipt.create","purchase-invoice.match","stock.issue"])assert.match(source,new RegExp(command.replace(".","\\.")));
+for(const command of ["staff-advance.issue","staff-expense.create","payroll.pay","document.cancel"])assert.match(source,new RegExp(command.replace(".","\\.")));
+assert.match(source,/document\.upload/);assert.match(source,/type="file"/);assert.match(source,/application\/pdf,image\/png,image\/jpeg/);
+for(const command of ["bank-account.create","bank-statement.import","bank-line.reconcile","period.close","period.reopen"])assert.match(source,new RegExp(command.replace(".","\\.")));
+for(const report of ["trial-balance","income-statement","balance-sheet","receivables-aging","payables-aging","employee-ledger","contract-profitability"])assert.match(source,new RegExp(report));assert.match(source,/downloadReportCsv/);assert.match(source,/printReport/);
+console.log("v2 financial UI wiring checks passed");

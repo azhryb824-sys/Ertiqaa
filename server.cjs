@@ -5,6 +5,22 @@ const crypto = require("crypto");
 const {validateContractWrite} = require("./contract-write-guard.cjs");
 const zlib = require("zlib");
 const {spawn} = require("child_process");
+const {createV2Api} = require("./src/v2/isolated-store.cjs");
+const v2Transactions = require("./src/v2/transactions.cjs");
+const v2Governance = require("./src/v2/governance.cjs");
+const v2Entities = require("./src/v2/entities.cjs");
+const v2Assurance = require("./src/v2/assurance.cjs");
+const v2Backup = require("./src/v2/backup.cjs");
+const v2Procurement = require("./src/v2/procurement.cjs");
+const v2Documents = require("./src/v2/documents.cjs");
+const v2Treasury = require("./src/v2/treasury.cjs");
+const v2Reporting = require("./src/v2/reporting.cjs");
+const {createAuthStore:createV2AuthStore} = require("./src/v2/auth-store.cjs");
+const v2Readiness = require("./src/v2/readiness.cjs");
+const v2Permissions = require("./src/v2/permissions.cjs");
+const v2Operations = require("./src/v2/operations.cjs");
+const v2Lifecycle = require("./src/v2/lifecycle.cjs");
+const {createDemoData} = require("./src/v2/demo-data.cjs");
 require("dotenv").config();
 const {
   atomicWriteJson,
@@ -813,6 +829,8 @@ function sendCompressedJson(req, res, status, payload) {
     res.end(compressed);
   });
 }
+
+let v2Api = null;
 
 function internetKnowledgeSources() {
   const envSources = String(process.env.AI_INTERNET_SOURCES || "").split(/\r?\n|,/).map(s => s.trim()).filter(Boolean);
@@ -5058,6 +5076,38 @@ http.createServer(async (req, res) => {
     {id:"2233556688", password:process.env.COMPANY_ADMIN_PASSWORD || "2233556688", role:"company_admin", name:"باسم", permissions:["*"], mustChangePassword:true},
     {id:"1010389102", password:process.env.OWNER_PASSWORD || "1010389102", role:"owner", name:"سليمان الهلالي", permissions:["*"], mustChangePassword:true, companyOwnerId:"1010389102"}
   ];
+
+  if (!v2Api) v2Api = createV2Api({
+    transactions: v2Transactions,
+    governance: v2Governance,
+    entities: v2Entities,
+    assurance: v2Assurance,
+    backup: v2Backup,
+    procurement: v2Procurement,
+    documents: v2Documents,
+    treasury: v2Treasury,
+    reporting: v2Reporting,
+    readiness: v2Readiness,
+    permissions: v2Permissions,
+    operations: v2Operations,
+    lifecycle: v2Lifecycle,
+    authStore: createV2AuthStore({dataDir,key:String(process.env.V2_AUTH_KEY||entrySecret),issuer:"Shumoos V2"}),
+    authToken: req => parseCookies(req.headers.cookie).v2_session || "",
+    authCookieName: "v2_session",
+    strictAuth: String(process.env.V2_STRICT_AUTH||"").toLowerCase()==="true",
+    secureCookies: isRenderDeployment,
+    backupKey: String(process.env.V2_BACKUP_KEY || entrySecret),
+    dataDir,
+    sendJson,
+    authIdentity: deviceAccessIdentity,
+    readSource: readStore,
+    parseArray: parseStoredJson,
+    cleanId,
+    sign,
+    createDemoData,
+    systemUsers: serverSystemUsers
+  });
+  if (await v2Api.handle(req, res, pathname)) return;
 
   if (pathname === "/api/auth/login" && req.method === "POST") {
     try {
