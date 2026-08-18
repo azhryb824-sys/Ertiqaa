@@ -15,6 +15,11 @@ test('all employee-finance groups expose edit and delete actions', () => {
   assert.match(app, /data-staff-voucher-edit/);
   assert.match(app, /data-staff-voucher-delete/);
   assert.match(app, /data-staff-purchase-delete/);
+  assert.match(app, /table\(\["التاريخ","الموظف","نوع الحركة","البيان","الاتجاه","المبلغ","طريقة الدفع","الحالة","الإجراء"\],moveRows\)/);
+});
+
+test('owner, company administrator, and system administrator can mutate employee finance', () => {
+  assert.match(app, /function financeOwnerCanMutate\(\)\{return !!session&&\["owner","company_admin","admin"\]/);
 });
 
 test('employee mutations reverse and repost every cash or bank journal source', () => {
