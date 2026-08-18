@@ -1,0 +1,16 @@
+"use strict";
+const assert=require("node:assert/strict"),fs=require("fs"),path=require("path");
+const root=path.join(__dirname,"..");
+const js=fs.readFileSync(path.join(root,"v2","v2.js"),"utf8");
+const css=fs.readFileSync(path.join(root,"v2","v2.css"),"utf8");
+const actionForms=[...js.matchAll(/<form id="([^"]+)"/g)].map(match=>match[1]);
+assert.ok(actionForms.length>=30,"all creation workflows must remain present");
+assert.match(js,/function enhanceCreationModal\(/,"creation forms must use one shared enhancer");
+assert.match(js,/form\.classList\.add\("creation-form"\)/,"every modal form must receive the shared shell");
+assert.match(js,/field-caption/,"required-field captions must be normalized");
+assert.match(js,/modal-cancel/,"every creation form must expose a consistent cancel action");
+assert.match(css,/Unified V2 creation experience/);
+assert.match(css,/\.creation-head/);
+assert.match(css,/\.creation-form\.was-validated :invalid/);
+assert.match(css,/@media\(max-width:600px\).*\.creation-form\.form-grid/s,"creation forms must collapse on mobile");
+console.log("v2 unified creation experience checks passed");
