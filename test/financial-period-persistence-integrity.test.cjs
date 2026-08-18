@@ -19,8 +19,8 @@ test('applying a financial period keeps the current list visible', () => {
 });
 
 test('invoice payment edits cannot exceed invoice total and rollback on posting failure', () => {
-  assert.match(app, /nextTotal>Number\(invoice\.total\|\|0\)\+0\.005/);
-  assert.match(app, /لا يمكن أن يتجاوز مجموع الدفعات إجمالي الفاتورة/);
+  assert.match(app, /accountingCore\.invoiceValidation\?accountingCore\.invoiceValidation\(invoiceCandidate\)/);
+  assert.match(app, /لا يمكن حفظ الدفعة/);
   assert.match(app, /تعذر إعادة ترحيل الدفعة؛ لم تُغيّر البيانات/);
   assert.match(app, /maxAmount=Math\.max\(0,Number\(invoice\.total\|\|0\)-otherPaid\)/);
 });

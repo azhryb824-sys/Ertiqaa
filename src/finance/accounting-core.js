@@ -105,6 +105,61 @@
     return gross > 0 && Math.abs(gross - custody - net) <= 0.01;
   }
 
+  function journalValidation(entry) {
+    const row = entry || {};
+    const lines = Array.isArray(row.lines) ? row.lines : [];
+    const errors = [];
+    if (!lines.length) errors.push("empty-lines");
+    let debit = 0;
+    let credit = 0;
+    lines.forEach((line, index) => {
+      const value = amount(line && line.amount);
+      if (!line || !String(line.account || "").trim()) errors.push(`account:${index}`);
+      if (!line || !["debit", "credit"].includes(line.side)) errors.push(`side:${index}`);
+      if (!(value > 0)) errors.push(`amount:${index}`);
+      if (line && line.side === "debit") debit += value;
+      if (line && line.side === "credit") credit += value;
+    });
+    if (Math.abs(debit - credit) > 0.01) errors.push("unbalanced");
+    return { ok: errors.length === 0, errors, debit, credit };
+  }
+
+  function invoiceValidation(invoice) {
+    const row = invoice || {};
+    const total = Math.max(0, amount(row.total));
+    const payments = Array.isArray(row.payments) ? row.payments : [];
+    const paidFromPayments = payments.reduce((sum, payment) => sum + Math.max(0, amount(payment && payment.amount)), 0);
+    const paid = payments.length ? paidFromPayments : Math.max(0, amount(row.paid));
+    const errors = [];
+    if (!(total > 0)) errors.push("invalid-total");
+    if (payments.some(payment => !(amount(payment && payment.amount) > 0))) errors.push("invalid-payment");
+    if (paid > total + 0.005) errors.push("overpaid");
+    if (payments.length && Math.abs(amount(row.paid) - paidFromPayments) > 0.01) errors.push("paid-mismatch");
+    return { ok: errors.length === 0, errors, total, paid, due: Math.max(0, total - paid) };
+  }
+
+  function custodyValidation(custody) {
+    const row = custody || {};
+    const value = Math.max(0, amount(row.value || row.amount));
+    const deducted = Math.max(0, amount(row.deducted));
+    const remaining = Math.max(0, amount(row.remaining));
+    const errors = [];
+    if (!(value > 0)) errors.push("invalid-value");
+    if (deducted > value + 0.005) errors.push("over-deducted");
+    if (Math.abs(value - deducted - remaining) > 0.01) errors.push("balance-mismatch");
+    return { ok: errors.length === 0, errors, value, deducted, remaining };
+  }
+
+  function periodClosed(date, periods, companyOwnerId) {
+    const day = String(date || "").slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return false;
+    return (periods || []).some(period => {
+      if (!period || period.status !== "closed") return false;
+      if (companyOwnerId && String(period.companyOwnerId || "") !== String(companyOwnerId)) return false;
+      return (!period.from || day >= String(period.from).slice(0, 10)) && (!period.to || day <= String(period.to).slice(0, 10));
+    });
+  }
+
   function journalBalances(entries, options) {
     const opts = options || {};
     const from = String(opts.from || "").slice(0, 10);
@@ -202,6 +257,10 @@
     treasuryBalance,
     validateTreasuryMove,
     payrollBalanced,
+    journalValidation,
+    invoiceValidation,
+    custodyValidation,
+    periodClosed,
     journalBalances,
     incomeStatement,
     balanceSheet,
