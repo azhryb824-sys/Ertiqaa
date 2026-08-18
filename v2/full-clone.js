@@ -3,6 +3,24 @@
   window.__ERTIQAA_EDITION__ = "v2-full-clone";
   document.documentElement.dataset.edition = "v2";
 
+  // Coalesce the legacy application's broad DOM observers to one callback per
+  // paint. Large tables and forms otherwise trigger repeated full-page scans.
+  const NativeMutationObserver = window.MutationObserver;
+  if (NativeMutationObserver) {
+    window.MutationObserver = class EfficientMutationObserver {
+      constructor(callback) {
+        this.pending=[];this.frame=0;
+        this.native=new NativeMutationObserver(records=>{
+          this.pending.push(...records);if(this.frame)return;
+          this.frame=requestAnimationFrame(()=>{this.frame=0;const batch=this.pending.splice(0);if(batch.length)callback(batch,this)});
+        });
+      }
+      observe(target,options){return this.native.observe(target,options)}
+      disconnect(){if(this.frame)cancelAnimationFrame(this.frame);this.frame=0;this.pending=[];return this.native.disconnect()}
+      takeRecords(){return this.pending.splice(0).concat(this.native.takeRecords())}
+    };
+  }
+
   const isolatedStorageUrl = "/api/v2/legacy-storage";
   const mapStorageUrl = raw => {
     const value = String(raw || "");
@@ -108,14 +126,13 @@
 
   function addAdvancedNavigation() {
     const nav=document.querySelector("#sideNav");
-    if(!nav||nav.querySelector("[data-v2-page]"))return;
+    if(!nav||nav.querySelector("[data-v2-page]"))return true;
     const label=document.createElement("small"); label.className="v2-nav-label"; label.textContent="مراكز الإصدار المطور"; nav.appendChild(label);
-    [["v2-command","مركز التطوير","◆"],["v2-controls","الرقابة والاعتمادات","✓"],["v2-procurement","المشتريات المتقدمة","▦"],["v2-treasury","الخزينة والمطابقة","▣"],["v2-reports","التقارير المتقدمة","◫"]].forEach(([page,name,icon])=>{const button=document.createElement("button");button.type="button";button.dataset.v2Page=page;button.innerHTML=`<span>${icon}</span>${name}`;nav.appendChild(button)});
+    [["v2-command","مركز التطوير","◆"],["v2-controls","الرقابة والاعتمادات","✓"],["v2-procurement","المشتريات المتقدمة","▦"],["v2-treasury","الخزينة والمطابقة","▣"],["v2-reports","التقارير المتقدمة","◫"]].forEach(([page,name,icon])=>{const button=document.createElement("button");button.type="button";button.dataset.v2Page=page;button.innerHTML=`<span>${icon}</span>${name}`;nav.appendChild(button)});return true;
   }
 
   addEventListener("DOMContentLoaded",()=>{
     addAdvancedNavigation();
-    new MutationObserver(addAdvancedNavigation).observe(document.querySelector("#sideNav")||document.body,{childList:true,subtree:true});
     document.addEventListener("click",async event=>{
       const page=event.target.closest("[data-v2-page]");
       if(page){event.preventDefault();event.stopImmediatePropagation();document.querySelectorAll("#sideNav button").forEach(x=>x.classList.toggle("active",x===page));await loadAdvanced(page.dataset.v2Page);return}
