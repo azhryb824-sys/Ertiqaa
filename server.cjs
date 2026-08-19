@@ -5052,7 +5052,8 @@ http.createServer(async (req, res) => {
   const pathname = decodeURIComponent(req.url.split("?")[0]);
   if (pathname === "/health" || pathname === "/api/health") return sendJson(res, 200, {ok: true, storageReady: !!storeCache, at: new Date().toISOString()});
   const publicAsset = pathname === "/" || /\.(?:html?|css|js|mjs|json|png|jpe?g|gif|svg|webp|ico|woff2?|ttf|map)$/i.test(pathname);
-  if (!publicAsset && !storeCache) {
+  const backupRecoveryRoute = req.method === "GET" && (pathname === "/api/backups" || pathname === "/api/backup/download");
+  if (!publicAsset && !backupRecoveryRoute && !storeCache) {
     res.setHeader("Retry-After", "5");
     return sendJson(res, 503, {ok: false, error: "التخزين يعيد الاتصال الآن، حاول بعد لحظات"});
   }
@@ -7854,7 +7855,7 @@ ${JSON.stringify(rows, null, 2)}
     (pathname === "/api/backup/download" && req.method === "GET");
   if (isBackupRequest) {
     const backupUserId = deviceAccessIdentity(req);
-    const backupUser = parseStoredJson(readStore(), "misadUsers").find(user => cleanId(user.id) === cleanId(backupUserId))
+    const backupUser = (storeCache ? parseStoredJson(storeCache, "misadUsers").find(user => cleanId(user.id) === cleanId(backupUserId)) : null)
       || serverSystemUsers.find(user => cleanId(user.id) === cleanId(backupUserId));
     if (!backupUserId || !["owner", "company_admin", "admin"].includes(String(backupUser?.role || ""))) {
       return sendJson(res, 403, {error: "Owner or administrator access required"});
