@@ -1,0 +1,7 @@
+"use strict";
+const assert=require("node:assert/strict"),l=require("../src/v2/lifecycle.cjs"),state={v2Notifications:[{id:"N1",companyOwnerId:"C1",status:"queued",createdAt:"2025-01-01T00:00:00Z",deliveryDetail:"private"}],misadCustomerInvoices:[{id:"I1",companyOwnerId:"C1",clientId:"CUS1",createdAt:"2025-01-01T00:00:00Z"}],v2Customers:[{id:"CUS1",companyOwnerId:"C1",name:"عميل"}],v2Audit:[]},owner={userId:"O1",role:"owner",tenantId:"C1"};
+assert.equal(l.setPreference(state,{subjectId:"CUS1",channel:"email",enabled:true},owner).record.enabled,true);
+assert.equal(l.recordDelivery(state,{notificationId:"N1",status:"delivered",channel:"email",providerMessageId:"P1"},owner).record.status,"delivered");
+const exported=l.exportSubject(state,{subjectId:"CUS1"},owner);assert.equal(exported.ok,true);assert.equal(exported.record.data.v2Customers.length,1);assert.equal(exported.record.data.misadCustomerInvoices.length,1);
+const retained=l.applyRetention(state,{cutoff:"2026-01-01",reason:"انتهاء مدة الاحتفاظ"},owner);assert.equal(retained.ok,true);assert.ok(retained.record.redacted>=1);assert.equal(retained.record.financialRecordsDeleted,0);assert.equal(state.misadCustomerInvoices.length,1);assert.equal(state.v2Notifications[0].deliveryDetail,"[retention-redacted]");
+assert.equal(l.recordDelivery(state,{notificationId:"N1",status:"failed"},{userId:"T",role:"technician",tenantId:"C1"}).status,403);console.log("v2 notification privacy and retention checks passed");

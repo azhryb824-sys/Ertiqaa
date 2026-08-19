@@ -1,0 +1,16 @@
+"use strict";
+const assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path");
+const root=path.join(__dirname,"..");
+const runtime=fs.readFileSync(path.join(root,"v2/full-clone.js"),"utf8");
+const html=fs.readFileSync(path.join(root,"v2/dashboard.html"),"utf8");
+const store=fs.readFileSync(path.join(root,"src/v2/isolated-store.cjs"),"utf8");
+assert.match(runtime,/mapStorageUrl/);
+assert.match(runtime,/\/api\/v2\/legacy-storage/);
+assert.match(runtime,/NativeXHR\.prototype\.open/);
+assert.match(runtime,/navigator\.sendBeacon/);
+assert.match(html,/v2\/persistence\.js/);
+assert.match(store,/pathname === "\/api\/v2\/legacy-storage" && req\.method === "GET"/);
+assert.match(store,/pathname === "\/api\/v2\/legacy-storage" && req\.method === "POST"/);
+assert.match(store,/validateState\(previous, next, ctx\.role\)/);
+assert.match(store,/before-legacy-command/);
+console.log("v2 full storage integration tests passed");

@@ -1,0 +1,10 @@
+"use strict";
+const assert=require("node:assert/strict");
+const gov=require("../src/v2/governance.cjs");
+const state={v2Settings:{purchaseApprovalLimit:5000},v2Approvals:[]},maker={userId:"U1",name:"مشتريات",role:"purchasing",tenantId:"C1"};
+assert.equal(gov.needsApproval(state,"purchase-invoice.create",{net:4999},maker),false);
+assert.equal(gov.needsApproval(state,"purchase-invoice.create",{net:5001},maker),true);
+const request=gov.requestApproval(state,"purchase-invoice.create",{net:8000},maker);assert.equal(request.status,"pending");
+assert.throws(()=>gov.approve(state,request.id,{...maker,role:"company_admin"},()=>({ok:true})),/Maker cannot approve/);
+const approved=gov.approve(state,request.id,{userId:"U2",role:"company_admin",tenantId:"C1"},()=>({ok:true,record:{id:"PI1"}}));assert.equal(approved.approval.status,"approved");assert.equal(approved.approval.resultId,"PI1");assert.equal(Object.hasOwn(approved.approval,"commandInput"),false);
+console.log("v2 governance checks passed");

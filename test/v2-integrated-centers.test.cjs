@@ -1,0 +1,15 @@
+"use strict";
+const assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path");
+const root=path.join(__dirname,"..");
+const runtime=fs.readFileSync(path.join(root,"v2/full-clone.js"),"utf8");
+const css=fs.readFileSync(path.join(root,"v2/full-theme.css"),"utf8");
+for(const page of ["v2-command","v2-controls","v2-procurement","v2-treasury","v2-reports"])assert.match(runtime,new RegExp(page));
+assert.doesNotMatch(runtime,/\bprompt\s*\(/,"commercial V2 actions must not use browser prompts");
+for(const control of ["data-v2-form","approval.approve","purchase-order.approve","goods-receipt.create","purchase-invoice.match","bank-statement.import","bank-line.reconcile","period.close","period.reopen"])assert.match(runtime,new RegExp(control.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));
+assert.match(runtime,/error\.status===401/);
+for(const feature of ["الرقابة والاعتمادات","مطابقة ثلاثية","المطابقة البنكية","ميزان المراجعة","ربحية عقد"])assert.ok(runtime.includes(feature),`missing integrated feature: ${feature}`);
+assert.match(runtime,/V2Persistence\.load/);
+assert.match(runtime,/V2Persistence\.report/);
+assert.match(runtime,/V2Persistence\.command/);
+assert.match(css,/Integrated enterprise centers/);
+console.log("v2 integrated enterprise centers tests passed");

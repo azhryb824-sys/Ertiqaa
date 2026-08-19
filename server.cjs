@@ -5,6 +5,22 @@ const crypto = require("crypto");
 const {validateContractWrite} = require("./contract-write-guard.cjs");
 const zlib = require("zlib");
 const {spawn} = require("child_process");
+const {createV2Api} = require("./src/v2/isolated-store.cjs");
+const v2Transactions = require("./src/v2/transactions.cjs");
+const v2Governance = require("./src/v2/governance.cjs");
+const v2Entities = require("./src/v2/entities.cjs");
+const v2Assurance = require("./src/v2/assurance.cjs");
+const v2Backup = require("./src/v2/backup.cjs");
+const v2Procurement = require("./src/v2/procurement.cjs");
+const v2Documents = require("./src/v2/documents.cjs");
+const v2Treasury = require("./src/v2/treasury.cjs");
+const v2Reporting = require("./src/v2/reporting.cjs");
+const {createAuthStore:createV2AuthStore} = require("./src/v2/auth-store.cjs");
+const v2Readiness = require("./src/v2/readiness.cjs");
+const v2Permissions = require("./src/v2/permissions.cjs");
+const v2Operations = require("./src/v2/operations.cjs");
+const v2Lifecycle = require("./src/v2/lifecycle.cjs");
+const {createDemoData} = require("./src/v2/demo-data.cjs");
 require("dotenv").config();
 const {
   atomicWriteJson,
@@ -40,8 +56,14 @@ const host = process.env.HOST || "0.0.0.0";
 // passwords, contracts, quotes, documents, and all customer operational data.
 const preferredDataDir = process.env.DATA_DIR || (process.env.RENDER === "true" ? "/var/data" : path.join(require("os").homedir(), ".elevator-data"));
 const isRenderDeployment = process.env.RENDER === "true";
+const isEphemeralV2Preview = isRenderDeployment && process.env.V2_EPHEMERAL_PREVIEW === "true" && preferredDataDir.startsWith("/tmp/");
+const v1AuthOrigin = isEphemeralV2Preview ? String(process.env.V1_AUTH_ORIGIN || "https://ertiqaa.onrender.com").replace(/\/$/, "") : "";
+const upstreamAuthIdentities = new Map();
+const sharedIdentityCookie = "misad_identity";
+if (v1AuthOrigin && v1AuthOrigin !== "https://ertiqaa.onrender.com") throw new Error("V1_AUTH_ORIGIN must be the trusted production origin");
 function hasPersistentDataMount() {
   if (!isRenderDeployment) return true;
+  if (isEphemeralV2Preview) return true;
   try {
     return fs.readFileSync("/proc/self/mountinfo", "utf8").split("\n").some(line => line.split(" ")[4] === "/var/data");
   } catch {
@@ -484,12 +506,58 @@ function issueDeviceAccessToken(userId) {
   return `${userId}.${deviceId}.${sign(`${userId}:${deviceId}`)}`;
 }
 
+function issueSharedIdentityToken(profile = {}) {
+  const safe = {id: cleanId(profile.id), role: String(profile.role || ""), name: String(profile.name || "").slice(0, 160), companyOwnerId: String(profile.companyOwnerId || profile._linkedCoId || "").slice(0, 80), permissions: Array.isArray(profile.permissions) ? profile.permissions.slice(0, 100) : []};
+  const payload = Buffer.from(JSON.stringify(safe), "utf8").toString("base64url");
+  return `${payload}.${sign(`identity:${payload}`)}`;
+}
+
+function sharedIdentity(req) {
+  const token = String(parseCookies(req.headers.cookie)[sharedIdentityCookie] || ""), index = token.lastIndexOf(".");
+  if (index < 1) return null;
+  const payload = token.slice(0, index), signature = token.slice(index + 1);
+  if (signature !== sign(`identity:${payload}`)) return null;
+  try { const profile = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")), userId = deviceAccessIdentity(req); return userId && cleanId(profile.id) === cleanId(userId) ? profile : null; }
+  catch { return null; }
+}
+
+async function authenticateAgainstV1(userId, password) {
+  if (!v1AuthOrigin) return null;
+  let response;
+  try {
+    response = await fetch(`${v1AuthOrigin}/api/auth/login`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json", "Accept": "application/json"},
+      body: JSON.stringify({userId, password}),
+      signal: AbortSignal.timeout(10000)
+    });
+  } catch {
+    throw Object.assign(new Error("تعذر الاتصال بخدمة تسجيل الدخول للنسخة الأولى"), {status: 502});
+  }
+  if (response.status === 401 || response.status === 400) return null;
+  if (!response.ok) throw Object.assign(new Error("خدمة تسجيل الدخول للنسخة الأولى غير متاحة مؤقتًا"), {status: 502});
+  const profile = await response.json();
+  const id = cleanId(profile.id);
+  const role = String(profile.role || "");
+  if (id !== cleanId(userId) || !["owner","company_admin","admin","technician","client","accountant","employee","engineer"].includes(role)) {
+    throw Object.assign(new Error("استجابة تسجيل الدخول المشتركة غير صالحة"), {status: 502});
+  }
+  return {
+    id,
+    role,
+    name: String(profile.name || ""),
+    permissions: Array.isArray(profile.permissions) ? profile.permissions : [],
+    mustChangePassword: Boolean(profile.mustChangePassword),
+    companyOwnerId: String(profile.companyOwnerId || profile._linkedCoId || "")
+  };
+}
+
 function sendAuthenticatedJson(res, status, payload, userId) {
   const accessToken = issueDeviceAccessToken(userId);
   res.writeHead(status, {
     "Content-Type": "application/json; charset=utf-8",
     "Cache-Control": "no-store",
-    "Set-Cookie": `${deviceCookie}=${accessToken}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000`
+    "Set-Cookie": [`${deviceCookie}=${accessToken}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000`, `${sharedIdentityCookie}=${issueSharedIdentityToken(payload)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000`]
   });
   res.end(JSON.stringify({...payload, accessToken}));
 }
@@ -737,6 +805,7 @@ async function initializePersistentStorage() {
   if (!hasPersistentDataMount()) {
     throw new Error("Render persistent disk is not mounted at /var/data. Refusing to start to prevent database rollback.");
   }
+  if (isEphemeralV2Preview) console.warn("V2 EPHEMERAL PREVIEW: data is isolated and will be reset when the instance restarts.");
   fs.mkdirSync(path.dirname(storagePath), {recursive: true});
   let restoredFrom = "";
 
@@ -827,6 +896,8 @@ function sendCompressedJson(req, res, status, payload) {
     res.end(compressed);
   });
 }
+
+let v2Api = null;
 
 function internetKnowledgeSources() {
   const envSources = String(process.env.AI_INTERNET_SOURCES || "").split(/\r?\n|,/).map(s => s.trim()).filter(Boolean);
@@ -5082,6 +5153,41 @@ http.createServer(async (req, res) => {
     {id:"1010389102", password:process.env.OWNER_PASSWORD || "1010389102", role:"owner", name:"سليمان الهلالي", permissions:["*"], mustChangePassword:true, companyOwnerId:"1010389102"}
   ];
 
+  if (!v2Api) v2Api = createV2Api({
+    transactions: v2Transactions,
+    governance: v2Governance,
+    entities: v2Entities,
+    assurance: v2Assurance,
+    backup: v2Backup,
+    procurement: v2Procurement,
+    documents: v2Documents,
+    treasury: v2Treasury,
+    reporting: v2Reporting,
+    readiness: v2Readiness,
+    permissions: v2Permissions,
+    operations: v2Operations,
+    lifecycle: v2Lifecycle,
+    authStore: createV2AuthStore({dataDir,key:String(process.env.V2_AUTH_KEY||entrySecret),issuer:"Shumoos V2"}),
+    authToken: req => parseCookies(req.headers.cookie).v2_session || "",
+    authCookieName: "v2_session",
+    sharedAuthOnly: true,
+    strictAuth: String(process.env.V2_STRICT_AUTH||"").toLowerCase()==="true",
+    secureCookies: isRenderDeployment,
+    backupKey: String(process.env.V2_BACKUP_KEY || entrySecret),
+    dataDir,
+    sendJson,
+    authIdentity: deviceAccessIdentity,
+    authContext: sharedIdentity,
+    authProfile: userId => upstreamAuthIdentities.get(cleanId(userId)) || null,
+    readSource: readStore,
+    parseArray: parseStoredJson,
+    cleanId,
+    sign,
+    createDemoData,
+    systemUsers: serverSystemUsers
+  });
+  if (await v2Api.handle(req, res, pathname)) return;
+
   if (pathname === "/api/auth/login" && req.method === "POST") {
     try {
       const buffers = [];
@@ -5093,8 +5199,12 @@ http.createServer(async (req, res) => {
       if (!uid || !pwd) return sendJson(res, 400, {error: "رقم الهوية وكلمة المرور مطلوبان"});if(!isValidId(uid))return sendJson(res,400,{error:"رقم الهوية غير صالح. يجب أن يبدأ بـ 1 أو 2"})
       const store = readStore();
       const storedUsers = parseStoredJson(store, "misadUsers");
-      const user = storedUsers.find(u => cleanId(u.id) === uid && u.password === pwd)
+      let user = storedUsers.find(u => cleanId(u.id) === uid && u.password === pwd)
         || serverSystemUsers.find(u => cleanId(u.id) === uid && u.password === pwd);
+      if (!user) {
+        user = await authenticateAgainstV1(uid, pwd);
+        if (user) upstreamAuthIdentities.set(uid, user);
+      }
       if (!user) return sendJson(res, 401, {error: "رقم الهوية أو كلمة المرور غير صحيحة"});
       const storedUser = storedUsers.find(u => cleanId(u.id) === uid);
       const coId = storedUser?.companyOwnerId || user.companyOwnerId || "";

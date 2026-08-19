@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ar" dir="rtl" data-edition="v2">
+<head>
+  <meta charset="utf-8">
+  <base href="/">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="شموس المطور">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#102d2c">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="assets/shumoos-logo.png">
+  <title>لوحة التحكم المطورة | شموس</title>
+  <link rel="stylesheet" href="styles.css?v=20260817-themed-calendar-1">
+  <link rel="stylesheet" href="v2/full-theme.css?v=20260818-full-clone-1">
+</head>
+<body class="dashboard-page v2-full-edition">
+  <div id="pageLoader" class="page-loader" role="status" aria-live="polite" aria-label="جاري تحميل الصفحة" aria-hidden="true">
+    <div class="page-loader-card">
+      <div class="page-loader-logo" aria-hidden="true">
+        <img class="page-loader-logo-base" src="assets/shumoos-logo.png" alt="">
+        <span class="page-loader-logo-fill"><img src="assets/shumoos-logo.png" alt=""></span>
+      </div>
+      <b>جاري تجهيز الإصدار المطور...</b>
+    </div>
+  </div>
+  <button class="sidebar-backdrop" aria-label="إغلاق القائمة"></button>
+
+  <aside class="sidebar">
+    <a class="brand sidebar-brand" href="index.html">
+      <span class="brand-mark">شموس</span>
+      <span>شموس<small>SHUMOOS ELEVATORS</small></span>
+    </a>
+    <div class="v2-edition-label"><b>الإصدار المطور</b><small>نسخة تجريبية معزولة</small></div>
+
+    <div class="company-card">
+      <span class="company-icon">ش</span>
+      <div>
+        <b id="companyName">شموس</b>
+        <small id="roleName">المستخدم</small>
+      </div>
+    </div>
+
+    <nav id="sideNav" aria-label="قائمة لوحة التحكم">
+      <button data-page="home" class="side-home-btn"><span>🏠</span>الصفحة الرئيسية</button>
+    </nav>
+
+    <div class="sidebar-foot">
+      <a class="v2-version-back" href="version-select.html">اختيار النسخة</a>
+      <button id="logout" type="button">تسجيل الخروج</button>
+    </div>
+  </aside>
+
+  <div class="dash-main">
+    <header class="dash-header">
+      <button class="menu-toggle" type="button" aria-label="فتح القائمة">☰</button>
+
+      <div class="search">
+        <span>⌕</span>
+        <input type="search" placeholder="ابحث في الصفحة الحالية...">
+      </div>
+
+      <div class="header-actions">
+        <span class="v2-header-badge">المطور</span>
+        <button type="button" id="adminModeToggle" aria-label="تبديل وضع المشرف">إدارة النظام</button>
+        <span id="buildChip" title="رقم البناء الذي يعمل به متصفحك حالياً" style="font-size:10px;color:#60756f;border:1px solid #dfe8e4;border-radius:20px;padding:4px 10px;font-weight:700">إصدار 11 مطور</span>
+        <button type="button" id="notifBtn" aria-label="التنبيهات">◈<i></i></button>
+        <div class="user-chip">
+          <span id="userAvatar">م</span>
+          <div>
+            <b id="userName">المستخدم</b>
+            <small id="headerRole">الحساب</small>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main id="dashboardContent"></main>
+  </div>
+
+  <div id="modal" class="modal" aria-hidden="true">
+    <div class="modal-card">
+      <button class="modal-close" type="button" aria-label="إغلاق">×</button>
+      <div id="modalContent"></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status"></div>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
+  <script defer src="https://unpkg.com/pdfmake-rtl@2.1.2/build/pdfmake.min.js"></script>
+  <script defer src="https://unpkg.com/pdfmake-rtl@2.1.2/build/vfs_fonts.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script defer src="assets/fonts/cairo-vfs.js?v=1"></script>
+  <script defer src="assets/elevator-knowledge-db.js?v=1"></script>
+  <script defer src="src/finance/accounting-core.js?v=20260817-accounting-controls-1"></script>
+  <script defer src="src/finance/staff-finance.js?v=20260811-staff-finance-2"></script>
+  <script defer src="v2/full-clone.js?v=20260818-performance-1"></script>
+  <script defer src="v2/persistence.js?v=20260818-integrated-1"></script>
+  <script defer src="themed-date-picker.js?v=20260817-themed-calendar-1"></script>
+  <script defer src="app.js?v=20260817-accounting-controls-1"></script>
+  <script defer src="pdfmake-gen.js?v=20260817-finance-integrity-2"></script>
+</body>
+</html>
