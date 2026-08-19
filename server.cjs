@@ -503,7 +503,21 @@ async function supabaseRequest(pathname, options = {}) {
   return response;
 }
 async function loadSupabaseStore() {
-  const rows = await (await supabaseRequest("ertiqaa_storage?select=key,value&order=key.asc&limit=1000", {method:"GET"})).json();
+  let rows, lastError;
+  for (let attempt = 1; attempt <= 6; attempt += 1) {
+    try {
+      rows = await (await supabaseRequest("ertiqaa_storage?select=key,value&order=key.asc&limit=1000", {method:"GET"})).json();
+      break;
+    } catch (error) {
+      lastError = error;
+      const transient = /\\((?:502|503|504)\\)/.test(String(error.message || ""));
+      if (!transient || attempt === 6) throw error;
+      const delayMs = Math.min(15000, attempt * 3000);
+      console.warn(`Supabase storage temporarily unavailable; retry ${attempt}/6 in ${delayMs}ms`);
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+  }
+  if (!rows) throw lastError || new Error("Supabase storage did not return data");
   const store = Object.fromEntries(rows.map(row => [String(row.key), row.value]));
   const required = ["misadContracts","misadVisits","misadUsers","misadSchemaVersion"];
   const missing = required.filter(key => !Object.prototype.hasOwnProperty.call(store, key));
