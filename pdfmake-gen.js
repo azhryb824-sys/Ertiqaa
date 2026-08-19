@@ -3937,6 +3937,19 @@ if (isParts) {
     if (btn) {
       e.preventDefault();
       e.stopImmediatePropagation();
+      if (btn.dataset.pdfDoc === 'contract' && btn.dataset.pdfClean !== 'true') {
+        var oldContract = (A.visibleContracts ? A.visibleContracts() : (A._read ? A._read('misadContracts') : [])).find(function(c){ return c.id === btn.dataset.pdfId; });
+        if (oldContract && oldContract.oldContractFile) {
+          var oldLink = document.createElement('a');
+          oldLink.href = oldContract.oldContractFile;
+          oldLink.download = oldContract.oldContractFileName || ((oldContract.id || 'عقد_قديم') + '.pdf');
+          document.body.appendChild(oldLink);
+          oldLink.click();
+          oldLink.remove();
+          if (A.toast) A.toast('تم تنزيل العقد القديم المرفق');
+          return;
+        }
+      }
       var opts = {};
       if (btn.dataset.pdfClean === 'true') opts.clean = true;
       if (btn.dataset.pdfLetterhead === 'true') opts.letterhead = true;
