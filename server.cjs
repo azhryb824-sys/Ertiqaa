@@ -5107,18 +5107,24 @@ function generateLocalAiResponse(question, plan, context, user = {}, knowledge =
   ]);
 }
 
-const storageReady = initializePersistentStorage().catch(error => {
-  console.error("Storage initialization failed:", error.message);
-  process.exitCode = 1;
-  setTimeout(() => process.exit(1), 100).unref?.();
-  throw error;
-});
+const storageReady = (async () => {
+  for (;;) {
+    try {
+      await initializePersistentStorage();
+      return true;
+    } catch (error) {
+      console.error("Storage initialization delayed; the server will retry without replacing data:", error.message);
+      await new Promise(resolve => setTimeout(resolve, 15000));
+    }
+  }
+})();
 
 http.createServer(async (req, res) => {
-  await storageReady;
   const pathname = decodeURIComponent(req.url.split("?")[0]);
+  if (pathname === "/health" || pathname === "/api/health") return sendJson(res, 200, {ok: true, storageReady: !!storeCache, at: new Date().toISOString()});
+  const publicAsset = pathname === "/" || /\\.(?:html?|css|js|mjs|json|png|jpe?g|gif|svg|webp|ico|woff2?|ttf|map)$/i.test(pathname);
+  if (!publicAsset) await storageReady;
   if (sendMobileAssociation(res, pathname)) return;
-  if (pathname === "/health" || pathname === "/api/health") return sendJson(res, 200, {ok: true, at: new Date().toISOString()});
   const invitePrefix = "/invite/";
   if (pathname.startsWith(invitePrefix)) {
     const token = pathname.slice(invitePrefix.length);
