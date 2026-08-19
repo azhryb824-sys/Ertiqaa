@@ -10,5 +10,9 @@ assert.match(app, /data\.buildings\.map\(item=>buildingRow\(item\)\)/, 'تُست
 assert.match(app, /data\.maintenanceChecklist/, 'تُستعاد بنود الصيانة');
 assert.match(app, /data\.customItems/, 'تُستعاد البنود المخصصة');
 assert.match(app, /restoreDraftIntoForm\(form,d\.data\)/, 'زر الاستكمال يستخدم الاستعادة الكاملة');
+assert.match(app, /name=\"oldContractEndDate\" required/, 'العقد القديم يطلب تاريخ النهاية الفعلي');
+assert.match(app, /function oldContractDuration\(start,end\)/, 'تُحسب مدة العقد القديم من تاريخي البداية والنهاية');
+assert.match(app, /row\.contractDurationDays=duration\.days/, 'تُحفظ المدة المحتسبة ضمن بيانات العقد');
+assert.match(app, /tabs\.style\.display=old\?'none':''/, 'تختفي تبويبات تفاصيل المصعد في وضع العقد القديم');
 
 console.log('contract draft and old attachment regressions: ok');
