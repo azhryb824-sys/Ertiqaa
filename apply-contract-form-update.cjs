@@ -2,12 +2,6 @@ const fs = require('node:fs');
 
 function update(path, edits) {
   let source = fs.readFileSync(path, 'utf8');
-  if (path === 'app.js') {
-    source = source.replace(
-      '  const maintenanceSpecKeys=new Set(["elevatorType","usage","capacity","persons","stops","age","doorType","motorManufacturer"]);',
-      '  const maintenanceSpecKeys=new Set(specGroups.flatMap(group=>group.fields.map(field=>field[0])).filter(key=>!installOnlySpecKeys.includes(key)));',
-    );
-  }
   if (path === 'app.js' && !source.includes('const expireEndedContracts=()=>{};')) {
     source = source.replace(
       /^  const expireEndedContracts=.*$/m,
