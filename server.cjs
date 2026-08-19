@@ -510,7 +510,7 @@ async function loadSupabaseStore() {
       break;
     } catch (error) {
       lastError = error;
-      const transient = /\\((?:502|503|504)\\)/.test(String(error.message || ""));
+      const transient = /\((?:502|503|504)\)/.test(String(error.message || ""));
       if (!transient || attempt === 6) throw error;
       const delayMs = Math.min(15000, attempt * 3000);
       console.warn(`Supabase storage temporarily unavailable; retry ${attempt}/6 in ${delayMs}ms`);
