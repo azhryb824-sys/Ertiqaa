@@ -5123,7 +5123,10 @@ http.createServer(async (req, res) => {
   const pathname = decodeURIComponent(req.url.split("?")[0]);
   if (pathname === "/health" || pathname === "/api/health") return sendJson(res, 200, {ok: true, storageReady: !!storeCache, at: new Date().toISOString()});
   const publicAsset = pathname === "/" || /\\.(?:html?|css|js|mjs|json|png|jpe?g|gif|svg|webp|ico|woff2?|ttf|map)$/i.test(pathname);
-  if (!publicAsset) await storageReady;
+  if (!publicAsset && !storeCache) {
+    res.setHeader("Retry-After", "5");
+    return sendJson(res, 503, {ok: false, error: "التخزين يعيد الاتصال الآن، حاول بعد لحظات"});
+  }
   if (sendMobileAssociation(res, pathname)) return;
   const invitePrefix = "/invite/";
   if (pathname.startsWith(invitePrefix)) {
