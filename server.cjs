@@ -75,7 +75,11 @@ let storeCache = null;
 let storeMtime = 0;
 const supabaseUrl = String(process.env.SUPABASE_URL || "").replace(/\/$/, "");
 const supabaseSecretKey = String(process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "");
-const useSupabaseStorage = Boolean(supabaseUrl && supabaseSecretKey);
+// Render Free has no persistent disk. In repository mode the checked-in snapshot is
+// copied to the instance filesystem on every deployment and remains fully writable
+// for the lifetime of that instance. This deliberately resets on redeploy/restart.
+const repositoryStorageMode = isRenderDeployment && process.env.REPOSITORY_STORAGE_MODE !== "0";
+const useSupabaseStorage = Boolean(supabaseUrl && supabaseSecretKey && !repositoryStorageMode);
 let remoteWriteQueue = Promise.resolve();
 let persistedSupabaseStore = null;
 const _lastQs = new Map(); // {userId: {q, time, answer}}
@@ -747,14 +751,14 @@ async function contractRecoverySourcePaths() {
 
 async function initializePersistentStorage() {
   if (useSupabaseStorage) { await loadSupabaseStore(); return; }
-  if (!hasPersistentDataMount()) {
+  if (!repositoryStorageMode && !hasPersistentDataMount()) {
     throw new Error("Render persistent disk is not mounted at /var/data. Refusing to start to prevent database rollback.");
   }
   fs.mkdirSync(path.dirname(storagePath), {recursive: true});
   let restoredFrom = "";
 
   if (!fs.existsSync(storagePath)) {
-    const candidates = isRenderDeployment ? [] : recoveryCandidates();
+    const candidates = isRenderDeployment && !repositoryStorageMode ? [] : recoveryCandidates();
     for (const candidate of candidates) {
       try {
         const recovered = readJsonObjectFile(candidate);
@@ -772,9 +776,9 @@ async function initializePersistentStorage() {
       console.warn("Initialized an empty mounted Render disk for one-time authenticated migration.");
     }
     if (!fs.existsSync(storagePath)) {
-      const productionStorage = process.env.REQUIRE_PERSISTENT_STORAGE === "1" ||
+      const productionStorage = !repositoryStorageMode && (process.env.REQUIRE_PERSISTENT_STORAGE === "1" ||
         process.env.RENDER === "true" ||
-        path.resolve(storagePath).startsWith(`${path.sep}var${path.sep}data${path.sep}`);
+        path.resolve(storagePath).startsWith(`${path.sep}var${path.sep}data${path.sep}`));
       if (productionStorage && process.env.ALLOW_EMPTY_STORAGE_INIT !== "1") {
         throw new Error(
           `Persistent storage is missing at ${storagePath}. Refusing to start with an empty database. ` +
@@ -5063,7 +5067,7 @@ const storageReady = (async () => {
 
 http.createServer(async (req, res) => {
   const pathname = decodeURIComponent(req.url.split("?")[0]);
-  if (pathname === "/health" || pathname === "/api/health") return sendJson(res, 200, {ok: true, storageReady: !!storeCache, at: new Date().toISOString()});
+  if (pathname === "/health" || pathname === "/api/health") return sendJson(res, 200, {ok: true, storageReady: !!storeCache, storageMode: repositoryStorageMode ? "repository-ephemeral" : (useSupabaseStorage ? "supabase" : "persistent-disk"), resetsOnDeploy: repositoryStorageMode, at: new Date().toISOString()});
   const publicAsset = pathname === "/" || /\.(?:html?|css|js|mjs|json|png|jpe?g|gif|svg|webp|ico|woff2?|ttf|map)$/i.test(pathname);
   const backupRecoveryRoute = req.method === "GET" && (pathname === "/api/backups" || pathname === "/api/backup/download");
   if (!publicAsset && !backupRecoveryRoute && !storeCache) {
