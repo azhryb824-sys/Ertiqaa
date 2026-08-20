@@ -13,6 +13,11 @@ const {
   readJsonObjectFile,
 } = require("./src/storage/non-destructive-migration.cjs");
 const {
+  applyPersistedRows,
+  changedStorageRows,
+  cloneJson,
+} = require("./src/storage/supabase-diff.cjs");
+const {
   discoverRecoverableContracts,
   recoverContract,
   recoverySummary,
@@ -72,6 +77,7 @@ const supabaseUrl = String(process.env.SUPABASE_URL || "").replace(/\/$/, "");
 const supabaseSecretKey = String(process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "");
 const useSupabaseStorage = Boolean(supabaseUrl && supabaseSecretKey);
 let remoteWriteQueue = Promise.resolve();
+let persistedSupabaseStore = null;
 const _lastQs = new Map(); // {userId: {q, time, answer}}
 
 try {
@@ -522,16 +528,22 @@ async function loadSupabaseStore() {
   const required = ["misadContracts","misadVisits","misadUsers","misadSchemaVersion"];
   const missing = required.filter(key => !Object.prototype.hasOwnProperty.call(store, key));
   if (rows.length < 10 || missing.length) throw new Error(`Supabase storage validation failed: ${rows.length} keys; missing ${missing.join(", ") || "none"}`);
-  storeCache = store; storeMtime = Date.now();
+  storeCache = store; storeMtime = Date.now(); persistedSupabaseStore = cloneJson(store);
   console.log(`Loaded ${rows.length} storage keys from Supabase`);
 }
 async function persistSupabaseStore(store) {
-  const rows = Object.entries(JSON.parse(JSON.stringify(store))).map(([key,value]) => ({key,value,updated_by:"ertiqaa-server"}));
+  const rows = changedStorageRows(persistedSupabaseStore, store);
+  if (!rows.length) return {updated: 0};
   await supabaseRequest("ertiqaa_storage?on_conflict=key", {method:"POST",headers:{"Prefer":"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(rows)});
+  persistedSupabaseStore = applyPersistedRows(persistedSupabaseStore, rows);
+  return {updated: rows.length};
 }
 async function deleteSupabaseKeys(keys) {
   if (!useSupabaseStorage) return;
-  for (const key of keys) await supabaseRequest(`ertiqaa_storage?key=eq.${encodeURIComponent(key)}`, {method:"DELETE"});
+  for (const key of keys) {
+    await supabaseRequest(`ertiqaa_storage?key=eq.${encodeURIComponent(key)}`, {method:"DELETE"});
+    if (persistedSupabaseStore) delete persistedSupabaseStore[key];
+  }
 }
 function readStore() {
   if (useSupabaseStorage) {
@@ -552,7 +564,8 @@ function writeStore(store) {
   if (!store || typeof store !== "object" || Array.isArray(store)) throw new Error("Storage write refused: the root value must be an object");
   if (useSupabaseStorage) {
     storeCache = store; storeMtime = Date.now();
-    remoteWriteQueue = remoteWriteQueue.catch(error => console.error("Previous Supabase write failed:", error.message)).then(() => persistSupabaseStore(store));
+    const snapshot = cloneJson(store);
+    remoteWriteQueue = remoteWriteQueue.catch(error => console.error("Previous Supabase write failed:", error.message)).then(() => persistSupabaseStore(snapshot));
     return remoteWriteQueue;
   }
   try { if (!fs.existsSync(path.dirname(storagePath))) fs.mkdirSync(path.dirname(storagePath), {recursive:true}); } catch {}

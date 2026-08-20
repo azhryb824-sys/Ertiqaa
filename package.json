@@ -23,6 +23,8 @@
     "test:financial-integrity": "node test/financial-data-integrity.test.cjs",
     "test:storage-migration": "node test/storage-migration.test.cjs",
     "test:storage-utf8": "node test/storage-utf8-request.test.cjs",
+    "test:supabase-diff": "node test/supabase-diff.test.cjs",
+    "test:supabase-write-amplification": "node test/supabase-write-amplification.test.cjs",
     "migrate:storage": "node scripts/migrate-storage.cjs",
     "test:finance": "npm run test:staff-finance && npm run test:accounting-core && npm run test:financial-integrity && npm run test:storage-migration",
     "test:maintenance-contract": "node test/maintenance-contract-layout.test.cjs",
