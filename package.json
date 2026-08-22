@@ -37,6 +37,10 @@
     "test-enhanced": "node src/pdf/test-pdf-enhanced.js",
     "generate": "node src/pdf/generate-examples.js",
     "server": "node src/pdf/pdf-server.js",
+    "desktop": "electron desktop/main.cjs",
+    "desktop:pack": "electron-builder --dir",
+    "desktop:dist": "electron-builder --win nsis portable",
+    "test:desktop-sync": "node test/desktop-sync.test.cjs",
     "train-ai": "node src/ai/train-models.js"
   },
   "dependencies": {
@@ -49,13 +53,46 @@
     "@xenova/transformers": "^2.17.2",
     "dotenv": "^17.4.2",
     "express": "^4.22.2",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^2.5.2",
+    "jszip": "^3.10.1",
+    "pdfmake-rtl": "^2.1.2",
     "puppeteer": "^21.11.0",
     "sharp": "^0.35.3"
   },
   "devDependencies": {
-    "@capacitor/cli": "^7.6.7"
+    "@capacitor/cli": "^7.6.7",
+    "electron": "^37.2.6",
+    "electron-builder": "^26.0.12"
   },
-  "main": "app.bundle.js",
+  "build": {
+    "appId": "sa.ertiqaa.desktop",
+    "productName": "ارتقاء للمصاعد",
+    "asar": false,
+    "npmRebuild": false,
+    "files": [
+      "**/*",
+      "!app_flutter/**",
+      "!ios/**",
+      "!output/**",
+      "!test/**",
+      "!*.aac"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "artifactName": "Ertiqaa-Desktop-${version}-${arch}-${target}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  },
+  "main": "desktop/main.cjs",
   "keywords": [
     "pdf",
     "arabic",

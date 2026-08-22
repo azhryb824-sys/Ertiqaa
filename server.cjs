@@ -583,6 +583,19 @@ function writeStore(store) {
   storeCache = store; storeMtime = fs.statSync(storagePath).mtimeMs;
 }
 
+function desktopSyncAuthorized(req) {
+  const expected = String(process.env.DESKTOP_SYNC_TOKEN || "");
+  const supplied = String(req.headers["x-desktop-sync-token"] || "");
+  if (!expected || !supplied) return false;
+  const left = Buffer.from(expected);
+  const right = Buffer.from(supplied);
+  return left.length === right.length && crypto.timingSafeEqual(left, right);
+}
+
+function storageRevision(store) {
+  return crypto.createHash("sha256").update(JSON.stringify(store)).digest("hex");
+}
+
 function mergeConcurrentRecordArray(currentValue, incomingValue, baseValue) {
   if (baseValue === undefined || baseValue === null || currentValue === baseValue) return incomingValue;
   let current, incoming, base;
@@ -8344,6 +8357,44 @@ ${JSON.stringify(rows, null, 2)}
   }
 
   // ===== End Visit Approval System =====
+
+  if (pathname === "/api/desktop-sync") {
+    if (!desktopSyncAuthorized(req)) return sendJson(res, 401, {error: "Desktop sync authentication required"});
+    if (req.method === "GET") {
+      const store = readStore();
+      return sendCompressedJson(req, res, 200, {ok: true, revision: storageRevision(store), store});
+    }
+    if (req.method === "POST") {
+      req.setEncoding("utf8");
+      let body = "";
+      req.on("data", chunk => body += chunk);
+      req.on("end", async () => {
+        try {
+          if (Buffer.byteLength(body, "utf8") > 75 * 1024 * 1024) return sendJson(res, 413, {error: "Desktop sync payload too large"});
+          const input = JSON.parse(body || "{}");
+          const updates = Array.isArray(input.updates) ? input.updates.slice(0, 500) : [];
+          if (updates.some(update => !update || !/^misad[A-Za-z0-9:_-]{1,100}$/.test(String(update.key || "")))) {
+            return sendJson(res, 400, {error: "Invalid desktop storage key"});
+          }
+          const store = readStore();
+          for (const update of updates) {
+            const key = String(update.key);
+            if (update.remove) delete store[key];
+            else store[key] = mergeConcurrentRecordArray(store[key], update.value, update.baseValue);
+          }
+          if (updates.length) {
+            await writeStore(store);
+            await deleteSupabaseKeys(updates.filter(update => update.remove).map(update => String(update.key)));
+          }
+          return sendCompressedJson(req, res, 200, {ok: true, updated: updates.length, revision: storageRevision(store), store});
+        } catch (error) {
+          return sendJson(res, 400, {error: error.message || "Invalid desktop sync payload"});
+        }
+      });
+      return;
+    }
+    return sendJson(res, 405, {error: "Method not allowed"});
+  }
 
   if (req.url.startsWith("/api/storage")) {
     const authenticatedUserId = deviceAccessIdentity(req);

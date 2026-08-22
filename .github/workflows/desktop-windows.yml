@@ -1,0 +1,35 @@
+name: Build Windows Desktop
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - "desktop/**"
+      - "server.cjs"
+      - "dashboard.html"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/desktop-windows.yml"
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run test:desktop-sync
+      - run: npm run desktop:dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Ertiqaa-Desktop-Windows
+          path: |
+            dist/*-nsis.exe
+            dist/*-portable.exe
+          if-no-files-found: error
+          retention-days: 30

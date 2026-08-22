@@ -1,0 +1,12 @@
+"use strict";
+const assert = require("assert");
+const {changedUpdates, revision} = require("../desktop/sync-engine.cjs");
+const base = {misadContracts: JSON.stringify([{id: "C1", value: 10}]), misadVisits: "[]", ignored: "x"};
+const current = {misadContracts: JSON.stringify([{id: "C1", value: 20}]), misadReceipts: "[]", ignored: "y"};
+const updates = changedUpdates(base, current);
+assert.deepStrictEqual(updates.map(item => item.key).sort(), ["misadContracts", "misadReceipts", "misadVisits"]);
+assert.strictEqual(updates.find(item => item.key === "misadContracts").baseValue, base.misadContracts);
+assert.strictEqual(updates.find(item => item.key === "misadVisits").remove, true);
+assert.strictEqual(revision(base), revision(JSON.parse(JSON.stringify(base))));
+assert.notStrictEqual(revision(base), revision(current));
+console.log("desktop sync unit tests passed");
