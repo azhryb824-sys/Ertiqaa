@@ -46,7 +46,7 @@ async function createWindow() {
   await waitForHealth(localUrl);
   const config = {localUrl, remoteUrl, token, baselinePath};
   await runSync(config);
-  mainWindow = new BrowserWindow({width: 1440, height: 920, minWidth: 1024, minHeight: 700, show: false, autoHideMenuBar: true, backgroundColor: "#f4f7f6", webPreferences: {preload: path.join(__dirname, "preload.cjs"), contextIsolation: true, nodeIntegration: false}});
+  mainWindow = new BrowserWindow({width: 1440, height: 920, minWidth: 1024, minHeight: 700, show: false, autoHideMenuBar: true, backgroundColor: "#f4f7f6", icon: path.join(app.getAppPath(), "build", "icon.ico"), webPreferences: {preload: path.join(__dirname, "preload.cjs"), contextIsolation: true, nodeIntegration: false}});
   mainWindow.once("ready-to-show", () => mainWindow.show());
   await mainWindow.loadURL(`${localUrl}/login.html`);
   syncTimer = setInterval(() => runSync(config), 30000);

@@ -86,6 +86,7 @@
       "!node_modules/sharp/**"
     ],
     "win": {
+      "icon": "build/icon.ico",
       "target": [
         "nsis",
         "portable"
@@ -93,6 +94,9 @@
       "artifactName": "Ertiqaa-Desktop-${version}-${arch}-${target}.${ext}"
     },
     "nsis": {
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
