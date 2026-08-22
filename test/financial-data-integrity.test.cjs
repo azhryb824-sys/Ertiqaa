@@ -14,7 +14,7 @@ const enhancedPdf = fs.readFileSync(path.join(root, 'src/pdf/html-pdf-generator-
 const pdfMake = fs.readFileSync(path.join(root, 'pdfmake-gen.js'), 'utf8');
 const storageMigration = fs.readFileSync(path.join(root, 'src/storage/non-destructive-migration.cjs'), 'utf8');
 
-assert.match(server, /const storageReady = initializePersistentStorage\(\)\.catch/, 'تهيئة قاعدة البيانات تبدأ مرة واحدة وتُحفظ كوعـد جاهزية');
+assert.match(server, /const storageReady = \(async \(\) => \{[\s\S]*?await initializePersistentStorage\(\)/, 'تهيئة قاعدة البيانات تبدأ مرة واحدة وتُحفظ كوعـد جاهزية مع إعادة محاولة آمنة');
 assert.match(server, /await storageReady;/, 'الطلبات تنتظر جاهزية قاعدة البيانات قبل قراءة أو كتابة البيانات');
 assert.match(server, /migrateStorageFile\(\{storagePath, backupDirectory: backupDir\}\)/, 'ترحيل التخزين المركزي يعمل عند بدء التشغيل');
 assert.doesNotMatch(server, /copyFileSync\(templatePath, storagePath\)|تم استبدال storage\.json بالكامل من القالب/, 'النشر لا يستبدل القاعدة الحية بقالب المشروع');

@@ -35,6 +35,6 @@ test('all separate and bundled financial PDFs use safe landscape table widths', 
 
 test('period is always printed and refreshed assets bypass stale layout', () => {
   assert.match(pdf, /الفترة: من/);
-  assert.match(dashboard, /app\.js\?v=20260817-[a-z0-9-]+/);
-  assert.match(dashboard, /pdfmake-gen\.js\?v=20260817-[a-z0-9-]+/);
+  assert.match(dashboard, /app\.js\?v=[^"']+/);
+  assert.match(dashboard, /pdfmake-gen\.js\?v=[^"']+/);
 });

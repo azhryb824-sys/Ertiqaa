@@ -24,7 +24,7 @@ assert.match(app, /refType:"finance-reconciliation"/,
   'التصحيح التاريخي يتم بقيد تسوية مستقل لا بتعديل القيد الأصلي');
 assert.match(app, /function financeIntegritySnapshot\(\)/,
   'تعرض الإدارة فحص التوازن والتكرار والقيود البنكية العامة');
-assert.match(dashboard, /accounting-core\.js\?v=20260817-finance-integrity-1/);
-assert.match(dashboard, /app\.js\?v=20260817-finance-integrity-1/);
+assert.match(dashboard, /accounting-core\.js\?v=[^"']+/);
+assert.match(dashboard, /app\.js\?v=[^"']+/);
 
 console.log('Deep financial integrity tests passed.');

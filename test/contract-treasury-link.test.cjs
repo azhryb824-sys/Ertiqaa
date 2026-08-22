@@ -13,7 +13,7 @@ test('legacy contract journals are normalized non-destructively', () => {
   assert.match(app, /function normalizeContractJournalOwners\(\)/);
   assert.match(app, /contract-journal-owner-normalization/);
   assert.match(app, /misadFinanceLinkBackups/);
-  assert.match(app, /normalizeContractJournalOwners\(\);const oid=ownerId\(\)/);
+  assert.match(app, /normalizeContractJournalOwners\(\);reconcileCancelledFinancialJournals\(\);const oid=ownerId\(\)/);
 });
 
 test('treasury totals derive from the accounting cash and bank balances', () => {

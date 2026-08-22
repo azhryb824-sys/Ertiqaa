@@ -16,7 +16,7 @@ assert.match(pdf, /var isParts = c\.type === 'توريد وتركيب قطع غ�
 for (const phrase of ['قطع الغيار والكميات', 'نطاق التنفيذ', 'التزامات الطرف الأول', 'الضمان والاستلام']) {
   assert.match(pdf, new RegExp(phrase), `PDF عقد قطع الغيار يحتوي على: ${phrase}`);
 }
-assert.match(pdf, /var allowed = \{count:true,elevatorType:true/, 'PDF الصيانة يستخدم قائمة سماح صريحة');
+assert.match(pdf, /var allowed = \{[\s\S]*?count:true,elevatorType:true/, 'PDF الصيانة يستخدم قائمة سماح صريحة');
 assert.doesNotMatch(pdf.match(/function maintenanceSpecTable[\s\S]*?function specTable/)[0], /allowed\[f\[0\]\][\s\S]*travelHeight:true/, 'قياسات التركيب ليست ضمن قائمة سماح الصيانة');
 
 console.log('spare-parts contract tests passed');

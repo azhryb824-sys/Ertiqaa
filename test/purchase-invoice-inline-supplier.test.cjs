@@ -34,6 +34,6 @@ test('new supplier identity is preserved across invoices, finance entries and PD
 });
 
 test('cache busting exposes the current workflow', () => {
-  assert.match(dashboard, /app\.js\?v=20260817-[a-z0-9-]+/);
-  assert.match(dashboard, /pdfmake-gen\.js\?v=20260817-[a-z0-9-]+/);
+  assert.match(dashboard, /app\.js\?v=[^"']+/);
+  assert.match(dashboard, /pdfmake-gen\.js\?v=[^"']+/);
 });

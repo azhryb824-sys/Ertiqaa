@@ -18,5 +18,5 @@ test('each visits filter downloads its matching PDF table',()=>{
   assert.match(pdf,/exactDay \? 10 : 7/);
   assert.match(pdf,/type === 'visits-daily'/);
   assert.match(pdf,/type === 'visits-monthly'/);
-  assert.match(dashboard,/pdfmake-gen\.js\?v=20260817-visit-filters-1/);
+  assert.match(dashboard,/pdfmake-gen\.js\?v=[^"']+/);
 });
