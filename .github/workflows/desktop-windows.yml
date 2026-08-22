@@ -38,7 +38,7 @@ jobs:
         with:
           name: Ertiqaa-Desktop-Windows
           path: |
-            dist/*-nsis.exe
-            dist/*-portable.exe
+            dist/*-Setup.exe
+            dist/*-Portable.exe
           if-no-files-found: error
           retention-days: 30
