@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>إعداد اتصال ارتقاء</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;background:linear-gradient(145deg,#eef5f2,#f8faf9);font-family:"Segoe UI",Tahoma,sans-serif;color:#173432;min-height:100vh;display:grid;place-items:center}.card{width:min(520px,calc(100% - 32px));background:#fff;border:1px solid #dce9e4;border-radius:22px;padding:30px;box-shadow:0 20px 55px #193d3420}.brand{display:flex;align-items:center;gap:14px;margin-bottom:22px}.brand img{width:62px;height:62px;object-fit:contain;border-radius:15px;background:#f5faf8;padding:7px}.brand h1{font-size:22px;margin:0}.brand p{margin:5px 0 0;color:#69817c;font-size:13px}label{display:block;font-weight:650;font-size:14px;margin:16px 0 7px}input{width:100%;height:46px;border:1px solid #cbdcd6;border-radius:11px;padding:0 13px;font:14px "Segoe UI",Tahoma,sans-serif;direction:ltr;text-align:left;outline:none}input:focus{border-color:#26806b;box-shadow:0 0 0 3px #26806b18}.hint{font-size:12px;color:#728680;line-height:1.7;margin-top:7px}.actions{display:flex;gap:10px;margin-top:24px}button{border:0;border-radius:11px;padding:12px 18px;font-weight:700;cursor:pointer}.primary{background:#1f6f5d;color:#fff;flex:1}.secondary{background:#eaf3f0;color:#265e52}.status{min-height:42px;margin-top:16px;padding:11px 13px;border-radius:10px;background:#f3f7f5;color:#48635d;font-size:13px;display:none}.status.show{display:block}.status.ok{background:#e2f5ec;color:#17643f}.status.error{background:#fff0ed;color:#9a3528}button:disabled{opacity:.55;cursor:wait}
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="brand"><img src="../assets/shumoos-logo.png" alt="شعار شموس"><div><h1>إعداد اتصال ارتقاء</h1><p>يُحفظ رمز المزامنة مشفرًا بحماية Windows على هذا الجهاز فقط.</p></div></div>
+    <form id="form">
+      <label for="remoteUrl">رابط خدمة ارتقاء</label>
+      <input id="remoteUrl" name="remoteUrl" type="url" value="https://ertiqaa.onrender.com" required>
+      <label for="token">رمز المزامنة</label>
+      <input id="token" name="token" type="password" autocomplete="new-password" minlength="24" required>
+      <div class="hint">انسخ قيمة DESKTOP_SYNC_TOKEN نفسها من إعدادات Render. لن تظهر القيمة بعد حفظها.</div>
+      <div class="actions"><button class="secondary" id="test" type="button">اختبار الاتصال</button><button class="primary" id="save" type="submit">حفظ وتشغيل ارتقاء</button></div>
+      <div class="status" id="status"></div>
+    </form>
+  </main>
+  <script>
+    const form=document.getElementById("form"),status=document.getElementById("status"),test=document.getElementById("test"),save=document.getElementById("save");
+    const show=(message,type="")=>{status.textContent=message;status.className=`status show ${type}`};
+    const values=()=>({remoteUrl:form.remoteUrl.value,token:form.token.value});
+    window.ertiqaaDesktop.getConnectionConfig().then(config=>{if(config?.remoteUrl)form.remoteUrl.value=config.remoteUrl});
+    test.addEventListener("click",async()=>{test.disabled=true;show("جارٍ اختبار الاتصال…");try{const result=await window.ertiqaaDesktop.testConnection(values());show(result.message||"تم الاتصال بنجاح","ok")}catch(error){show(error.message||"تعذر الاتصال","error")}finally{test.disabled=false}});
+    form.addEventListener("submit",async event=>{event.preventDefault();save.disabled=true;show("جارٍ حفظ الإعداد المشفر…");try{await window.ertiqaaDesktop.saveConnectionConfig(values());show("تم الحفظ. سيبدأ ارتقاء الآن…","ok")}catch(error){show(error.message||"تعذر حفظ الإعداد","error");save.disabled=false}});
+  </script>
+</body>
+</html>
