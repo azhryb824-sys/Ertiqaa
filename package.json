@@ -39,7 +39,7 @@
     "server": "node src/pdf/pdf-server.js",
     "desktop": "electron desktop/main.cjs",
     "desktop:pack": "electron-builder --dir",
-    "desktop:dist": "electron-builder --win nsis portable",
+    "desktop:dist": "electron-builder --win nsis portable --publish never",
     "test:desktop-sync": "node test/desktop-sync.test.cjs && node test/desktop-config.test.cjs",
     "train-ai": "node src/ai/train-models.js"
   },
