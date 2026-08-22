@@ -5,7 +5,8 @@ services:
     name: ertiqaa
     runtime: node
     repo: https://github.com/azhryb824-sys/Ertiqaa
-    buildCommand: npm install && node apply-contract-form-update.cjs
+    # npm runs postinstall automatically; do not execute the idempotent updater twice.
+    buildCommand: npm ci
     startCommand: node safe-start.cjs
     # Durable storage is provided by Supabase so the Render free plan needs no disk.
     envVars:

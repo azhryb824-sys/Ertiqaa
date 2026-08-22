@@ -22,7 +22,8 @@ function update(path, edits) {
         && source.includes('const maintenanceSpecKeys=new Set(')
         && source.includes('contractForm=threeTabContractForm;');
       const currentPdf = path === 'pdfmake-gen.js'
-        && (source.includes('var excluded = {travelHeight:true') || source.includes('var allowed = {count:true,elevatorType:true'))
+        && source.includes('function maintenanceSpecTable(info, overallTitle)')
+        && source.includes('motorType:true,motorManufacturer:true,motorPower:true,motorSpeed:true,controller:true')
         && source.includes("A.contractPaymentMethods ? A.contractPaymentMethods(c)")
         && source.includes('مواصفات المصعد غير موجودة في بيانات هذا العقد');
       if (optional || currentContractForm || currentPdf) continue;
