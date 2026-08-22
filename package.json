@@ -90,8 +90,7 @@
       "target": [
         "nsis",
         "portable"
-      ],
-      "artifactName": "Ertiqaa-Desktop-${version}-${arch}-${target}.${ext}"
+      ]
     },
     "nsis": {
       "installerIcon": "build/icon.ico",
@@ -100,7 +99,11 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
+      "createStartMenuShortcut": true,
+      "artifactName": "Ertiqaa-Desktop-${version}-${arch}-Setup.${ext}"
+    },
+    "portable": {
+      "artifactName": "Ertiqaa-Desktop-${version}-${arch}-Portable.${ext}"
     }
   },
   "main": "desktop/main.cjs",
